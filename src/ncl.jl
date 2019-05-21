@@ -4,6 +4,7 @@
 # ? Question
 # TODO 
 
+include("../../NLP/NLPModels.jl/")
 using LinearAlgebra
 using NLPModels # ? TODO: Installation, comment faire ça ?
 
@@ -62,7 +63,7 @@ function ncl(nlp, maxIt::Int64)
     # ** II. Optimization loop
         k = 0
         converged = false
-        while k < maxIt and !converged
+        while k < maxIt && !converged
             k += 1
             
             # ** II.1 Create the sub problem NC_k  
@@ -79,9 +80,10 @@ function ncl(nlp, maxIt::Int64)
                     η_k = η_k / (1 + ρ_k ^ β) # (heuristic)
                     
                     # ** II.3.1 Solution found ?
-                        ∇fx = grad(nlp, x)
+                        ∇fx = grad(nlp, x) # TODO : finir d'adapter
                         cx = cons(nlp, x)
-                        
+                        Jcx = jaco(nlp, x)
+
                         feasable = true # by default, x is a feasable point. Then we check with the constraints
                         optimal = true # same, we will check with KKT conditions
 
@@ -89,20 +91,28 @@ function ncl(nlp, maxIt::Int64)
                         for i in 1:nlp.nvar 
                             if !(lvar[i] <= x[i] <= uvar[i]) # bounds constraints
                                 feasable = false # bounds constraints not respected
+                                break
                             end
                         end
 
-                        for i in 1:nlp.ncon
-                            if !(lcon[i] <= cx[i] <= ucon[i]) # other constraints
-                                feasable = false # bounds constraints not respected
+                        if feasable
+                            for i in 1:nlp.ncon
+                                if !(lcon[i] <= cx[i] <= ucon[i]) # other constraints
+                                    feasable = false # bounds constraints not respected
+                                    break
+                                end
+                            end
+
+                            if feasable
+                                grad_lag = ∇fx - jprod(nlp, x, y_k)
+
+                                if LinearAlgebra.norm(grad_lag[i], Inf) > ω_end
+                                    optimal = false
+                                end
                             end
                         end
 
-                    
-
-                    if NCO_solved(x_k, y_k, z_k, ω_end, nlp) # TODO 
-                        converged = true
-                    end
+                        converged = feasable && optimal
                 
                 else # The residu is to still too large
                     ρ_k = τ * ρ_k # increase the step # TODO (loin) : Mieux choisir le pas pour avoir une meilleure convergence
