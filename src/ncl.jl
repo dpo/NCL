@@ -80,16 +80,16 @@ function ncl(nlp, maxIt::Int64)
                     η_k = η_k / (1 + ρ_k ^ β) # (heuristic)
                     
                     # ** II.3.1 Solution found ?
-                        ∇fx = grad(nlp, x) # TODO : finir d'adapter
-                        cx = cons(nlp, x)
-                        Jcx = jaco(nlp, x)
+                        ∇fx = grad(nlp, x_k) # TODO : finir d'adapter
+                        cx = cons(nlp, x_k)
+                        Jcx = jaco(nlp, x_k)
 
-                        feasable = true # by default, x is a feasable point. Then we check with the constraints
+                        feasable = true # by default, x_k is a feasable point. Then we check with the constraints
                         optimal = true # same, we will check with KKT conditions
 
                     # ? Peut-être pas necessaire, KMITRO/IPOPT doit renvoyer une solution realisable
                         for i in 1:nlp.nvar 
-                            if !(lvar[i] <= x[i] <= uvar[i]) # bounds constraints
+                            if !(lvar[i] <= x_k[i] <= uvar[i]) # bounds constraints
                                 feasable = false # bounds constraints not respected
                                 break
                             end
@@ -104,7 +104,7 @@ function ncl(nlp, maxIt::Int64)
                             end
 
                             if feasable
-                                grad_lag = ∇fx - jprod(nlp, x, y_k)
+                                grad_lag = ∇fx - jprod(nlp, x_k, y_k)
 
                                 if LinearAlgebra.norm(grad_lag[i], Inf) > ω_end
                                     optimal = false
