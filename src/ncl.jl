@@ -106,7 +106,7 @@ function ncl(nlp, maxIt::Int64)
                             if feasable
                                 grad_lag = ∇fx - jprod(nlp, x_k, y_k)
 
-                                if LinearAlgebra.norm(grad_lag[i], Inf) > ω_end
+                                if LinearAlgebra.norm(grad_lag, Inf) > ω_end
                                     optimal = false
                                 end
                             end
