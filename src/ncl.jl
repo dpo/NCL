@@ -4,16 +4,16 @@
 # ? Question
 # TODO 
 
-include("../../NLP/NLPModels.jl/")
 using LinearAlgebra
-using NLPModels # ? TODO: Installation, comment faire ça ?
+using NLPModels
 
 """
 # ! A eviter car recopie nlp, perd beaucoup de temps
+# ? Semblant de pointeur possible ? Mais appel a la fonction long aussi. Inline faisable ?
 
     Checks if the nlp initial problem is solved with the x, y, z points withine the ω tolerance
     
-    function nc_k(nlp, y_k) # TODO: link with NLPModels
+    function nc_k(nlp, y_k) # TODO
     end
 
     
@@ -74,20 +74,20 @@ function ncl(nlp, maxIt::Int64)
                 # TODO (loin) : Points intérieurs à chaud...
 
             # ** II.3 Treatment & update
-                if LinearAlgebra.norm(r_k,Inf) <= max(η_k, η_end) # The residu has decreased enough
+                if norm(r_k,Inf) <= max(η_k, η_end) # The residue has decreased enough
                     
                     y_k = y_k + ρ_k * r_k # Updating multiplicator
                     η_k = η_k / (1 + ρ_k ^ β) # (heuristic)
                     
                     # ** II.3.1 Solution found ?
-                        ∇fx = grad(nlp, x_k) # TODO : finir d'adapter
+                        ∇fx = grad(nlp, x_k)
                         cx = cons(nlp, x_k)
-                        Jcx = jaco(nlp, x_k)
+                        Jcx = jac(nlp, x_k)
 
                         feasable = true # by default, x_k is a feasable point. Then we check with the constraints
                         optimal = true # same, we will check with KKT conditions
 
-                    # ? Peut-être pas necessaire, KMITRO/IPOPT doit renvoyer une solution realisable
+                    # ? Peut-être pas necessaire, KNITRO/IPOPT doit renvoyer une solution realisable
                         for i in 1:nlp.nvar 
                             if !(lvar[i] <= x_k[i] <= uvar[i]) # bounds constraints
                                 feasable = false # bounds constraints not respected
@@ -104,9 +104,9 @@ function ncl(nlp, maxIt::Int64)
                             end
 
                             if feasable
-                                grad_lag = ∇fx - jprod(nlp, x_k, y_k)
+                                grad_lag = ∇fx - jprod(nlp, x_k, y_k) # ? Transposee ?
 
-                                if LinearAlgebra.norm(grad_lag, Inf) > ω_end
+                                if norm(grad_lag, Inf) > ω_end
                                     optimal = false
                                 end
                             end
@@ -114,7 +114,7 @@ function ncl(nlp, maxIt::Int64)
 
                         converged = feasable && optimal
                 
-                else # The residu is to still too large
+                else # The residue is to still too large
                     ρ_k = τ * ρ_k # increase the step # TODO (loin) : Mieux choisir le pas pour avoir une meilleure convergence
                     η_k = η_end / (1 + ρ_k ^ α) # Change infeasability (heuristic) # ? η_end ou η_0, cf article
                 end
