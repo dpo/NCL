@@ -40,6 +40,10 @@ Returns:
     converged: a booleam, telling us if the progra; converged or reached the maximum of iterations fixed
 """
 
+function KNITRO(nlp, ω)
+    return [1,2],[2,1],[2,1],[1,2,2,1]
+end
+
 function ncl(nlp, maxIt::Int64)
     # ** I. Preliminaries
         # ** I.1 Names and variables
@@ -53,9 +57,6 @@ function ncl(nlp, maxIt::Int64)
             η_end = 1 # global infeasability
             η_k = 2 # sub problem infeasability
 
-            x_k, y_k, r_k, z_k = 0, 0, 0, 0 # initial points
-            NC_k = nlp # sub problem
-
             # Pre-access and sorting
             nlp_nvar = nlp.meta.nvar 
             nlp_ncon = nlp.meta.ncon 
@@ -67,44 +68,57 @@ function ncl(nlp, maxIt::Int64)
             nlp_jfree = nlp.meta.jfree
             nlp_jinf = nlp.meta.jinf
 
-            nlp_lvar = nlp.lvar
-            nlp_uvar = nlp.uvar
+            nlp_lvar = nlp.meta.lvar
+            nlp_uvar = nlp.meta.uvar
             
-            nlp_lcon = nlp.lcon
-            nlp_lvar = vcat([nlp_lcon[i] for i in 1:nlp_jfix], # Sorting, useful for subproblems, see optimization loop
-                            [nlp_lcon[i] for i in 1:nlp_jlow], 
-                            [nlp_lcon[i] for i in 1:nlp_jupp], 
-                            [nlp_lcon[i] for i in 1:nlp_jrng], 
-                            [nlp_lcon[i] for i in 1:nlp_jfree], 
-                            [nlp_lcon[i] for i in 1:nlp_jinf]
+            nlp_ucon = nlp.meta.ucon
+            nlp_lcon = nlp.meta.lcon
+            #@show [nlp_lcon[i] for i in 1:nlp_jfix], [nlp_lcon[i] for i in 1:nlp_jlow], [nlp_lcon[i] for i in 1:nlp_jupp], [nlp_lcon[i] for i in 1:nlp_jrng], [nlp_lcon[i] for i in 1:nlp_jfree], [nlp_lcon[i] for i in 1:nlp_jinf], 
+            
+            
+            nlp_lcon = vcat([nlp_lcon[i] for i in nlp_jfix], # Sorting, useful for subproblems, see optimization loop
+                            [nlp_lcon[i] for i in nlp_jlow], 
+                            [nlp_lcon[i] for i in nlp_jupp], 
+                            [nlp_lcon[i] for i in nlp_jrng], 
+                            [nlp_lcon[i] for i in nlp_jfree], 
+                            [nlp_lcon[i] for i in nlp_jinf]
                             )
-            nlp_ucon = nlp.ucon
-            nlp_lvar = vcat([nlp_ucon[i] for i in 1:nlp_jfix], # Sorting, useful for subproblems, see optimization loop
-                            [nlp_ucon[i] for i in 1:nlp_jlow], 
-                            [nlp_ucon[i] for i in 1:nlp_jupp], 
-                            [nlp_ucon[i] for i in 1:nlp_jrng], 
-                            [nlp_ucon[i] for i in 1:nlp_jfree], 
-                            [nlp_ucon[i] for i in 1:nlp_jinf]
+            nlp_ucon = nlp.meta.ucon
+            nlp_ucon = vcat([nlp_ucon[i] for i in nlp_jfix], # Sorting, useful for subproblems, see optimization loop
+                            [nlp_ucon[i] for i in nlp_jlow], 
+                            [nlp_ucon[i] for i in nlp_jupp], 
+                            [nlp_ucon[i] for i in nlp_jrng], 
+                            [nlp_ucon[i] for i in nlp_jfree], 
+                            [nlp_ucon[i] for i in nlp_jinf]
                             )
-
+            
             # ? (optimization) Probably not efficient at ADNLPModel
             # TODO (optimization) check efficiency !
-            #nlp_cons(x) = vcat([cons(nlp, x)[i] for i in 1:nlp_jfix], # Sorting, useful for subproblems, see optimization loop
-            #                   [cons(nlp, x)[i] for i in 1:nlp_jlow], 
-            #                   [cons(nlp, x)[i] for i in 1:nlp_jupp], 
-            #                   [cons(nlp, x)[i] for i in 1:nlp_jrng], 
-            #                   [cons(nlp, x)[i] for i in 1:nlp_jfree], 
-            #                   [cons(nlp, x)[i] for i in 1:nlp_jinf]
+            #nlp_cons(x) = vcat([cons(nlp, x)[i] for i in nlp_jfix], # Sorting, useful for subproblems, see optimization loop
+            #                   [cons(nlp, x)[i] for i in nlp_jlow], 
+            #                   [cons(nlp, x)[i] for i in nlp_jupp], 
+            #                   [cons(nlp, x)[i] for i in nlp_jrng], 
+            #                   [cons(nlp, x)[i] for i in nlp_jfree], 
+            #                   [cons(nlp, x)[i] for i in nlp_jinf]
             #                   )
+
+
+            # initial points
+            x_k = zeros(Float64, nlp_nvar, 1)
+            y_k = zeros(Float64, nlp_ncon, 1)
+            r_k = zeros(Float64, nlp_ncon, 1)
+            z_k = zeros(Float64, nlp_nvar + nlp_ncon, 1)
 
 
         # ** I.2 Test argument nlp consistency with hypothesis
             for i in 1:nlp_ncon
-                if nlp_lcon[i] != 0 | nlp_ucon[i] != Inf
+                if (nlp_lcon[i] != 0) | (nlp_ucon[i] != Inf)
                     println("ERROR: nlp argument should be in a standard form, like : 
                             min/max f(x)
                             subject to c(x) >= 0, Ax >= b, l <= x <= b
                             Try to change your lcon and ucon, at index " * string(i))
+                    @show nlp_lcon
+                    @show nlp_ucon
                     return Inf, Inf, Inf, Inf, false
                 end
             end        
@@ -119,20 +133,27 @@ function ncl(nlp, maxIt::Int64)
             # ** II.1 Create the sub problem NC_k
                 # z = vcat(x, r) (size(x) = nvar, size(r) = ncon)
 
-                c_k(z) = vcat([cons(nlp, z)[i] for i in 1:nlp_jfix], # ? (Faisable) Comment traiter les contraintes d'egalite avec NCL ???
-                              [cons(nlp, z)[i] + z[nlp_nvar + i] for i in 1:nlp_jlow], # Supposed to contain every constraint, in the first case
-                              [cons(nlp, z)[i] for i in 1:nlp_jupp], # Assumed to be empty
-                              [cons(nlp, z)[i] for i in 1:nlp_jrng], # Assumed to be empty
-                              [cons(nlp, z)[i] for i in 1:nlp_jfree], # Assumed to be empty
-                              [cons(nlp, z)[i] for i in 1:nlp_jinf] # Assumed to be empty # ? (simple) Qu'est-ce que c'est jinf ?
+                c_k(z) = vcat([cons(nlp, z[1:nlp_nvar])[i] for i in nlp_jfix], # ? (Faisable) Comment traiter les contraintes d'egalite avec NCL ???
+                              [cons(nlp, z[1:nlp_nvar])[i] + z[nlp_nvar + i] for i in nlp_jlow], # Supposed to contain every constraint, in the first case
+                              [cons(nlp, z[1:nlp_nvar])[i] for i in nlp_jupp], # Assumed to be empty
+                              [cons(nlp, z[1:nlp_nvar])[i] for i in nlp_jrng], # Assumed to be empty
+                              [cons(nlp, z[1:nlp_nvar])[i] for i in nlp_jfree], # Assumed to be empty
+                              [cons(nlp, z[1:nlp_nvar])[i] for i in nlp_jinf] # Assumed to be empty
                               ) # TODO (optimization): optimize this computation, not efficient with that much calls to cons()
                 
+                
                 f_k(z) = obj(nlp, z[1:nlp_nvar]) + # Objective function of the initial problem
-                         y_k' * z[nlp_nvar+1 : end] + # Lagrangian part, using residue r
+                         (y_k' * z[nlp_nvar+1 : end])[1] + # Lagrangian part, using residue r # "[1]" is just to avoid an error because of 1 + [0]. It converts it into 1 + 0.
                          0.5 * ρ_k * norm(z[nlp_nvar+1 : end], 2) ^ 2 # Augmented part, residue as well
                 
+
+#+(::ForwardDiff.Dual{ForwardDiff.Tag{getfield(Main, Symbol("#f_k#686")){ADNLPModel,Int64},Int64},ForwardDiff.Dual{ForwardDiff.Tag{getfield(Main, Symbol("#f_k#686")){ADNLPModel,Int64},Int64},Int64,2},2}, 
+#  ::Array{ForwardDiff.Dual{ForwardDiff.Tag{getfield(Main, Symbol("#f_k#686")){ADNLPModel,Int64},Int64},ForwardDiff.Dual{ForwardDiff.Tag{getfield(Main, Symbol("#f_k#686")){ADNLPModel,Int64},Int64},Int64,2},2},1})
+
+                @show f_k([1,0,0])
                 # ? (Complique) Nouveau x_0 choisi ici = ancienne solution. Demarrage a chaud...
-                NC_k = ADNLPModel(f_k, vcat(x_k, r_k) ; lvar = nlp_lvar, uvar = nlp_uvar, c = c_k) # Sub problem modelisation
+                
+                NC_k = ADNLPModel(f_k, z_k ; lvar = nlp_lvar, uvar = nlp_uvar, c = c_k) # Sub problem modelisation
                 # TODO (debug): checker que les bornes des contraintes et les contraintes sont dans le même ordre (print...)
 
             # ** II.2 Get subproblem's solution
@@ -152,9 +173,9 @@ function ncl(nlp, maxIt::Int64)
                         feasable = true # by default, x_k is a feasable point. Then we check with the constraints
                         optimal = true # same, we will check with KKT conditions
 
-                    # ? (simple) Peut-être pas necessaire, KNITRO/IPOPT doit renvoyer une solution realisable
+                    # ? (simple) Peut-être pas necessaire, KNITRO/IPOPT renvoie probablement une solution realisable
                         for i in 1:nlp.nvar 
-                            if !(lvar[i] <= x_k[i] <= uvar[i]) # bounds constraints
+                            if !(nlp_lvar[i] <= x_k[i] <= nlp_uvar[i]) # bounds constraints
                                 feasable = false # bounds constraints not respected
                                 break
                             end
@@ -162,14 +183,14 @@ function ncl(nlp, maxIt::Int64)
 
                         if feasable
                             for i in 1:nlp.ncon
-                                if !(lcon[i] <= c_x[i] <= ucon[i]) # other constraints
+                                if !(nlp_lcon[i] <= c_x[i] <= nlp_ucon[i]) # other constraints
                                     feasable = false # bounds constraints not respected
                                     break
                                 end
                             end
 
                             if feasable
-                                grad_lag = ∇f_x - jprod(nlp, x_k, y_k) # ? (debug) Transposee ?
+                                grad_lag = ∇f_x - jtprod(nlp, x_k, y_k) # ? (debug) Transposee, ou pas, verifier
 
                                 if norm(grad_lag, Inf) > ω_end
                                     optimal = false
@@ -177,7 +198,7 @@ function ncl(nlp, maxIt::Int64)
                             end
                         end
 
-                        converged = feasable && optimal
+                        converged = feasable & optimal
                 
                 else # The residue is to still too large
                     ρ_k = τ * ρ_k # increase the step # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
