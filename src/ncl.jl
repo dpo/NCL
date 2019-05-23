@@ -1,3 +1,40 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# TODO next : sous type de AbstractNLPModel, important !
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # comment
 # ** Important
 # ! Alert, problem
@@ -15,16 +52,59 @@ using NLPModels
     
     function nc_k(nlp, y_k) # TODO
     end
+"""
 
-    
-    Checks if the nlp initial problem is solved with the x, y, z points withine the ω tolerance
-    
 
-    function NCO_solved(x, y, z, ω, nlp) # TODO
-        return(true)
-    end
+
 
 """
+Tests if the (x, λ) is a solution of the KKT conditions of the nlp (nlp follows the NLPModels.jl formalism) problem within ω as a tolerance
+Note: the lagrangian is considered as :
+    l(x, λ) = f(x) - λ' * c(x) (-, not +)
+"""
+function NLPModel_solved(nlp, x, λ, ω)
+    bounds = true
+    feasable = true # by default, x is a feasable point. Then we check with the constraints
+    complementarity = true
+    optimal = true # same, we will check with KKT conditions
+
+    for i in 1:nlp.meta.nvar 
+        if !(nlp.meta.lvar[i] <= x[i] <= nlp.meta.uvar[i]) # bounds constraints
+            return false
+        end
+    end
+
+    c_x = cons(nlp, x)
+    for i in 1:nlp.ncon
+        if !(nlp.meta.lcon[i] <= c_x[i] <= nlp.meta.ucon[i]) # other constraints
+            return false 
+        end
+
+        if i in nlp.jinf
+            println("ERROR: Infeasable problem passed to NLPModel_solved. 
+                    \n  Check the constraint" * string(i) * 
+                    "\nFalse returned. ")
+            return false
+        end
+
+        if λ[i] * c_x[i] > ω # complementarity not respected
+            return false 
+        end
+    end
+
+
+    ∇lag = ∇f_x - jtprod(nlp, x, λ)
+    ∇f_x = grad(nlp, x)
+    if norm(∇lag, Inf) > ω
+        return false
+    end
+
+    return true # all the tests were passed, x, λ respects feasability, complementarity, and ∇lag(x, λ) almost = 0
+end
+
+
+
+
 
 """
 NCL method implementation. See https://www.researchgate.net/publication/325480151_Stabilized_Optimization_Via_an_NCL_Algorithm for further explications on the method
@@ -40,7 +120,7 @@ Returns:
     converged: a booleam, telling us if the progra; converged or reached the maximum of iterations fixed
 """
 
-function KNITRO(nlp, ω)
+function KNITRO(nlp, ω) # Juste pour pouvoir debugger petit à petit, sans avoir KNITRO
     return [1,2],[2,1],[2,1],[1,2,2,1]
 end
 
@@ -133,7 +213,7 @@ function ncl(nlp, maxIt::Int64)
             # ** II.1 Create the sub problem NC_k
                 # z = vcat(x, r) (size(x) = nvar, size(r) = ncon)
 
-                c_k(z) = vcat([cons(nlp, z[1:nlp_nvar])[i] for i in nlp_jfix], # ? (Faisable) Comment traiter les contraintes d'egalite avec NCL ???
+                c_k(z) = vcat([cons(nlp, z[1:nlp_nvar])[i] + z[nlp_nvar + i] for i in nlp_jfix], 
                               [cons(nlp, z[1:nlp_nvar])[i] + z[nlp_nvar + i] for i in nlp_jlow], # Supposed to contain every constraint, in the first case
                               [cons(nlp, z[1:nlp_nvar])[i] for i in nlp_jupp], # Assumed to be empty
                               [cons(nlp, z[1:nlp_nvar])[i] for i in nlp_jrng], # Assumed to be empty
@@ -141,19 +221,15 @@ function ncl(nlp, maxIt::Int64)
                               [cons(nlp, z[1:nlp_nvar])[i] for i in nlp_jinf] # Assumed to be empty
                               ) # TODO (optimization): optimize this computation, not efficient with that much calls to cons()
                 
-                
-                f_k(z) = obj(nlp, z[1:nlp_nvar]) + # Objective function of the initial problem
+                function f_k(z)
+                    return obj(nlp, z[1:nlp_nvar]) + # Objective function of the initial problem
                          (y_k' * z[nlp_nvar+1 : end])[1] + # Lagrangian part, using residue r # "[1]" is just to avoid an error because of 1 + [0]. It converts it into 1 + 0.
                          0.5 * ρ_k * norm(z[nlp_nvar+1 : end], 2) ^ 2 # Augmented part, residue as well
+                end
                 
-
-#+(::ForwardDiff.Dual{ForwardDiff.Tag{getfield(Main, Symbol("#f_k#686")){ADNLPModel,Int64},Int64},ForwardDiff.Dual{ForwardDiff.Tag{getfield(Main, Symbol("#f_k#686")){ADNLPModel,Int64},Int64},Int64,2},2}, 
-#  ::Array{ForwardDiff.Dual{ForwardDiff.Tag{getfield(Main, Symbol("#f_k#686")){ADNLPModel,Int64},Int64},ForwardDiff.Dual{ForwardDiff.Tag{getfield(Main, Symbol("#f_k#686")){ADNLPModel,Int64},Int64},Int64,2},2},1})
-
-                @show f_k([1,0,0])
                 # ? (Complique) Nouveau x_0 choisi ici = ancienne solution. Demarrage a chaud...
                 
-                NC_k = ADNLPModel(f_k, z_k ; lvar = nlp_lvar, uvar = nlp_uvar, c = c_k) # Sub problem modelisation
+                NC_k = ADNLPModel(f_k, z_k ; y0 = y_k, lvar = nlp_lvar, uvar = nlp_uvar, c = c_k, lcon = nlp_lcon, ucon = nlp_ucon) # Sub problem modelisation
                 # TODO (debug): checker que les bornes des contraintes et les contraintes sont dans le même ordre (print...)
 
             # ** II.2 Get subproblem's solution
@@ -167,43 +243,14 @@ function ncl(nlp, maxIt::Int64)
                     η_k = η_k / (1 + ρ_k ^ β) # (heuristic)
                     
                     # ** II.3.1 Solution found ?
-                        ∇f_x = grad(nlp, x_k)
-                        c_x = cons(nlp, x_k)
-
-                        feasable = true # by default, x_k is a feasable point. Then we check with the constraints
-                        optimal = true # same, we will check with KKT conditions
-
-                    # ? (simple) Peut-être pas necessaire, KNITRO/IPOPT renvoie probablement une solution realisable
-                        for i in 1:nlp.nvar 
-                            if !(nlp_lvar[i] <= x_k[i] <= nlp_uvar[i]) # bounds constraints
-                                feasable = false # bounds constraints not respected
-                                break
-                            end
-                        end
-
-                        if feasable
-                            for i in 1:nlp.ncon
-                                if !(nlp_lcon[i] <= c_x[i] <= nlp_ucon[i]) # other constraints
-                                    feasable = false # bounds constraints not respected
-                                    break
-                                end
-                            end
-
-                            if feasable
-                                grad_lag = ∇f_x - jtprod(nlp, x_k, y_k) # ? (debug) Transposee, ou pas, verifier
-
-                                if norm(grad_lag, Inf) > ω_end
-                                    optimal = false
-                                end
-                            end
-                        end
-
-                        converged = feasable & optimal
+                        converged = NLPModel_solved(nlp, x_k, y_k)
                 
                 else # The residue is to still too large
                     ρ_k = τ * ρ_k # increase the step # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
                     η_k = η_end / (1 + ρ_k ^ α) # Change infeasability (heuristic) # ? (simple) η_end ou η_0, cf article
+                    # TODO (recherche...) : update ω_k 
                 end
+                # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/ρ_k, ρ_k = 100ρ_k, η_k = 1/ρ_k^0.1
         end
     
     return x_k, y_k, r_k, z_k, converged # converged tells us if the solution returned is optimal or not
