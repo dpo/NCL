@@ -1,36 +1,4 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # TODO next : sous type de AbstractNLPModel, important !
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -58,11 +26,11 @@ using NLPModels
 
 
 """
-Tests if the (x, λ) is a solution of the KKT conditions of the nlp (nlp follows the NLPModels.jl formalism) problem within ω as a tolerance
+Tests if the (x, y) is a solution of the KKT conditions of the nlp (nlp follows the NLPModels.jl formalism) problem within ω as a tolerance
 Note: the lagrangian is considered as :
-    l(x, λ) = f(x) - λ' * c(x) (-, not +)
+    l(x, y) = f(x) - y' * c(x)          (/!\  -, not +)
 """
-function NLPModel_solved(nlp, x, λ, ω)
+function NLPModel_solved(nlp, x, y, ω)
     bounds = true
     feasable = true # by default, x is a feasable point. Then we check with the constraints
     complementarity = true
@@ -87,19 +55,19 @@ function NLPModel_solved(nlp, x, λ, ω)
             return false
         end
 
-        if λ[i] * c_x[i] > ω # complementarity not respected
+        if y[i] * c_x[i] > ω # complementarity not respected
             return false 
         end
     end
 
 
-    ∇lag = ∇f_x - jtprod(nlp, x, λ)
+    ∇lag = ∇f_x - jtprod(nlp, x, y)
     ∇f_x = grad(nlp, x)
     if norm(∇lag, Inf) > ω
         return false
     end
 
-    return true # all the tests were passed, x, λ respects feasability, complementarity, and ∇lag(x, λ) almost = 0
+    return true # all the tests were passed, x, y respects feasability, complementarity, and ∇lag(x, y) almost = 0
 end
 
 
