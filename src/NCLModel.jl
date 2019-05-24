@@ -4,10 +4,21 @@ using NLPModels
 mutable struct NCLModel <: AbstractNLPModel
 	meta :: NLPModelMeta
 	counters :: Counters
+
+	# Parameters for the objective function
+	y :: Float64
+	ρ :: Float64
+
+	# Sizes for the original problem
+	ivar_x :: Array{Int64, 1}
+	ivar_r_e :: Array{Int64, 1}
+	ivar_r_i :: Array{Int64, 1}
 end
 
-function NCLModel(nlp :: NLPModelMeta) :: NCLModel
-	meta = NLPModelMeta(nvar = nlp.meta.nvar, 
+function NCLModel(nlp :: NLPModelMeta, mult, penal) :: NCLModel
+	meta = NLPModelMeta(nvar = nlp.meta.nvar + nlp.meta.ncon - nlp.meta.lin, 
+						lvar = nlp.meta.lvar,
+						uvar = nlp.meta.uvar,
 						ncon = nlp.meta.ncon, 
 						nnzh = nlp.meta.nnzh, 
 						nnzj = nlp.meta.nnzj, 
@@ -15,15 +26,39 @@ function NCLModel(nlp :: NLPModelMeta) :: NCLModel
 						lcon = nlp.meta.lcon, 
 						ucon = nlp.meta.ucon, 
 						name = nlp.meta.name)
-
-	return NCLModel(meta, Counters())
+	y = mult
+	ρ = penal
+	ivar_x = [i for i in 1:nlp.meta.nvar]
+	
+	
+	nvar_x = nlp.meta.nvar
+	nvar_r = nlp.meta.ncon - nlp.meta.lin # linear constraints are not considered here in the NCL method. 
+	# TODO: another implentation, considering linear constraints as well
+	return NCLModel(meta, Counters(), y, ρ)
 end
 
 
-function NLPModels.obj(nlp :: NCLModel, x :: AbstractVector)
-	increment!(nlp, :neval_obj)
-	return (1 - x[1])^2
+function NLPModels.obj(ncl :: NCLModel, z :: AbstractVector)
+	increment!(ncl, :neval_obj)
+	return obj(nlp, z[1:NCLModel.nvar_x]) + # ?????? Comment récupérer la fonction objecti du NLP source ?!
+		   NCLModel.y' * z[NCLModel.nvar_x + 1 : end] +
+		   0.5 * NCLModel.ρ * (norm(z[NCLModel.nvar_x + 1 : end], 2))
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 function NLPModels.grad!(nlp :: NCLModel, x :: AbstractVector, gx :: AbstractVector)
