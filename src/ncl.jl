@@ -11,16 +11,15 @@
 
 using LinearAlgebra
 using NLPModels
+using Ipopt
 
-"""
-# ! A eviter car recopie nlp, perd beaucoup de temps
-# ? Semblant de pointeur possible ? Mais appel a la fonction long aussi. Inline faisable ?
+include("NLCModel.jl")
 
-    Checks if the nlp initial problem is solved with the x, y, z points withine the ω tolerance
-    
-    function nc_k(nlp, y_k) # TODO
-    end
-"""
+
+
+# ? Semblant de pointeur possible pour éviter la recopie dans nlp_solved ? 
+# ? Mais appel a la fonction long aussi. Inline faisable avec @inline si interessant
+
 
 
 
@@ -203,6 +202,7 @@ function ncl(nlp, maxIt::Int64)
             # ** II.2 Get subproblem's solution
                 x_k, y_k, r_k, z_k = KNITRO(NC_k, ω_k) # TODO: link with KNITRO/IPOPT
                 # TODO (recherche) : Points intérieurs à chaud...
+                # TODO (recherche) : tester la proximité des multiplicateurs de renvoyés par KNITRO et le y_k du problème (si r petit, probablement proches.)
 
             # ** II.3 Treatment & update
                 if norm(r_k,Inf) <= max(η_k, η_end) # The residue has decreased enough
@@ -211,7 +211,7 @@ function ncl(nlp, maxIt::Int64)
                     η_k = η_k / (1 + ρ_k ^ β) # (heuristic)
                     
                     # ** II.3.1 Solution found ?
-                        converged = NLPModel_solved(nlp, x_k, y_k)
+                        converged = NLPModel_solved(nlp, x_k, y_k) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial
                 
                 else # The residue is to still too large
                     ρ_k = τ * ρ_k # increase the step # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
