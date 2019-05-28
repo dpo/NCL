@@ -17,7 +17,6 @@ include("NLCModel.jl")
 
 
 
-# ? Semblant de pointeur possible pour éviter la recopie dans nlp_solved ? 
 # ? Mais appel a la fonction long aussi. Inline faisable avec @inline si interessant
 
 
@@ -82,8 +81,7 @@ Returns:
     x: position of the optimum found
     y: optimal lagrangian multiplicator
     r: value of constraints (around 0 if converged)
-    z: # ? C'est qui z finalement ? 
-    #? z = vcat(x, r) ???
+    z: lagrangian multiplicator for bounds constraints
     converged: a booleam, telling us if the progra; converged or reached the maximum of iterations fixed
 """
 
