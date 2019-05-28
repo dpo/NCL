@@ -47,7 +47,7 @@ function NLCModel(nlp::AbstractNLPModel, mult::Vector{<:Real}, penal::Real)::NLC
 		nvar = nvar_x + nvar_r
 		meta = NLPModelMeta(nvar ;
 							lvar = vcat(nlp.meta.lvar, -Inf * ones(nvar_r)), # No bounds upon residues
-							uvar = vcat(nlp.meta.uvar, -Inf * ones(nvar_r)),
+							uvar = vcat(nlp.meta.uvar, Inf * ones(nvar_r)),
 							x0   = vcat(nlp.meta.x0, ones(typeof(nlp.meta.x0[1]), nvar_r)),
 							name = nlp.meta.name * " (NCL subproblem)",
 							nnzj = nlp.meta.nnzj + nvar_r, # we add nonzeros because of residues
@@ -55,14 +55,10 @@ function NLCModel(nlp::AbstractNLPModel, mult::Vector{<:Real}, penal::Real)::NLC
 							)
 
 		if nlp.meta.jinf != Int64[]
-			println("ERROR: Problem passed to NLCModel with constraint " * string(nlp.meta.jinf) * " infeasible\n
-						Empty returned (will cause error)")
-			return 
+			error("argument problem passed to NLCModel with constraint " * string(nlp.meta.jinf) * " infeasible")
 		end
 		if nlp.meta.jfree != Int64[]
-			println("ERROR: Problem passed to NLCModel with constraint " * string(nlp.meta.jfree) * " free\n
-						Empty returned (will cause error)")
-			return 
+			error("argument problem passed to NLCModel with constraint " * string(nlp.meta.jfree) * " free")
 		end
 	
 	# Parameters
@@ -107,6 +103,7 @@ function NLPModels.obj(nlc::NLCModel, X::Vector{<:Real})::Real
 end
 
 
+
 function NLPModels.grad(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_grad)
 	gx = vcat(grad(nlc.nlp, X[1:nlc.nvar_x]), nlc.ρ * X[nlc.nvar_x+1:end] + nlc.y)
@@ -122,12 +119,14 @@ function NLPModels.grad!(nlc::NLCModel, X::Vector{<:Real}, gx::Vector{<:Real}) :
 				 Empty vector returned")
 		return <:Real[]
 	end
-	gx .= vcat(obj(nlc.nlp, X[1:nlc.nvar_x]), nlc.ρ * X[nlc.nvar_x+1:end] + nlc.y)
+
+	gx .= vcat(grad(nlc.nlp, X[1:nlc.nvar_x]), nlc.ρ * X[nlc.nvar_x+1:end] + nlc.y)
 	return gx
 end
 
-# TODO (simple): sparse, pas matrice complète
-# TODO : Check avec "Seul le lower triangle est retourné..."
+
+
+# TODO (simple): sparse du triangle inf, pas matrice complète
 function NLPModels.hess(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Matrix{<:Real}
 	increment!(nlc, :neval_hess)
 	H = zeros(nlc.nvar, nlc.nvar)
@@ -149,24 +148,20 @@ function NLPModels.hess_coord(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0,
 	# New information (due to residues)
 		rows = vcat(rows, nlc.nvar_x+1:nlc.nvar)
 		cols = vcat(cols, nlc.nvar_x+1:nlc.nvar)
-		vals = vcat(vals, fill!(Vector{<:Real}(undef, nlc.nvar_r), nlc.ρ)) # concatenate with a vector full of nlc.ρ
+		vals = vcat(vals, fill!(Vector{typeof(nlc.ρ)}(undef, nlc.nvar_r), nlc.ρ)) # concatenate with a vector full of nlc.ρ
 	return (rows, cols, vals)
 end
 
-
-function NLPModels.hprod(nlc::NLCModel, x::Vector{<:Real}, v::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
+function NLPModels.hprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
 	increment!(nlc, :neval_hprod)
 	# Test feasability
 		if size(v, 1) != nlc.nvar
-			println("ERROR: wrong size of argument v passed to jprod in NLCModel
-					 gx should be of size " * string(nlc.nvar) * " but size " * string(size(v, 1)) * 
-					 "given
-					 Empty vector returned")
-			return <:Real[]
+			error("wrong size of argument v passed to hprod in NLCModel
+				   gx should be of size " * string(nlc.nvar) * " but size " * string(size(v, 1)) * "given")
 		end
 
 	# Original information
-		nlp_Hv = hprod(nlc.nlp, x, v[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
+		nlp_Hv = hprod(nlc.nlp, X[1:nlc.nvar_x], v[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
 	
 	# New information (due to residues)
 		Hv = vcat(nlp_Hv, nlc.ρ * v[nlc.nvar_x+1:end])
@@ -182,23 +177,18 @@ function NLPModels.cons(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
 		cx = cons(nlc.nlp, X[1:nlc.nvar_x]) # pre computation
 
 	# New information (due to residues)
-		for i in nlc.jres
-			cx[i] += X[nlc.nvar_x + i] # residue for the i-th constraint (feasible, not free and not linear (not considered in this model))
-		end
+		cx[nlc.jres] += X[nlc.nvar_x+1:end] # residue for the i-th constraint (feasible, not free and not linear (not considered in this model))
 	
 	return cx
 end
 
-
 function NLPModels.cons!(nlc::NLCModel, X::Vector{<:Real}, cx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_cons)
 	# Original information
-		cx = cons(nlc.nlp, X[1:nlc.nvar_x]) # pre computation
+		cx .= cons!(nlc.nlp, X[1:nlc.nvar_x], cx) # pre computation
 
 	# New information (due to residues)
-		for i in nlc.jres
-			cx[i] += X[nlc.nvar_x + i] # residue for the i-th constraint (feasible, not free and not linear (not considered in this model))
-		end
+		cx[nlc.jres] .+= X[nlc.nvar_x+1:end] # residue for the i-th constraint (feasible, not free and not linear (not considered in this model))
 
 	return cx
 end
@@ -232,9 +222,7 @@ function NLPModels.jprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, J
 	increment!(nlc, :neval_jprod)
 	# Test feasability
 		if size(v) != nlc.nvar
-			println("ERROR: Wrong sizes of argument v passed to jprod\n
-					Empty vector returned")
-			return <:Real[]
+			error("wrong sizes of argument v passed to jprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}")
 		end
 
 	# Original information
@@ -250,9 +238,7 @@ function NLPModels.jtprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, 
 	increment!(nlc, :neval_jtprod)
 	# Test feasability
 		if size(v) != nlc.ncon
-			println("ERROR: Wrong sizes of argument v passed to jprod\n
-					Empty vector returned")
-			return <:Real[]
+			error("wrong size of argument v passed to jtprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
 		end
 
 	# New information (due to residues)
