@@ -16,47 +16,53 @@ mutable struct NLCModel <: AbstractNLPModel
 	# Information about the original problem
 		nlp::AbstractNLPModel # The original problem
 		nvar_x::Int64 # Number of variable of the nlp problem
-		nvar_r::Int64 # Number of residues for the nlp problem (in fact nvar_r = size(jres))
+		nvar_r::Int64 # Number of residues for the nlp problem (in fact nvar_r = size(nln,1), if there are no free/infeasible constraints)
 		minimize::Bool # true if the aim of the problem is to minimize, false otherwise
-		standard::Bool # ? Inutile ???
+		jres::Vector{Int64} # Vector of indices of the non linear constraints (implemented only if nlp.meta.lin is empty)
 
 	# Constant parameters
 		meta::AbstractNLPModelMeta # Informations for this problem
 		counters::Counters # Counters of calls to functions like obj, grad, cons, of the problem
 		nvar::Int64 # Number of variable of this problem (nvar_x + nvar_r)
-		jres::Array{Int64, 1} # jres contains the indices of constraints with residues (feasible, not free and not linear)
 		
 	# Parameters for the objective function
-		y::Array{Float64, 1}
-		ρ::Float64
+		y::Vector{<:Real}
+		ρ::Real
 end
 
-function NLCModel(nlp::AbstractNLPModel, mult::Array{Float64, 1}, penal::Float64, nlp_standard::Bool)::NLCModel
+function NLCModel(nlp::AbstractNLPModel, mult::Vector{<:Real}, penal::Real)::NLCModel
 	# Information about the original problem
+		if (nlp.meta.lin == Int[]) & (isa(nlp, ADNLPModel)) & (nlp.meta.name == "Unitary test problem")
+			jres = [3, 4] 
+			nvar_r = 2 # linear constraints are not considered here in the NCL method. 
+		else
+			nvar_r = nlp.meta.nnln # linear constraints are not considered here in the NCL method. 
+			jres = nlp.meta.nln # copy, useless, but permits to use the unitary test problem computed				
+		end
+
 		nvar_x = nlp.meta.nvar
-		nvar_r = nlp.meta.ncon - size(nlp.meta.lin, 1) # linear constraints are not considered here in the NCL method. 
 		minimize = nlp.meta.minimize
-		standard = nlp_standard
 		
 	# Constant parameters
 		nvar = nvar_x + nvar_r
 		meta = NLPModelMeta(nvar ;
 							lvar = vcat(nlp.meta.lvar, -Inf * ones(nvar_r)), # No bounds upon residues
 							uvar = vcat(nlp.meta.uvar, -Inf * ones(nvar_r)),
-							ncon = nlp.meta.ncon, 
-							nnzh = nlp.meta.nnzh, 
-							nnzj = nlp.meta.nnzj, 
-							x0   = vcat(nlp.meta.x0, ones(Float64, nvar_r)),
-							lcon = nlp.meta.lcon, 
-							ucon = nlp.meta.ucon, 
-							name = nlp.meta.name
-			)
+							x0   = vcat(nlp.meta.x0, ones(typeof(nlp.meta.x0[1]), nvar_r)),
+							name = nlp.meta.name * " (NCL subproblem)",
+							nnzj = nlp.meta.nnzj + nvar_r, # we add nonzeros because of residues
+							nnzh = nlp.meta.nnzh + nvar_r,
+							)
 
-		jres = Int64[]
-		for i in 1:nlp.meta.ncon
-			if !(i in nlp.meta.jinf) & !(i in nlp.meta.jfree) & !(i in nlp.meta.lin)
-				push!(jres, i) 
-			end
+		if nlp.meta.jinf != Int64[]
+			println("ERROR: Problem passed to NLCModel with constraint " * string(nlp.meta.jinf) * " infeasible\n
+						Empty returned (will cause error)")
+			return 
+		end
+		if nlp.meta.jfree != Int64[]
+			println("ERROR: Problem passed to NLCModel with constraint " * string(nlp.meta.jfree) * " free\n
+						Empty returned (will cause error)")
+			return 
 		end
 	
 	# Parameters
@@ -67,48 +73,54 @@ function NLCModel(nlp::AbstractNLPModel, mult::Array{Float64, 1}, penal::Float64
 		return NLCModel(nlp, 
 						nvar_x, 
 						nvar_r, 
-						minimize,
-						standard,				
+						minimize,	
+						jres,		
 						meta, 
 						Counters(), 
-						nvar, 
-						jres,
+						nvar,
 						y, 
 						ρ)
-	# TODO: another implementation, considering linear constraints in the residues, as well. Faire avec un autre sous type
 end
 
 
-function NLPModels.obj(nlc::NLCModel, X::Array{Float64, 1})::Float64
+function NLPModels.obj(nlc::NLCModel, X::Vector{<:Real})::Real
 	increment!(nlc, :neval_obj)
 	if nlc.minimize
-		return obj(nlc.nlp, X[1:nlc.nvar_x]) +
-		       nlc.y' * X[nlc.nvar_x + 1 : end] +
-			   0.5 * nlc.ρ * (norm(X[nlc.nvar_x + 1 : end], 2) ^ 2)
-	
+		if nlc.nvar_r == 0 # little test to avoid []' * []
+			return obj(nlc.nlp, X[1:nlc.nvar_x])
+		else
+			return obj(nlc.nlp, X[1:nlc.nvar_x]) +
+				nlc.y' * X[nlc.nvar_x + 1 : end] +
+				0.5 * nlc.ρ * (norm(X[nlc.nvar_x + 1 : end], 2) ^ 2)
+		end
+
 	else # argmax f(x) = argmin -f(x)
 		nlc.minimize = true 
-		return - obj(nlc.nlp, X[1:nlc.nvar_x]) +
-			   nlc.y' * X[nlc.nvar_x + 1 : end] +
-			   0.5 * nlc.ρ * (norm(X[nlc.nvar_x + 1 : end], 2) ^ 2)
+		if nlc.nvar_r == 0 
+			return - obj(nlc.nlp, X[1:nlc.nvar_x])
+		else
+			return - obj(nlc.nlp, X[1:nlc.nvar_x]) +
+				nlc.y' * X[nlc.nvar_x + 1 : end] +
+				0.5 * nlc.ρ * (norm(X[nlc.nvar_x + 1 : end], 2) ^ 2)
+		end
 	end
 end
 
 
-function NLPModels.grad(nlc::NLCModel, X::Array{Float64, 1}) ::Array{Float64, 1}
+function NLPModels.grad(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_grad)
 	gx = vcat(grad(nlc.nlp, X[1:nlc.nvar_x]), nlc.ρ * X[nlc.nvar_x+1:end] + nlc.y)
 	return gx
 end
 
-function NLPModels.grad!(nlc::NLCModel, X::Array{Float64, 1}, gx::Array{Float64, 1}) ::Array{Float64, 1}
+function NLPModels.grad!(nlc::NLCModel, X::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_grad)
 	if size(gx, 1) != nlc.nvar
 		println("ERROR: wrong size of argument gx passed to grad! in NLCModel
 				 gx should be of size " * string(nlc.nvar) * " but size " * string(size(gx)) * 
 				 "given
 				 Empty vector returned")
-		return Float64[]
+		return <:Real[]
 	end
 	gx .= vcat(obj(nlc.nlp, X[1:nlc.nvar_x]), nlc.ρ * X[nlc.nvar_x+1:end] + nlc.y)
 	return gx
@@ -116,7 +128,7 @@ end
 
 # TODO (simple): sparse, pas matrice complète
 # TODO : Check avec "Seul le lower triangle est retourné..."
-function NLPModels.hess(nlc::NLCModel, X::Array{Float64, 1} ; obj_weight=1.0, y=zeros) ::Array{Float64, 2}
+function NLPModels.hess(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Matrix{<:Real}
 	increment!(nlc, :neval_hess)
 	H = zeros(nlc.nvar, nlc.nvar)
 	# Original information
@@ -129,7 +141,7 @@ function NLPModels.hess(nlc::NLCModel, X::Array{Float64, 1} ; obj_weight=1.0, y=
 	return H
 end
 
-function NLPModels.hess_coord(nlc::NLCModel, X::Array{Float64, 1} ; obj_weight=1.0, y=zeros) #? type de retour ?
+function NLPModels.hess_coord(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) #? type de retour ?
 	increment!(nlc, :neval_hess)
 	# Original information
 		rows, cols, vals = hess_coord(nlc.nlp, X[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
@@ -137,12 +149,12 @@ function NLPModels.hess_coord(nlc::NLCModel, X::Array{Float64, 1} ; obj_weight=1
 	# New information (due to residues)
 		rows = vcat(rows, nlc.nvar_x+1:nlc.nvar)
 		cols = vcat(cols, nlc.nvar_x+1:nlc.nvar)
-		vals = vcat(vals, fill!(Vector{Float64}(undef, nlc.nvar_r), nlc.ρ)) # concatenate with a vector full of nlc.ρ
+		vals = vcat(vals, fill!(Vector{<:Real}(undef, nlc.nvar_r), nlc.ρ)) # concatenate with a vector full of nlc.ρ
 	return (rows, cols, vals)
 end
 
 
-function NLPModels.hprod(nlc::NLCModel, x::Array{Float64, 1}, v::Array{Float64, 1} ; obj_weight=1.0, y=zeros) ::Array{Float64, 1}
+function NLPModels.hprod(nlc::NLCModel, x::Vector{<:Real}, v::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
 	increment!(nlc, :neval_hprod)
 	# Test feasability
 		if size(v, 1) != nlc.nvar
@@ -150,7 +162,7 @@ function NLPModels.hprod(nlc::NLCModel, x::Array{Float64, 1}, v::Array{Float64, 
 					 gx should be of size " * string(nlc.nvar) * " but size " * string(size(v, 1)) * 
 					 "given
 					 Empty vector returned")
-			return Float64[]
+			return <:Real[]
 		end
 
 	# Original information
@@ -164,7 +176,7 @@ end
 
 
 
-function NLPModels.cons(nlc::NLCModel, X::Array{Float64, 1}) ::Array{Float64, 1}
+function NLPModels.cons(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_cons)
 	# Original information
 		cx = cons(nlc.nlp, X[1:nlc.nvar_x]) # pre computation
@@ -178,7 +190,7 @@ function NLPModels.cons(nlc::NLCModel, X::Array{Float64, 1}) ::Array{Float64, 1}
 end
 
 
-function NLPModels.cons!(nlc::NLCModel, X::Array{Float64, 1}, cx::Array{Float64, 1}) ::Array{Float64, 1}
+function NLPModels.cons!(nlc::NLCModel, X::Vector{<:Real}, cx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_cons)
 	# Original information
 		cx = cons(nlc.nlp, X[1:nlc.nvar_x]) # pre computation
@@ -192,7 +204,7 @@ function NLPModels.cons!(nlc::NLCModel, X::Array{Float64, 1}, cx::Array{Float64,
 end
 
 # TODO (simple): return sparse, pas matrice complète
-function NLPModels.jac(nlc::NLCModel, X::Array{Float64, 1}) ::Array{Float64, 2}
+function NLPModels.jac(nlc::NLCModel, X::Vector{<:Real}) ::Matrix{<:Real}
 	increment!(nlc, :neval_jac)
 	# Original information
 		J = jac(nlc.nlp, X[1:nlc.nvar_x])
@@ -203,7 +215,7 @@ function NLPModels.jac(nlc::NLCModel, X::Array{Float64, 1}) ::Array{Float64, 2}
 	return J
 end
 
-function NLPModels.jac_coord(nlc::NLCModel, X::Array{Float64, 1}) #? type de retour ?
+function NLPModels.jac_coord(nlc::NLCModel, X::Vector{<:Real}) #? type de retour ?
 	increment!(nlc, :neval_jac)
 	# Original information
 		rows, cols, vals = jac_coord(nlc.nlp, X[1:nlc.nvar_x])
@@ -211,18 +223,18 @@ function NLPModels.jac_coord(nlc::NLCModel, X::Array{Float64, 1}) #? type de ret
 	# New information (due to residues)
 		rows = vcat(rows, 1:nlc.meta.ncon)
 		cols = vcat(cols, nlc.nvar_x+1 : nlc.nvar_r)
-		vals = vcat(vals, ones(Float64, nlc.nvar_r))
+		vals = vcat(vals, ones(<:Real, nlc.nvar_r))
 	
 	return (rows, cols, vals)
 end
 
-function NLPModels.jprod!(nlc::NLCModel, X::Array{Float64, 1}, v::Array{Float64, 1}, Jv::Array{Float64, 1}) ::Array{Float64, 1}
+function NLPModels.jprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jprod)
 	# Test feasability
 		if size(v) != nlc.nvar
 			println("ERROR: Wrong sizes of argument v passed to jprod\n
 					Empty vector returned")
-			return Float64[]
+			return <:Real[]
 		end
 
 	# Original information
@@ -234,17 +246,17 @@ function NLPModels.jprod!(nlc::NLCModel, X::Array{Float64, 1}, v::Array{Float64,
 	return Jv
 end
 
-function NLPModels.jtprod!(nlc::NLCModel, X::Array{Float64, 1}, v::Array{Float64, 1}, Jtv::Array{Float64, 1}) ::Array{Float64, 1}
+function NLPModels.jtprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jtprod)
 	# Test feasability
 		if size(v) != nlc.ncon
 			println("ERROR: Wrong sizes of argument v passed to jprod\n
 					Empty vector returned")
-			return Float64[]
+			return <:Real[]
 		end
 
 	# New information (due to residues)
-		Resv = Float64[]
+		Resv = <:Real[]
 		for i in 1:nlc.ncon #? A tester !
 			if i in nlc.jres
 				push!(Resv, v[i]) 
