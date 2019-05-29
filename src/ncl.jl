@@ -27,22 +27,32 @@ Tests if the (x, y) is a solution of the KKT conditions of the nlp problem (nlp 
 Note: the lagrangian is considered as :
     l(x, y) = f(x) - y' * c(x)          (!!! -, not + !!!)
 """
-function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, z_U::Vector{<:Real}, z_L::Vector{<:Real}, ω::Real) ::Bool
+function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, z_U::Vector{<:Real}, z_L::Vector{<:Real}, ω::Real, printing::Bool) ::Bool
     # Bounds constraints
         for i in 1:nlp.meta.nvar 
-            if !(nlp.meta.lvar[i] <= x[i] <= nlp.meta.uvar[i]) 
+            if !(nlp.meta.lvar[i] - ω <= x[i] <= nlp.meta.uvar[i] + ω) 
+                if printing
+                    println("variable " * string(i) * " out of bounds + tolerance") 
+                end
                 return false
             end
 
+            # Complementarity for bounds
             if nlp.meta.lvar[i] > -Inf # ? Optimiser avec jupp, jlow ?
                 if z_L[i] * (x[i] - nlp.meta.lvar[i]) > ω  
-                    println(z_L[i] * (nlp.meta.lvar[i] - x[i]))
+                    if printing
+                        println("complementarity not respected, see lowerbound of var" * string(i))
+                        @show z_L[i] * (nlp.meta.lvar[i] - x[i])
+                    end
                     return false
                 end
             end
             if nlp.meta.uvar[i] < Inf # ? Optimiser avec jupp, jlow ?
                 if z_U[i] * (nlp.meta.uvar[i] - x[i]) > ω  
-                    println(z_U[i] * (nlp.meta.uvar[i] - x[i]))
+                    if printing
+                        println("complementarity not respected, see upperbound of var" * string(i))
+                        @show z_U[i] * (nlp.meta.uvar[i] - x[i])
+                    end
                     return false
                 end
             end
@@ -50,8 +60,12 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
     println("Faisable")
     # Other constraints
         c_x = cons(nlp, x)
+        
         for i in 1:nlp.meta.ncon
-            if !(nlp.meta.lcon[i] <= c_x[i] <= nlp.meta.ucon[i]) 
+            if !(nlp.meta.lcon[i] - ω <= c_x[i] <= nlp.meta.ucon[i] + ω)
+                if printing
+                    println("constraint " * string(i) * " out of bounds + tolerance") 
+                end
                 return false 
             end
 
@@ -62,33 +76,38 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
 
             # Complementarity
             if nlp.meta.lcon[i] > -Inf # ? Optimiser avec jupp, jlow ?
-                if abs(y[i] * (c_x[i] - nlp.meta.lvar[i])) > ω
-                    @show i
-                    println("Complementarity, lower cons")
-                    println(y[i] * (c_x[i] - nlp.meta.lvar[i]))
+                if abs(y[i] * (c_x[i] - nlp.meta.lcon[i])) > ω
+                    if printing
+                        println("complementarity not respected, see lower cons" * string(i))
+                        @show y[i] * (c_x[i] - nlp.meta.lcon[i])
+                    end
                     return false
                 end
             end
             if nlp.meta.ucon[i] < Inf # ? Optimiser avec jupp, jlow ?
-                if abs(y[i] * (nlp.meta.uvar[i] - x[i])) > ω  
-                    @show i
-                    println("Complementarity, upper cons")
-                    println(y[i] * (nlp.meta.uvar[i] - x[i]))
+                if abs(y[i] * (nlp.meta.ucon[i] - c_x[i])) > ω  
+                    if printing
+                        println("complementarity not respected, see upper cons" * string(i))
+                        @show y[i] * (nlp.meta.ucon[i] - c_x[i])
+                    end
                     return false
                 end
             end
         end
-
+    println("realisable")
     # Lagrangian
         ∇f_x = grad(nlp, x)
         ∇lag = ∇f_x - jtprod(nlp, x, y) + z_L - z_U
         
-
         if norm(∇lag, Inf) > ω # Not a stationnary point for the lagrangian
+            if printing
+                @show jtprod(nlp, x, y)
+                @show ∇lag
+            end
             return false
         end
 
-    return true # all the tests were passed, x, y respects feasability, complementarity, and ∇lag(x, y) almost = 0
+    return true # all the tests were passed, x, y respects feasability, complementarity not respected, see and ∇lag(x, y) almost = 0
 end
 
 
