@@ -48,7 +48,6 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
         nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
         nlc = NLCModel(nlp, y, ρ)::NLCModel
 
-        println(cons(nlp, [1,1]))
 
     # Unitary tests
         if test

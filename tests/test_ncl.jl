@@ -33,19 +33,25 @@ function test_ncl(test::Bool) #::Test.DefaultTestSet
         nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
         nlc = NLCModel(nlp, y, ρ)::NLCModel
 
-    resolution_k = ipopt(nlc)
-    x_k = resolution_k.solution # ! ordre des variables pas chamboulé ?
-    println(x_k)
-    println(cons(nlc, x_k))
+    resolution_k = ipopt(nlp, print_level = 0, tol = 0.01)
+    x_k = resolution_k.solution
+    @show x_k
+    println(cons(nlp, x_k))
     # Get multipliers
-    # y_k = resolution_k.solver_specific[:multiplier_g]
-    # z_k_U = resolution_k.solver_specific[:multiplier_x_U]
-    # z_k_L = resolution_k.solver_specific[:multiplier_x_L]
+    y_k = resolution_k.solver_specific[:multipliers_con]
+    @show y_k
+    z_k_U = resolution_k.solver_specific[:multipliers_U]
+    @show z_k_U
+    z_k_L = resolution_k.solver_specific[:multipliers_L]
+    @show z_k_L
+#! Attention aux mult d'IPOPT !
+
 
     if test
         @testset "NCL algorithm" begin
             @testset "NLPModel_solved() function" begin
-                @test NLPModel_solved(nlp, [1, 0.5], [00000000, 0., 0000000], [0000000,0.], [0.,0], 0.01) == true
+                @test NLPModel_solved(nlp, [0.5, 1.0], [1, 0, 0, -2], [0, -1], [0, 0], 1) == true
+                @test NLPModel_solved(nlp, [0.5, 1.0], [-0.184774, 0, 0.621765, -1.43699], [5.01181e-9, 0.155487], [5.01181e-9, 2.5059e-9], 10) == true
             end
         end
     end

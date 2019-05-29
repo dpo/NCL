@@ -10,7 +10,7 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
         test_NLCModel(true)
     end
     if test_ncl_command
-        test_ncl(false)
+        test_ncl(true)
     end
     if test_main_command
         @testset "Main NCL" begin
