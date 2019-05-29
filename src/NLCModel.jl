@@ -52,7 +52,9 @@ function NLCModel(nlp::AbstractNLPModel, mult::Vector{<:Real}, penal::Real)::NLC
 							name = nlp.meta.name * " (NCL subproblem)",
 							nnzj = nlp.meta.nnzj + nvar_r, # we add nonzeros because of residues
 							nnzh = nlp.meta.nnzh + nvar_r,
-							ncon = nlp.meta.ncon
+							ncon = nlp.meta.ncon,
+							lcon = nlp.meta.lcon,
+							ucon = nlp.meta.ucon
 							)
 
 		if nlp.meta.jinf != Int64[]
@@ -156,6 +158,31 @@ function NLPModels.hess_coord(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0,
 	return (hrows, hcols, hvals)
 end
 
+function NLPModels.hess_structure(nlc::NLCModel) ::Tuple{Vector{Int64},Vector{Int64}}
+	increment!(nlc, :neval_hess)
+	# Original information
+		hrows, hcols = hess_structure(nlc.nlp)
+	
+	# New information (due to residues)
+		append!(hrows, nlc.nvar_x+1:nlc.nvar)
+		append!(hcols, nlc.nvar_x+1:nlc.nvar)
+	return (hrows, hcols)
+end
+
+function NLPModels.hess_coord!(nlc::NLCModel, X::Vector{<:Real}, hrows::Vector{<:Int64}, hcols::Vector{<:Int64}, hvals::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
+	increment!(nlc, :neval_hess)
+	#Pre computation
+		len_hcols = length(hcols)
+		orig_len = len_hcols - nlc.nvar_r
+
+	# Original information
+		hrows[1:orig_len], hcols[1:orig_len], hvals[1:orig_len] = hess_coord!(nlc.nlp, X[1:nlc.nvar_x], hrows[1:orig_len], hcols[1:orig_len], hvals[1:orig_len], obj_weight=obj_weight, y=y)
+	
+	# New information (due to residues)
+		hvals[orig_len + 1 : len_hcols] = fill!(Vector{typeof(hvals[1])}(undef, nlc.nvar_r), nlc.ρ) # a vector full of nlc.ρ
+	return (hrows, hcols, hvals)
+end
+
 function NLPModels.hprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
 	increment!(nlc, :neval_hprod)
 	# Test feasability
@@ -173,6 +200,22 @@ function NLPModels.hprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} ; o
 	return Hv
 end
 
+function NLPModels.hprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} , Hv::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
+	increment!(nlc, :neval_hprod)
+	# Test feasability
+		if length(v) != nlc.nvar
+			error("wrong length of argument v passed to hprod in NLCModel
+				   gx should be of length " * string(nlc.nvar) * " but length " * string(length(v)) * "given")
+		end
+
+	# Original information
+		Hv[1:nlc.nvar_x] = hprod!(nlc.nlp, X[1:nlc.nvar_x], v[1:nlc.nvar_x], Hv[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
+	
+	# New information (due to residues)
+	Hv[nlc.nvar_x+1:end] = nlc.ρ * v[nlc.nvar_x+1:end]
+	
+	return Hv
+end
 
 
 function NLPModels.cons(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
@@ -227,7 +270,7 @@ function NLPModels.jac_coord!(nlc::NLCModel, X::Vector{<:Real}, jrows::Vector{<:
 	#Pre computation
 		len_jcols = length(jcols)
 		orig_len = len_jcols - nlc.nvar_r
-		
+
 	# Original information
 	jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len] = jac_coord!(nlc.nlp, X[1:nlc.nvar_x], jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len]) # we necessarily need the place for nlc.nvar_r ones in the value array
 
