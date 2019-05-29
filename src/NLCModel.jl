@@ -140,7 +140,7 @@ function NLPModels.hess(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zer
 	return H
 end
 
-function NLPModels.hess_coord(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) #? type de retour ?
+function NLPModels.hess_coord(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 	increment!(nlc, :neval_hess)
 	# Original information
 		rows, cols, vals = hess_coord(nlc.nlp, X[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
@@ -206,16 +206,14 @@ function NLPModels.jac(nlc::NLCModel, X::Vector{<:Real}) ::Matrix{<:Real}
 	return J
 end
 
-function NLPModels.jac_coord(nlc::NLCModel, X::Vector{<:Real}) #? type de retour ?
+function NLPModels.jac_coord(nlc::NLCModel, X::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 	increment!(nlc, :neval_jac)
 	# Original information
 		rows, cols, vals = jac_coord(nlc.nlp, X[1:nlc.nvar_x])
-
 	# New information (due to residues)
 		rows = vcat(rows, nlc.jres)
 		cols = vcat(cols, nlc.nvar_x+1 : nlc.nvar)
-		vals = vcat(vals, ones(typeof(vals[1]), nlc.nvar_r, 1))
-	
+		vals = vcat(vals, ones(typeof(vals[1]), nlc.nvar_r))
 	return rows, cols, vals
 end
 
@@ -264,8 +262,6 @@ function NLPModels.jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}) :
 	# New information (due to residues)
 		Resv = v[nlc.jres]
 	
-		@show Resv
-		@show jtprod(nlc.nlp, X[1:nlc.nvar_x], v)
 	# Original information
 		Jv = vcat(jtprod(nlc.nlp, X[1:nlc.nvar_x], v), Resv)
 	
