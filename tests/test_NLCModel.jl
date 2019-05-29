@@ -2,7 +2,7 @@ using NLPModels
 using Test
 
 
-include("NLCModel.jl")
+include("../src/NLCModel.jl")
 
 function test_NLCModel(test::Bool)
     # Test parameters
