@@ -12,3 +12,5 @@ function test_main(test_ncl_command::Bool, test_NCLModel_command::Bool, test_mai
         @test true
     end
 end
+
+test_main(true,true,true)

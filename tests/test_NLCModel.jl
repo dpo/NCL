@@ -6,40 +6,39 @@ include("../src/NLCModel.jl")
 
 function test_NLCModel(test::Bool) ::Test.DefaultTestSet
     # Test parameters
-    ρ = 1.
-    y = [2., 1.]
+        ρ = 1.
+        y = [2., 1.]
+        g = Vector{Float64}(undef,4)
+        cx = Vector{Float64}(undef,4)
+        jrows = [1, 2, 3, 4, 1, 2, 3, 4, 3, 4]
+        jcols = [1, 1, 1, 1, 2, 2, 2, 2, 3, 4]
+        jvals = Vector{Float64}(undef,10)
+        Jv = Vector{Float64}(undef,4)
+
+
 
     # Test problem
-    f(x) = x[1] + x[2]
-    x0 = [0.5, 0.5]
-    lvar = [0., 0.]
-    uvar = [1., 1.]
+        f(x) = x[1] + x[2]
+        x0 = [0.5, 0.5]
+        lvar = [0., 0.]
+        uvar = [1., 1.]
 
-    lcon = [-0.5,
-            -1.,
-            -Inf,
-            0.5]
-    ucon = [Inf,
-            2.,
-            -0.5,
-            0.5]
-    c(x) = [x[1] - x[2], # linear
-            x[2] + x[1]^2, # non linear one, range constraint
-            x[1] - x[2], # linear, lower bounded 
-            x[1] * x[2]] # equality one
+        lcon = [-0.5,
+                -1.,
+                -Inf,
+                0.5]
+        ucon = [Inf,
+                2.,
+                -0.5,
+                0.5]
+        c(x) = [x[1] - x[2], # linear
+                x[2] + x[1]^2, # non linear one, range constraint
+                x[1] - x[2], # linear, lower bounded 
+                x[1] * x[2]] # equality one
 
-    name = "Unitary test problem"
-    nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
-    nlc = NLCModel(nlp, y, ρ)::NLCModel
-    println(jac_coord(nlp, [1.,1.]))
-    jrows = [1, 2, 3, 4, 1, 2, 3, 4]
-    jcols = [1, 1, 1, 1, 2, 2, 2, 2]
-    jvals = Vector{Float64}(undef,8)
-    println(jac_coord!(nlp, [1.,1.], jrows, jcols, jvals))
-
-    g = Vector{Float64}(undef,4)
-    cx = Vector{Float64}(undef,4)
-    Jv = Vector{Float64}(undef,4)
+        name = "Unitary test problem"
+        nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
+        nlc = NLCModel(nlp, y, ρ)::NLCModel
 
 
     if test
@@ -121,20 +120,27 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
 
                 @testset "NLCModel constraint jac()" begin
                     @test jac(nlc, [1.,1.,0.,1.]) == [1 -1 0 0 ;
-                                                    2  1 1 0 ;
-                                                    1 -1 0 0 ;
-                                                    1  1 0 1 ]
+                                                      2  1 1 0 ;
+                                                      1 -1 0 0 ;
+                                                      1  1 0 1 ]
 
                     @test jac(nlc, [1.,0.5,1.,1.]) == [ 1 -1  0  0 ;
                                                         2  1  1  0 ;
                                                         1 -1  0  0 ;
-                                                    0.5 1  0  1]
+                                                        0.5 1  0  1]
                 end
                 
                 @testset "NLCModel constraint jac_coord()" begin
                     @test jac_coord(nlc, [1.,1.,0.,1.])[1][9:10] == [2,4]
                     @test jac_coord(nlc, [1.,1.,0.,1.])[2][9:10] == [3,4]
                     @test jac_coord(nlc, [1.,0.5,1.,1.])[3][9:10] == [1,1]
+                end
+
+                @testset "NLCModel constraint jac_coord!()" begin
+                    @test jac_coord!(nlc, [1.,1.,0.,1.], jrows, jcols, jvals)[1] == jrows
+                    @test jac_coord!(nlc, [1.,1.,0.,1.], jrows, jcols, jvals)[2] == jcols
+                    @test jac_coord!(nlc, [1.,1.,0.,1.], jrows, jcols, jvals)[3] == [1,2,1,1,-1,1,-1,1,1,1]
+                    @test jac_coord!(nlc, [1.,0.5,1.,1.], jrows, jcols, jvals)[3] == [1,2,1,0.5,-1,1,-1,1,1,1]
                 end
 
                 @testset "NLCModel constraint jac_struct()" begin

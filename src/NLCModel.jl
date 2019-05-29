@@ -147,13 +147,13 @@ end
 function NLPModels.hess_coord(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 	increment!(nlc, :neval_hess)
 	# Original information
-		rows, cols, vals = hess_coord(nlc.nlp, X[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
+		hrows, hcols, hvals = hess_coord(nlc.nlp, X[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
 	
 	# New information (due to residues)
-		append!(rows, nlc.nvar_x+1:nlc.nvar)
-		append!(cols, nlc.nvar_x+1:nlc.nvar)
-		append!(vals, fill!(Vector{typeof(vals[1])}(undef, nlc.nvar_r), nlc.ρ)) # concatenate with a vector full of nlc.ρ
-	return (rows, cols, vals)
+		append!(hrows, nlc.nvar_x+1:nlc.nvar)
+		append!(hcols, nlc.nvar_x+1:nlc.nvar)
+		append!(hvals, fill!(Vector{typeof(hvals[1])}(undef, nlc.nvar_r), nlc.ρ)) # concatenate with a vector full of nlc.ρ
+	return (hrows, hcols, hvals)
 end
 
 function NLPModels.hprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
@@ -213,35 +213,40 @@ end
 function NLPModels.jac_coord(nlc::NLCModel, X::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 	increment!(nlc, :neval_jac)
 	# Original information
-		rows, cols, vals = jac_coord(nlc.nlp, X[1:nlc.nvar_x])
+		jrows, jcols, jvals = jac_coord(nlc.nlp, X[1:nlc.nvar_x])
 
 	# New information (due to residues)
-		append!(rows, nlc.jres)
-		append!(cols, nlc.nvar_x+1 : nlc.nvar)
-		append!(vals, ones(typeof(vals[1]), nlc.nvar_r))
-	return rows, cols, vals
+		append!(jrows, nlc.jres)
+		append!(jcols, nlc.nvar_x+1 : nlc.nvar)
+		append!(jvals, ones(typeof(jvals[1]), nlc.nvar_r))
+	return (jrows, jcols, jvals)
 end
 
 function NLPModels.jac_coord!(nlc::NLCModel, X::Vector{<:Real}, jrows::Vector{<:Int64}, jcols::Vector{<:Int64}, jvals::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 	increment!(nlc, :neval_jac)
+	#Pre computation
+		len_jcols = length(jcols)
+		orig_len = len_jcols - nlc.nvar_r
+		
 	# Original information
-		jac_coord!(nlc.nlp, X[1:nlc.nvar_x], jrows, jcols, jvals[1:length(jcols)])
-# ! Check append/vcat, in place...
+	jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len] = jac_coord!(nlc.nlp, X[1:nlc.nvar_x], jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len]) # we necessarily need the place for nlc.nvar_r ones in the value array
+
 	# New information (due to residues)
-		append!(jvals, ones(typeof(jvals[1]), nlc.nvar_r))
-	return jrows, jcols, jvals
+		jvals[orig_len + 1 : len_jcols] = ones(typeof(jvals[1]), nlc.nvar_r) # we assume length(jrows) = length(jcols) = length(jvals)
+
+	return (jrows, jcols, jvals)
 end
 
 
 function NLPModels.jac_structure(nlc::NLCModel) ::Tuple{Vector{Int64},Vector{Int64}}
 	increment!(nlc, :neval_jac)
 	# Original information
-		rows, cols = jac_structure(nlc.nlp)
+		jrows, jcols = jac_structure(nlc.nlp)
 
 	# New information (due to residues) # ! If there is any problem, check the following :
-		append!(rows, nlc.jres) # ! important that rows = [orignial_rows, residues_rows] for the jac_coor!() function
-		append!(cols, nlc.nvar_x+1 : nlc.nvar) # ! important that cols = [orignial_cols, residues_cols] for the jac_coor!() function
-	return rows, cols
+		append!(jrows, nlc.jres) # ! important that jrows = [orignial_rows, residues_rows] for the jac_coor!() function
+		append!(jcols, nlc.nvar_x+1 : nlc.nvar) # ! important that jcols = [orignial_cols, residues_cols] for the jac_coor!() function
+	return jrows, jcols
 end
 
 function NLPModels.jprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}) ::Vector{<:Real}
