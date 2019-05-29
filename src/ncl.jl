@@ -8,8 +8,11 @@ using LinearAlgebra
 using NLPModels
 using SolverTools
 using Ipopt
-using NLPModelsIpopt
 
+#include("../src/NLPModelsIpopt_perso.jl")
+#import ipopt
+#using NLPModelsKnitro #! not found...
+using NLPModelsIpopt
 include("NLCModel.jl")
 
 
@@ -24,42 +27,52 @@ Tests if the (x, y) is a solution of the KKT conditions of the nlp problem (nlp 
 Note: the lagrangian is considered as :
     l(x, y) = f(x) - y' * c(x)          (!!! -, not + !!!)
 """
-function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, ω::Real) ::Bool
-    bounds = true
-    feasable = true # by default, x is a feasable point. Then we check with the constraints
-    complementarity = true
-    optimal = true # same, we will check with KKT conditions
+function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, z_U::Vector{<:Real}, z_L::Vector{<:Real}, ω::Real) ::Bool
+    # Bounds constraints
+        for i in 1:nlp.meta.nvar 
+            if !(nlp.meta.lvar[i] <= x[i] <= nlp.meta.uvar[i]) 
+                return false
+            end
 
-    for i in 1:nlp.meta.nvar 
-        if !(nlp.meta.lvar[i] <= x[i] <= nlp.meta.uvar[i]) # bounds constraints
+            if nlp.meta.lvar[i] > -Inf
+                if z_L[i] * (x[i] - nlp.meta.lvar[i]) > ω  
+                    return false
+                end
+            end
+            if nlp.meta.uvar[i] < Inf
+                if z_U[i] * (nlp.meta.uvar[i] - x[i]) > ω  
+                    return false
+                end
+            end
+        end
+        
+    # Other constraints
+        c_x = cons(nlp, x)
+        for i in 1:nlp.ncon
+            if !(nlp.meta.lcon[i] <= c_x[i] <= nlp.meta.ucon[i]) 
+                return false 
+            end
+
+            if i in nlp.jinf
+                println("ERROR: Infeasable problem passed to NLPModel_solved. 
+                        \n  Check the constraint" * string(i) * 
+                        "\nFalse returned. ")
+                return false
+            end
+
+            # Complementarity
+                if y[i] * c_x[i] > ω  
+                    return false 
+                end
+        end
+
+    # Lagrangian
+        ∇lag = ∇f_x - jtprod(nlp, x, y) + z_L - z_U
+        ∇f_x = grad(nlp, x)
+
+        if norm(∇lag, Inf) > ω # Not a stationnary point for the lagrangian
             return false
         end
-    end
-
-    c_x = cons(nlp, x)
-    for i in 1:nlp.ncon
-        if !(nlp.meta.lcon[i] <= c_x[i] <= nlp.meta.ucon[i]) # other constraints
-            return false 
-        end
-
-        if i in nlp.jinf
-            println("ERROR: Infeasable problem passed to NLPModel_solved. 
-                    \n  Check the constraint" * string(i) * 
-                    "\nFalse returned. ")
-            return false
-        end
-
-        if y[i] * c_x[i] > ω # complementarity not respected
-            return false 
-        end
-    end
-
-
-    ∇lag = ∇f_x - jtprod(nlp, x, y)
-    ∇f_x = grad(nlp, x)
-    if norm(∇lag, Inf) > ω
-        return false
-    end
 
     return true # all the tests were passed, x, y respects feasability, complementarity, and ∇lag(x, y) almost = 0
 end
@@ -68,6 +81,7 @@ end
 function KNITRO(nlp, ω) # Juste pour pouvoir debugger petit à petit, sans avoir KNITRO
     return [1,2],[2,1],[2,1],[1,2,2,1]
 end
+
 
 """
 NCL method implementation. See https://www.researchgate.net/publication/325480151_Stabilized_Optimization_Via_an_NCL_Algorithm for further explications on the method
@@ -81,52 +95,66 @@ Returns:
     z: lagrangian multiplicator for bounds constraints
     converged: a booleam, telling us if the progra; converged or reached the maximum of iterations fixed
 """
-function ncl(nlc::NLCModel, maxIt::Int64)
-    # ** I. Preliminaries
-        # ** I.1 Names and variables
-            ρ_k = 1 # step
-            τ = 10 # scale (used to update the ρ_k step)
-            α = 0.5 # Constant (α needs to be < 1)
-            β = 1 # Constant
+function ncl(nlc::NLCModel, maxIt::Int64, ipopt::Bool)
+    # ** I. Names and variables
+        Type = typeof(nlc.meta.x0[1])
+        ρ_k = 1 # step
+        τ = 10 # scale (used to update the ρ_k step)
+        α = 0.5 # Constant (α needs to be < 1)
+        β = 1 # Constant
 
-            ω_end = 1 # global tolerance
-            ω_k = 1 # sub problem tolerance
-            η_end = 1 # global infeasability
-            η_k = 2 # sub problem infeasability
+        ω_end = 1 # global tolerance
+        ω_k = 1 # sub problem tolerance
+        η_end = 1 # global infeasability
+        η_k = 2 # sub problem infeasability
 
-            # initial points
-            x_k = zeros(Float64, nlp_nvar, 1)
-            y_k = zeros(Float64, nlp_ncon, 1)
-            r_k = zeros(Float64, nlp_ncon, 1)
-            z_k = zeros(Float64, nlp_nvar + nlp_ncon, 1)
+        # initial points
+        x_k = zeros(Type, nlc.nvar_x)
+        r_k = zeros(Type, nlc.nvar_r)
+        y_k = zeros(Type, nlc.meta.ncon)
+        z_k = zeros(Type, length(nlc.meta.lvar) + length(nlc.meta.uvar))
 
 
     # ** II. Optimization loop
         k = 0
-        converged = false
+        converged = NLPModel_solved(nlc, x_k, y_k, z_k_U, z_k_L)
+
         while k < maxIt && !converged
             k += 1
-            
-            # ** II.1 Create the sub problem NC_k
-                # X = vcat(x, r) (size(x) = nlc.nvar_x, size(r) = nlc.nvar_r)
+            # ** II.1 Get subproblem's solution
+                if ipopt
+                    resolution_k = ipopt(nlc)::GenericExecutionStats
+                    # Get variables
+                    x_k = resolution_k.solution[1:nlc.nvar_x] # ! ordre des variables pas chamboulé ?
+                    r_k = resolution_k.solution[nlc.nvar_x+1:nlc.nvar_r]
 
-                # ? (Complique) Nouveau x_0 choisi ici = ancienne solution. Demarrage a chaud...
-                
-                
+                    # Get multipliers
+                    y_k = resolution_k.solver_specific[:multiplier_g]
+                    z_k_U = resolution_k.solver_specific[:multiplier_x_U]
+                    z_k_L = resolution_k.solver_specific[:multiplier_x_L]
 
+                else
+                    resolution_k = _knitro(nlc)::GenericExecutionStats
+                    # Get variables
+                    x_k = resolution_k.solution.x[1:nlc.nvar_x] # ! ordre des variables pas chamboulé ?
+                    r_k = resolution_k.solution.x[nlc.nvar_x+1:nlc.nvar_r]
 
-            # ** II.2 Get subproblem's solution
-                x_k, y_k, r_k, z_k = ipopt(nlc) # TODO: link with KNITRO/IPOPT
+                    # Get multipliers
+                    y_k = resolution_k.solver_specific[:multiplier_g]
+                    z_k_U = resolution_k.solver_specific[:multiplier_x_U] #! =[] dans ce cas, pas séparé par KNITRO...
+                    z_k_L = resolution_k.solver_specific[:multiplier_x_L]
+                end
+
                 # TODO (recherche) : Points intérieurs à chaud...
                 # TODO (recherche) : tester la proximité des multiplicateurs de renvoyés par KNITRO et le y_k du problème (si r petit, probablement proches.)
 
-            # ** II.3 Treatment & update
+            # ** II.2 Treatment & update
                 if norm(r_k,Inf) <= max(η_k, η_end) # The residue has decreased enough
                     
                     y_k = y_k + ρ_k * r_k # Updating multiplicator
                     η_k = η_k / (1 + ρ_k ^ β) # (heuristic)
                     
-                    # ** II.3.1 Solution found ?
+                    # ** II.2.1 Solution found ?
                         converged = NLPModel_solved(nlc, x_k, y_k) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial
                 
                 else # The residue is to still too large
