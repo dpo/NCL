@@ -287,12 +287,3 @@ end
 
 
 
-function update_y(nlc, y_new)
-	nlc.y = y_new
-end
-
-function update_ρ(nlc, ρ_new)
-	nlc.ρ = ρ_new
-end
-
-

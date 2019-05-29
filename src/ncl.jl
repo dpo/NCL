@@ -14,7 +14,7 @@ using NLPModels
 using Ipopt
 
 include("NLCModel.jl")
-
+include("../tests/test_ncl.jl")
 
 
 # ? Mais appel a la fonction long aussi. Inline faisable avec @inline si interessant
@@ -221,3 +221,5 @@ function ncl(nlp, maxIt::Int64)
     
     return x_k, y_k, r_k, z_k, converged # converged tells us if the solution returned is optimal or not
 end
+
+test_ncl(false)
