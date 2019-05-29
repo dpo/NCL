@@ -1,5 +1,6 @@
 using NLPModels
-
+include("ncl.jl")
+include("NLCModel.jl")
 
 """
 Main function for the NCL method. 
