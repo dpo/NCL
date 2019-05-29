@@ -4,7 +4,7 @@ using Test
 
 include("../src/NLCModel.jl")
 
-function test_NLCModel(test::Bool)
+function test_NLCModel(test::Bool) ::Test.DefaultTestSet
     # Test parameters
     ρ = 1.
     y = [2., 1.]
@@ -31,7 +31,11 @@ function test_NLCModel(test::Bool)
     name = "Unitary test problem"
     nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
     nlc = NLCModel(nlp, y, ρ)::NLCModel
-
+    println(jac_coord(nlp, [1.,1.]))
+    jrows = [1, 2, 3, 4, 1, 2, 3, 4]
+    jcols = [1, 1, 1, 1, 2, 2, 2, 2]
+    jvals = Vector{Float64}(undef,8)
+    println(jac_coord!(nlp, [1.,1.], jrows, jcols, jvals))
 
     g = Vector{Float64}(undef,4)
     cx = Vector{Float64}(undef,4)
@@ -131,6 +135,11 @@ function test_NLCModel(test::Bool)
                     @test jac_coord(nlc, [1.,1.,0.,1.])[1][9:10] == [2,4]
                     @test jac_coord(nlc, [1.,1.,0.,1.])[2][9:10] == [3,4]
                     @test jac_coord(nlc, [1.,0.5,1.,1.])[3][9:10] == [1,1]
+                end
+
+                @testset "NLCModel constraint jac_struct()" begin
+                    @test jac_structure(nlc)[1][9:10] == [2,4]
+                    @test jac_structure(nlc)[2][9:10] == [3,4]
                 end
 
                 @testset "NLCModel constraint jprod()" begin

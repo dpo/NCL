@@ -16,7 +16,7 @@ mutable struct NLCModel <: AbstractNLPModel
 	# Information about the original problem
 		nlp::AbstractNLPModel # The original problem
 		nvar_x::Int64 # Number of variable of the nlp problem
-		nvar_r::Int64 # Number of residues for the nlp problem (in fact nvar_r = size(nln,1), if there are no free/infeasible constraints)
+		nvar_r::Int64 # Number of residues for the nlp problem (in fact nvar_r = length(nln), if there are no free/infeasible constraints)
 		minimize::Bool # true if the aim of the problem is to minimize, false otherwise
 		jres::Vector{Int64} # Vector of indices of the non linear constraints (implemented only if nlp.meta.lin is empty)
 
@@ -52,6 +52,7 @@ function NLCModel(nlp::AbstractNLPModel, mult::Vector{<:Real}, penal::Real)::NLC
 							name = nlp.meta.name * " (NCL subproblem)",
 							nnzj = nlp.meta.nnzj + nvar_r, # we add nonzeros because of residues
 							nnzh = nlp.meta.nnzh + nvar_r,
+							ncon = nlp.meta.ncon
 							)
 
 		if nlp.meta.jinf != Int64[]
@@ -112,15 +113,19 @@ end
 
 function NLPModels.grad!(nlc::NLCModel, X::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_grad)
-	if size(gx, 1) != nlc.nvar
-		println("ERROR: wrong size of argument gx passed to grad! in NLCModel
-				 gx should be of size " * string(nlc.nvar) * " but size " * string(size(gx)) * 
+	if length(gx) != nlc.nvar
+		println("ERROR: wrong length of argument gx passed to grad! in NLCModel
+				 gx should be of length " * string(nlc.nvar) * " but length " * string(length(gx)) * 
 				 "given
 				 Empty vector returned")
 		return <:Real[]
 	end
+	# Original information 
+	gx[1:nlc.nvar_x] = grad!(nlc.nlp, X[1:nlc.nvar_x], gx[1:nlc.nvar_x])
+	
+	# New information (due to residues)
+		gx[nlc.nvar_x+1:end] = nlc.ρ * X[nlc.nvar_x+1:end] + nlc.y
 
-	gx .= vcat(grad(nlc.nlp, X[1:nlc.nvar_x]), nlc.ρ * X[nlc.nvar_x+1:end] + nlc.y)
 	return gx
 end
 
@@ -136,7 +141,6 @@ function NLPModels.hess(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zer
 	# New information (due to residues)
 		H[nlc.nvar_x+1:end, nlc.nvar_x+1:end] = H[nlc.nvar_x+1:end, nlc.nvar_x+1:end] + nlc.ρ * I # Added by residues (constant because of quadratic penalization) 
 	
-	# TODO: check there is no problem with the I::Uniformscaling operator (size...)
 	return H
 end
 
@@ -146,25 +150,25 @@ function NLPModels.hess_coord(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0,
 		rows, cols, vals = hess_coord(nlc.nlp, X[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
 	
 	# New information (due to residues)
-		rows = vcat(rows, nlc.nvar_x+1:nlc.nvar)
-		cols = vcat(cols, nlc.nvar_x+1:nlc.nvar)
-		vals = vcat(vals, fill!(Vector{typeof(nlc.ρ)}(undef, nlc.nvar_r), nlc.ρ)) # concatenate with a vector full of nlc.ρ
+		append!(rows, nlc.nvar_x+1:nlc.nvar)
+		append!(cols, nlc.nvar_x+1:nlc.nvar)
+		append!(vals, fill!(Vector{typeof(vals[1])}(undef, nlc.nvar_r), nlc.ρ)) # concatenate with a vector full of nlc.ρ
 	return (rows, cols, vals)
 end
 
 function NLPModels.hprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
 	increment!(nlc, :neval_hprod)
 	# Test feasability
-		if size(v, 1) != nlc.nvar
-			error("wrong size of argument v passed to hprod in NLCModel
-				   gx should be of size " * string(nlc.nvar) * " but size " * string(size(v, 1)) * "given")
+		if length(v) != nlc.nvar
+			error("wrong length of argument v passed to hprod in NLCModel
+				   gx should be of length " * string(nlc.nvar) * " but length " * string(length(v)) * "given")
 		end
 
 	# Original information
-		nlp_Hv = hprod(nlc.nlp, X[1:nlc.nvar_x], v[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
+		Hv = hprod(nlc.nlp, X[1:nlc.nvar_x], v[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
 	
 	# New information (due to residues)
-		Hv = vcat(nlp_Hv, nlc.ρ * v[nlc.nvar_x+1:end])
+		append!(Hv, nlc.ρ * v[nlc.nvar_x+1:end])
 	
 	return Hv
 end
@@ -185,7 +189,7 @@ end
 function NLPModels.cons!(nlc::NLCModel, X::Vector{<:Real}, cx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_cons)
 	# Original information
-		cx .= cons!(nlc.nlp, X[1:nlc.nvar_x], cx) # pre computation
+		cons!(nlc.nlp, X[1:nlc.nvar_x], cx) # pre computation
 
 	# New information (due to residues)
 		cx[nlc.jres] .+= X[nlc.nvar_x+1:end] # residue for the i-th constraint (feasible, not free and not linear (not considered in this model))
@@ -210,17 +214,40 @@ function NLPModels.jac_coord(nlc::NLCModel, X::Vector{<:Real}) ::Tuple{Vector{In
 	increment!(nlc, :neval_jac)
 	# Original information
 		rows, cols, vals = jac_coord(nlc.nlp, X[1:nlc.nvar_x])
+
 	# New information (due to residues)
-		rows = vcat(rows, nlc.jres)
-		cols = vcat(cols, nlc.nvar_x+1 : nlc.nvar)
-		vals = vcat(vals, ones(typeof(vals[1]), nlc.nvar_r))
+		append!(rows, nlc.jres)
+		append!(cols, nlc.nvar_x+1 : nlc.nvar)
+		append!(vals, ones(typeof(vals[1]), nlc.nvar_r))
 	return rows, cols, vals
+end
+
+function NLPModels.jac_coord!(nlc::NLCModel, X::Vector{<:Real}, jrows::Vector{<:Int64}, jcols::Vector{<:Int64}, jvals::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
+	increment!(nlc, :neval_jac)
+	# Original information
+		jac_coord!(nlc.nlp, X[1:nlc.nvar_x], jrows, jcols, jvals[1:length(jcols)])
+# ! Check append/vcat, in place...
+	# New information (due to residues)
+		append!(jvals, ones(typeof(jvals[1]), nlc.nvar_r))
+	return jrows, jcols, jvals
+end
+
+
+function NLPModels.jac_structure(nlc::NLCModel) ::Tuple{Vector{Int64},Vector{Int64}}
+	increment!(nlc, :neval_jac)
+	# Original information
+		rows, cols = jac_structure(nlc.nlp)
+
+	# New information (due to residues) # ! If there is any problem, check the following :
+		append!(rows, nlc.jres) # ! important that rows = [orignial_rows, residues_rows] for the jac_coor!() function
+		append!(cols, nlc.nvar_x+1 : nlc.nvar) # ! important that cols = [orignial_cols, residues_cols] for the jac_coor!() function
+	return rows, cols
 end
 
 function NLPModels.jprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jprod)
 	# Test feasability
-		if size(v,1) != nlc.nvar
+		if length(v) != nlc.nvar
 			error("wrong sizes of argument v passed to jprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}")
 		end
 		
@@ -237,7 +264,7 @@ end
 function NLPModels.jprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jprod)
 	# Test feasability
-		if size(v,1) != nlc.nvar
+		if length(v) != nlc.nvar
 			error("wrong sizes of argument v passed to jprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}")
 		end
 
@@ -255,15 +282,18 @@ end
 function NLPModels.jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jtprod)
 	# Test feasability
-		if size(v,1) != nlc.nlp.meta.ncon
-			error("wrong size of argument v passed to jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
+		if length(v) != nlc.nlp.meta.ncon
+			error("wrong length of argument v passed to jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
 		end
 
+	# Original information
+		Jv = jtprod(nlc.nlp, X[1:nlc.nvar_x], v)
+
 	# New information (due to residues)
-		Resv = v[nlc.jres]
+		# v[nlc.jres]
 	
 	# Original information
-		Jv = vcat(jtprod(nlc.nlp, X[1:nlc.nvar_x], v), Resv)
+		append!(Jv, v[nlc.jres])
 	
 	return Jv
 end
@@ -271,15 +301,15 @@ end
 function NLPModels.jtprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jtprod)
 	# Test feasability
-	if size(v,1) != nlc.nlp.meta.ncon
-		error("wrong size of argument v passed to jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
+	if length(v) != nlc.nlp.meta.ncon
+		error("wrong length of argument v passed to jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
 	end
 
 	# New information (due to residues)
 		Resv = v[nlc.jres]
 
 	# Original information
-		Jtv .= vcat(jtprod(nlc.nlp, X[1:nlc.nvar_x], v), Resv)
+		Jtv .= append!(jtprod(nlc.nlp, X[1:nlc.nvar_x], v), Resv)
 
 	return Jtv
 end
