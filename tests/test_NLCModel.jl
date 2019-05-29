@@ -40,7 +40,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 -0.5,
                 0.5]
         c(x) = [x[1] - x[2], # linear
-                x[2] + x[1]^2, # non linear one, range constraint
+                x[1]^2 + x[2], # non linear one, range constraint
                 x[1] - x[2], # linear, lower bounded 
                 x[1] * x[2]] # equality one
 
