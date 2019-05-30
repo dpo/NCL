@@ -19,4 +19,4 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
     end
 end
 
-test_main(true,true,false)
+test_main(true,true,true)

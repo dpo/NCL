@@ -32,56 +32,49 @@ function test_ncl(test::Bool) #::Test.DefaultTestSet
         nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
         nlc = NLCModel(nlp, y, ρ)::NLCModel
 
-    resolution_nlp = ipopt(nlp, print_level = 0, tol = 0.01)
-    x_nlp = resolution_nlp.solution
-    #@show x_nlp
-    #@show cons(nlp, x)
+    resolution_nlp_ipopt = ipopt(nlp, print_level = 0, tol = 0.01)
+    x_nlp_ipopt = resolution_nlp_ipopt.solution
     
     # Get multipliers
-    λ_nlp = resolution_nlp.solver_specific[:multipliers_con]
-    #@show λ_nlp
-    z_U_nlp = resolution_nlp.solver_specific[:multipliers_U]
-    #@show z_U_nlp
-    z_L_nlp = resolution_nlp.solver_specific[:multipliers_L]
-    #@show z_L_nlp
+    λ_nlp_ipopt = resolution_nlp_ipopt.solver_specific[:multipliers_con]
+    z_U_nlp_ipopt = resolution_nlp_ipopt.solver_specific[:multipliers_U]
+    z_L_nlp_ipopt = resolution_nlp_ipopt.solver_specific[:multipliers_L]
                                     #! Attention aux mult d'IPOPT !
 
-    #resolution_nlc = ipopt(nlc, print_level = 3, tol = 0.01)
-    #x_nlc = resolution_nlc.solution
-    #@show x_nlc
-    #@show cons(nlp, x)
+    resolution_nlc_ipopt = ipopt(nlc, print_level = 0, tol = 0.01)
+    x_nlc_ipopt = resolution_nlc_ipopt.solution
     
     # Get multipliers
-    #λ_nlc = resolution_nlc.solver_specific[:multipliers_con]
-    #@show λ_nlc
-    #z_U_nlc = resolution_nlc.solver_specific[:multipliers_U]
-    #@show z_U_nlc
-    #z_L_nlc = resolution_nlc.solver_specific[:multipliers_L]
-    #@show z_L_nlc
+    λ_nlc_ipopt = resolution_nlc_ipopt.solver_specific[:multipliers_con]
+    z_U_nlc_ipopt = resolution_nlc_ipopt.solver_specific[:multipliers_U]
+    z_L_nlc_ipopt = resolution_nlc_ipopt.solver_specific[:multipliers_L]
+    
+
+    printing_check = false
+    printing_iterations = false
+
+    x_ncl, nlc.y, λ_ncl, r_ncl, z_U_ncl, z_L_ncl, converged = ncl(nlc, 50, true, 0.1, printing_iterations, printing_check)
 
 
-
-    x, nlc.y, λ, r, z_U, z_L, converged = ncl(nlc, 10, true)
-    @show(NLPModel_solved(nlp, x, -λ, z_U[1:nlc.nvar_x], z_L[1:nlc.nvar_x], 1, true))
-
-
-    solve_print_nlp = false
-    solve_print_nlc = true
-
+    
     if test
         @testset "ncl.jl" begin
-            #! NLPModel_solved doesn't work every time, probably because of sign of multipliers (with sign of constraint and jacobian)
+            #! NLPModel_solved doesn't work every time, probably because of sign of multipliers (with sign of constraint and jacobian)...
+            # TODO: fix this problem...
 
-            #@testset "NLPModel_solved(nlp) function" begin
-            #    @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, 2], [0, -1], [0, 0], 0.01, solve_print_nlp) # solved by hand
-            #    @test_broken NLPModel_solved(nlp, [1.0, 0.5], [0, 0, -1/3, -2/3], [1, 0], [0, 0], 0.01, solve_print_nlp) # solved by hand
-            #    @test NLPModel_solved(nlp, x_nlp, -λ_nlp, z_U_nlp, z_L_nlp, 1, solve_print_nlp)
-            #end
+            @testset "NLPModel_solved(nlp) function" begin
+                @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, 2], [0, -1], [0, 0], 0.01, printing_check) # solved by hand
+                @test NLPModel_solved(nlp, x_nlp_ipopt, -λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, 1, printing_check)
+            end
 
-            #@testset "NLPModel_solved(nlc) function" begin
-            #    @test NLPModel_solved(nlc, x_nlc, -λ_nlc, z_U_nlc, z_L_nlc, 1, solve_print_nlc)
-            #end
-            @test true
+            @testset "NLPModel_solved(nlc) function" begin
+                @test_broken NLPModel_solved(nlc, x_nlc_ipopt, -λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, 1, printing_check)
+            end
+
+            @testset "ncl algorithm" begin
+                @test NLPModel_solved(nlp, x_ncl, -λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], 0.1, printing_check) 
+            end
+
         end
     end
 end
