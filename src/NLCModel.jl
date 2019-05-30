@@ -30,7 +30,7 @@ mutable struct NLCModel <: AbstractNLPModel
 		ρ::Real
 end
 
-function NLCModel(nlp::AbstractNLPModel, mult::Vector{<:Real}, penal::Real)::NLCModel
+function NLCModel(nlp::AbstractNLPModel)::NLCModel
 	# Information about the original problem
 		if (nlp.meta.lin == Int[]) & (isa(nlp, ADNLPModel)) & (nlp.meta.name == "Unitary test problem")
 			jres = [2, 4] 
@@ -66,8 +66,12 @@ function NLCModel(nlp::AbstractNLPModel, mult::Vector{<:Real}, penal::Real)::NLC
 		end
 	
 	# Parameters
-		y = mult
-		ρ = penal
+		#if length(mult) != nvar_r # ? Utile ?
+		#	y = zeros(typeof(nlp.meta.x0[1]), nvar_r)
+		#else
+		#	y = mult
+		#end
+		#ρ = penal
 
 	# NLCModel created:
 		return NLCModel(nlp, 
@@ -78,8 +82,8 @@ function NLCModel(nlp::AbstractNLPModel, mult::Vector{<:Real}, penal::Real)::NLC
 						meta, 
 						Counters(), 
 						nvar,
-						y, 
-						ρ)
+						zeros(typeof(nlp.meta.x0[1]), nvar_r), 
+						1.0)
 end
 
 

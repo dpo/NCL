@@ -46,8 +46,10 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
 
         name = "Unitary test problem"
         nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
-        nlc = NLCModel(nlp, y, ρ)::NLCModel
+        nlc = NLCModel(nlp)::NLCModel
 
+        nlc.y = y
+        nlc.ρ = ρ
 
     # Unitary tests
         if test
