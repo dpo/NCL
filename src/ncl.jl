@@ -155,7 +155,7 @@ Returns:
     z: lagrangian multiplicator for bounds constraints
     converged: a booleam, telling us if the progra; converged or reached the maximum of iterations fixed
 """
-function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool, ω_end::Real, printing_iterations::Bool, printing_check::Bool)
+function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool, ω_end::Real, printing_iterations::Bool, printing_check::Bool) ::GenericExecutionStats
     # ** I. Names and variables
         Type = typeof(nlc.meta.x0[1])
         nlc.ρ = 1 # step
@@ -183,7 +183,7 @@ function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool, ω_end::Real, printin
             k += 1
             # ** II.1 Get subproblem's solution
                 if use_ipopt
-                    resolution_k = ipopt(nlc, tol = ω_k, print_level = printing_iterations)::GenericExecutionStats
+                    resolution_k = ipopt(nlc, tol = ω_k, print_level = printing_iterations)
                     # Get variables
                     if printing_iterations
                         @show resolution_k.solution
@@ -223,8 +223,29 @@ function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool, ω_end::Real, printin
                     
                     # ** II.2.1 Solution found ?
                     #tolerance
-                    if norm(r_k,Inf) <= min(η_k, η_end) # check if r_k is small enough
-                        converged = true          #! Doesn't work every time yet !      NLPModel_solved(nlc, x_k, -λ_k, z_k_U, z_k_L, ω_k,  printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
+                    if norm(r_k,Inf) <= min(η_k, η_end) | k == maxIt # check if r_k is small enough, or if we've reached the end
+                        converged = NLPModel_solved(nlc, x_k, -λ_k, z_k_U, z_k_L, ω_k, printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
+                        status = resolution_k.status
+
+                        sol = vcat(x_k, r_k)
+
+                        if printing_iterations
+                            if NLPModel_solved(nlc, sol, -λ_k, z_k_U, z_k_L, ω_end, printing_check)
+                                println("EXIT: optimal solution found")
+                            else
+                                println("EXIT: optimal solution NOT found, reached maxIt")
+                            end
+                        end
+                    
+                        return GenericExecutionStats(status, nlc,
+                                                     solution = sol, iter = k,
+                                                     objective=obj(nlc, sol), 
+                                                     elapsed_time=0,
+                                                     solver_specific=Dict(:multipliers_con => λ_k,
+                                                                          :multipliers_L => z_k_L,
+                                                                          :multipliers_U => z_k_U
+                                                                         )
+                                                    )
                     end
 
                 else # The residue is to still too large
@@ -237,11 +258,5 @@ function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool, ω_end::Real, printin
             if printing_iterations
                 @show nlc.ρ, η_k, norm(r_k,Inf)
             end
-        end
-    
-    if printing_iterations
-        @show(NLPModel_solved(nlc, vcat(x_k, r_k), -λ_k, z_k_U, z_k_L, ω_end, printing_check))
-    end
-    
-    return x_k, nlc.y, λ_k, r_k, z_k_U, z_k_L, converged # converged tells us if the solution returned is optimal or not
+        end    
 end

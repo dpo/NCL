@@ -53,7 +53,12 @@ function test_ncl(test::Bool) #::Test.DefaultTestSet
     printing_check = false
     printing_iterations = false
 
-    x_ncl, nlc.y, λ_ncl, r_ncl, z_U_ncl, z_L_ncl, converged = ncl(nlc, 50, true, 0.1, printing_iterations, printing_check)
+
+    resolution_nlc_ncl = ncl(nlc, 50, true, 0.1, printing_iterations, printing_check)
+    x_ncl = resolution_nlc_ncl.solution
+    λ_ncl = resolution_nlc_ncl.solver_specific[:multipliers_con]
+    z_U_ncl = resolution_nlc_ncl.solver_specific[:multipliers_U]
+    z_L_ncl = resolution_nlc_ncl.solver_specific[:multipliers_L]
 
 
     
