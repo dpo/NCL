@@ -4,7 +4,6 @@ using Ipopt
 using NLPModelsIpopt
 
 include("../src/ncl.jl")
-#include("../src/NLPModelsIpopt_perso.jl")
 
 function test_ncl(test::Bool) #::Test.DefaultTestSet
     # Test problem
@@ -22,7 +21,7 @@ function test_ncl(test::Bool) #::Test.DefaultTestSet
                 0.5]
         ucon = [Inf,
                 2.,
-                -0.5,
+                0.5,
                 0.5]
         c(x) = [x[1] - x[2], # linear
                 x[1]^2 + x[2], # non linear one, range constraint
@@ -33,25 +32,26 @@ function test_ncl(test::Bool) #::Test.DefaultTestSet
         nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
         nlc = NLCModel(nlp, y, ρ)::NLCModel
 
-    resolution_k = ipopt(nlp, print_level = 0, tol = 0.01)
-    x_k = resolution_k.solution
-    @show x_k
-    println(cons(nlp, x_k))
+    resolution = ipopt(nlp, print_level = 0, tol = 0.01)
+    x = resolution.solution
+    #@show x
+    #@show cons(nlp, x)
     # Get multipliers
-    y_k = resolution_k.solver_specific[:multipliers_con]
-    @show y_k
-    z_k_U = resolution_k.solver_specific[:multipliers_U]
-    @show z_k_U
-    z_k_L = resolution_k.solver_specific[:multipliers_L]
-    @show z_k_L
+    λ = resolution.solver_specific[:multipliers_con]
+    #@show λ
+    z_U = resolution.solver_specific[:multipliers_U]
+    #@show z_U
+    z_L = resolution.solver_specific[:multipliers_L]
+    #@show z_L
 #! Attention aux mult d'IPOPT !
 
 
     if test
         @testset "NCL algorithm" begin
             @testset "NLPModel_solved() function" begin
-                @test NLPModel_solved(nlp, [0.5, 1.0], [1, 0, 0, -2], [0, -1], [0, 0], 1) == true
-                @test NLPModel_solved(nlp, [0.5, 1.0], [-0.184774, 0, 0.621765, -1.43699], [5.01181e-9, 0.155487], [5.01181e-9, 2.5059e-9], 10) == true
+                @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, 2], [0, -1], [0, 0], 0.01, true) == true # solved by hand
+                @test NLPModel_solved(nlp, [1.0, 0.5], -[0, 0, -1/3, -2/3], [1, 0], [0, 0], 0.01, true) == true # solved by hand
+                @test NLPModel_solved(nlp, [0.5, 1.0], λ, z_U, z_L, 1, true) == true
             end
         end
     end

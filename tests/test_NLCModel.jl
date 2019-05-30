@@ -37,7 +37,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 0.5]
         ucon = [Inf,
                 2.,
-                -0.5,
+                0.5,
                 0.5]
         c(x) = [x[1] - x[2], # linear
                 x[1]^2 + x[2], # non linear one, range constraint
