@@ -160,7 +160,7 @@ Returns:
     z: lagrangian multiplicator for bounds constraints
     converged: a booleam, telling us if the progra; converged or reached the maximum of iterations fixed
 """
-function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool)
+function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool, ω_end::Real)
     # ** I. Names and variables
         Type = typeof(nlc.meta.x0[1])
         nlc.ρ = 1 # step
@@ -168,17 +168,17 @@ function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool)
         α = 0.5 # Constant (α needs to be < 1)
         β = 1 # Constant
 
-        ω_end = 1 # global tolerance
-        ω_k = 1 # sub problem tolerance
-        η_end = 1 # global infeasability
+        # ω_end = global tolerance, in argument
+        ω_k = 0.5 # sub problem tolerance
+        η_end = 0.5 # global infeasability
         η_k = 2 # sub problem infeasability
 
         # initial points
         x_k = zeros(Type, nlc.nvar_x)
         r_k = zeros(Type, nlc.nvar_r)
-        nlc.y = zeros(Type, nlc.meta.ncon)
-        z_k = zeros(Type, length(nlc.meta.lvar) + length(nlc.meta.uvar))
-
+        λ_k = zeros(Type, nlc.meta.ncon)
+        z_k_U = zeros(Type, length(nlc.meta.uvar))
+        z_k_L = zeros(Type, length(nlc.meta.lvar))
 
     # ** II. Optimization loop
         k = 0
@@ -188,17 +188,18 @@ function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool)
             k += 1
             # ** II.1 Get subproblem's solution
                 if use_ipopt
-                    resolution_k = ipopt(nlc)::GenericExecutionStats
+                    resolution_k = ipopt(nlc, tol = ω_k, print_level = 0)::GenericExecutionStats
                     # Get variables
+                    #@show resolution_k.solution
                     x_k = resolution_k.solution[1:nlc.nvar_x]
-                    r_k = resolution_k.solution[nlc.nvar_x+1:nlc.nvar_r]
+                    r_k = resolution_k.solution[nlc.nvar_x+1 : nlc.nvar_x+nlc.nvar_r]
 
                     # Get multipliers
                     λ_k = resolution_k.solver_specific[:multipliers_con] 
                     z_k_U = resolution_k.solver_specific[:multipliers_U]
                     z_k_L = resolution_k.solver_specific[:multipliers_L]
 
-                else
+                else # Knitro
                     resolution_k = _knitro(nlc)::GenericExecutionStats
                     # Get variables
                     x_k = resolution_k.solution.x[1:nlc.nvar_x]
@@ -215,14 +216,13 @@ function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool)
 
             # ** II.2 Treatment & update
                 if norm(r_k,Inf) <= max(η_k, η_end) # The residue has decreased enough
-                    
-                    nlc.y = nlc.y + nlc.ρ * r_k # Updating multiplicator
+                    nlc.y = nlc.y + nlc.ρ * r_k # Updating multiplier
                     η_k = η_k / (1 + nlc.ρ ^ β) # (heuristic)
                     
                     # ** II.2.1 Solution found ?
                     #tolerance
                     if norm(r_k,Inf) <= min(η_k, η_end)
-                        converged = false          #! Doesn't work yet !      NLPModel_solved(nlc, x_k, λ_k) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
+                        converged = true          #! Doesn't work every time yet !      NLPModel_solved(nlc, x_k, λ_k) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
                     end
 
                 else # The residue is to still too large
@@ -231,7 +231,8 @@ function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool)
                     # TODO (recherche...) : update ω_k 
                 end
                 # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/nlc.ρ, nlc.ρ = 100ρ_k, η_k = 1/nlc.ρ^0.1
+            @show nlc.ρ, η_k, norm(r_k,Inf)
         end
-    
-    return x_k, nlc.y, r_k, z_k, converged # converged tells us if the solution returned is optimal or not
+    @show(NLPModel_solved(nlc, vcat(x_k, r_k), -λ_k, z_k_U, z_k_L, ω_end, true))
+    return x_k, nlc.y, λ_k, r_k, z_k_U, z_k_L, converged # converged tells us if the solution returned is optimal or not
 end

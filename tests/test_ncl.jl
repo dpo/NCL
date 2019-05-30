@@ -61,8 +61,8 @@ function test_ncl(test::Bool) #::Test.DefaultTestSet
 
 
 
-    println(ncl(nlc, 10, true))
-
+    x, nlc.y, λ, r, z_U, z_L, converged = ncl(nlc, 10, true)
+    @show(NLPModel_solved(nlp, x, -λ, z_U[1:nlc.nvar_x], z_L[1:nlc.nvar_x], 1, true))
 
 
     solve_print_nlp = false
@@ -70,7 +70,7 @@ function test_ncl(test::Bool) #::Test.DefaultTestSet
 
     if test
         @testset "ncl.jl" begin
-            #! NLPModel_solved doesn't work, probably because of sign of multipliers (with sign of constraint and jacobian)
+            #! NLPModel_solved doesn't work every time, probably because of sign of multipliers (with sign of constraint and jacobian)
 
             #@testset "NLPModel_solved(nlp) function" begin
             #    @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, 2], [0, -1], [0, 0], 0.01, solve_print_nlp) # solved by hand
