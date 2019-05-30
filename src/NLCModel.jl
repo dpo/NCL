@@ -114,7 +114,7 @@ function NLPModels.grad(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
 	return gx
 end
 
-function NLPModels.grad!(nlc::NLCModel, Z::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.grad!(nlc::NLCModel, X::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_grad)
 
 	if length(gx) != nlc.nvar
@@ -124,7 +124,7 @@ function NLPModels.grad!(nlc::NLCModel, Z::Vector{<:Real}, gx::Vector{<:Real}) :
 				 Empty vector returned")
 		return <:Real[]
 	end
-	
+
 	# Original information 
 		gx[1:nlc.nvar_x] = grad!(nlc.nlp, X[1:nlc.nvar_x], gx[1:nlc.nvar_x])
 	
