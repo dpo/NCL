@@ -175,7 +175,7 @@ function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool, ω_end::Real, printin
         z_k_U = zeros(Type, length(nlc.meta.uvar))
         z_k_L = zeros(Type, length(nlc.meta.lvar))
 
-    # ** II. Optimization loop
+    # ** II. Optimization loop and return
         k = 0
         converged = false
 
@@ -200,7 +200,7 @@ function ncl(nlc::NLCModel, maxIt::Int64, use_ipopt::Bool, ω_end::Real, printin
                 else # Knitro
                     resolution_k = _knitro(nlc)::GenericExecutionStats
                     # Get variables
-                    if printing
+                    if printing_iterations
                         @show resolution_k.solution
                     end
 
