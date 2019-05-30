@@ -65,6 +65,9 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                         @test nlc.meta.lvar == [0., 0., -Inf, -Inf] # no bounds for residues
                         @test nlc.meta.uvar == [1., 1., Inf, Inf]
                         @test nlc.meta.x0 == [0.5, 0.5, 1., 1.]
+                        @test nlc.meta.y0 == [0., 0., 0., 0.]
+                        @test nlc.y == y
+                        @test length(nlc.y) == nlc.nvar_r
                         @test nlc.meta.nnzj == nlp.meta.nnzj + 2 # 2 residues, one for each non linear constraint
                         @test nlc.meta.nnzh == nlp.meta.nnzh + 2 # add a digonal of ρ
                     end
