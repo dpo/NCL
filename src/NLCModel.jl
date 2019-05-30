@@ -86,8 +86,6 @@ end
 function NLPModels.obj(nlc::NLCModel, X::Vector{<:Real})::Real
 	increment!(nlc, :neval_obj)
 	if nlc.minimize
-		@show nlc.y[1:nlc.nvar_r]
-		@show X[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r]
 		if nlc.nvar_r == 0 # little test to avoid []' * []
 			return obj(nlc.nlp, X[1:nlc.nvar_x])
 		else
@@ -118,8 +116,7 @@ end
 
 function NLPModels.grad!(nlc::NLCModel, Z::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_grad)
-	X = vec(Z)
-	#println(X)
+
 	if length(gx) != nlc.nvar
 		println("ERROR: wrong length of argument gx passed to grad! in NLCModel
 				 gx should be of length " * string(nlc.nvar) * " but length " * string(length(gx)) * 
@@ -127,15 +124,12 @@ function NLPModels.grad!(nlc::NLCModel, Z::Vector{<:Real}, gx::Vector{<:Real}) :
 				 Empty vector returned")
 		return <:Real[]
 	end
+	
 	# Original information 
-		#@show grad(nlc.nlp, X[1:nlc.nvar_x])
 		gx[1:nlc.nvar_x] = grad!(nlc.nlp, X[1:nlc.nvar_x], gx[1:nlc.nvar_x])
 	
 	# New information (due to residues)
-		#@show(nlc.y)
-		#@show(X[nlc.nvar_x+1:end])
 		gx[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r] .= nlc.ρ * X[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r] .+ nlc.y[1:nlc.nvar_r]
-		#gx[nlc.nvar_x+1:nlc.nvar_x+nlc.nvar_r] = zeros(nlc.nvar_r)
 
 	return gx
 end
