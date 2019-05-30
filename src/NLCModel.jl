@@ -49,6 +49,7 @@ function NLCModel(nlp::AbstractNLPModel, mult::Vector{<:Real}, penal::Real)::NLC
 							lvar = vcat(nlp.meta.lvar, -Inf * ones(nvar_r)), # No bounds upon residues
 							uvar = vcat(nlp.meta.uvar, Inf * ones(nvar_r)),
 							x0   = vcat(nlp.meta.x0, ones(typeof(nlp.meta.x0[1]), nvar_r)),
+							y0   = zeros(typeof(nlp.meta.x0[1]), nlp.meta.ncon),
 							name = nlp.meta.name * " (NCL subproblem)",
 							nnzj = nlp.meta.nnzj + nvar_r, # we add nonzeros because of residues
 							nnzh = nlp.meta.nnzh + nvar_r,
@@ -85,12 +86,14 @@ end
 function NLPModels.obj(nlc::NLCModel, X::Vector{<:Real})::Real
 	increment!(nlc, :neval_obj)
 	if nlc.minimize
+		@show nlc.y[1:nlc.nvar_r]
+		@show X[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r]
 		if nlc.nvar_r == 0 # little test to avoid []' * []
 			return obj(nlc.nlp, X[1:nlc.nvar_x])
 		else
 			return obj(nlc.nlp, X[1:nlc.nvar_x]) +
-				nlc.y' * X[nlc.nvar_x + 1 : end] +
-				0.5 * nlc.ρ * (norm(X[nlc.nvar_x + 1 : end], 2) ^ 2)
+				(nlc.y[1:nlc.nvar_r])' * X[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r] +
+				0.5 * nlc.ρ * (norm(X[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r], 2) ^ 2)
 		end
 
 	else # argmax f(x) = argmin -f(x)
@@ -99,8 +102,8 @@ function NLPModels.obj(nlc::NLCModel, X::Vector{<:Real})::Real
 			return - obj(nlc.nlp, X[1:nlc.nvar_x])
 		else
 			return - obj(nlc.nlp, X[1:nlc.nvar_x]) +
-				nlc.y' * X[nlc.nvar_x + 1 : end] +
-				0.5 * nlc.ρ * (norm(X[nlc.nvar_x + 1 : end], 2) ^ 2)
+				nlc.y' * X[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r] +
+				0.5 * nlc.ρ * (norm(X[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r], 2) ^ 2)
 		end
 	end
 end
@@ -113,8 +116,10 @@ function NLPModels.grad(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
 	return gx
 end
 
-function NLPModels.grad!(nlc::NLCModel, X::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.grad!(nlc::NLCModel, Z::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_grad)
+	X = vec(Z)
+	#println(X)
 	if length(gx) != nlc.nvar
 		println("ERROR: wrong length of argument gx passed to grad! in NLCModel
 				 gx should be of length " * string(nlc.nvar) * " but length " * string(length(gx)) * 
@@ -123,10 +128,14 @@ function NLPModels.grad!(nlc::NLCModel, X::Vector{<:Real}, gx::Vector{<:Real}) :
 		return <:Real[]
 	end
 	# Original information 
-	gx[1:nlc.nvar_x] = grad!(nlc.nlp, X[1:nlc.nvar_x], gx[1:nlc.nvar_x])
+		#@show grad(nlc.nlp, X[1:nlc.nvar_x])
+		gx[1:nlc.nvar_x] = grad!(nlc.nlp, X[1:nlc.nvar_x], gx[1:nlc.nvar_x])
 	
 	# New information (due to residues)
-		gx[nlc.nvar_x+1:end] = nlc.ρ * X[nlc.nvar_x+1:end] + nlc.y
+		#@show(nlc.y)
+		#@show(X[nlc.nvar_x+1:end])
+		gx[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r] .= nlc.ρ * X[nlc.nvar_x + 1 : nlc.nvar_x + nlc.nvar_r] .+ nlc.y[1:nlc.nvar_r]
+		#gx[nlc.nvar_x+1:nlc.nvar_x+nlc.nvar_r] = zeros(nlc.nvar_r)
 
 	return gx
 end
