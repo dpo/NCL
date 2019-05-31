@@ -1,6 +1,31 @@
 
 using Test
 using NLPModels
+using CUTEst
+
+function decodemodel(name)
+    finalize(name)
+    CUTEstModel(name)
+end
+
+probs = ["AKIVA", "ALLINITU", "ARGLINA", "ARGLINB", "ARGLINC","ARGTRIGLS", "ARWHEAD"]
+broadcast(decodemodel, probs)
+
+addprocs(2)
+@everywhere using CUTEst
+@everywhere function evalmodel(name)
+   nlp = CUTEstModel(name; decode=false)
+   retval = obj(nlp, nlp.meta.x0)
+   finalize(nlp)
+   retval
+end
+
+fvals = pmap(evalmodel, probs)
+
+
+
+
+
 
 include("test_ncl.jl")
 include("test_NLCModel.jl")
@@ -35,12 +60,16 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
                 x[1] - x[2], # linear, lower bounded 
                 x[1] * x[2]] # equality one
 
-        name = "Unitary test problem"
-        nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
+        name_nlp = "Unitary test problem"
+        nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name_nlp)::ADNLPModel
 
         @testset "NCLMain" begin
-            @test isa(NCLMain(nlp), GenericExecutionStats)
-            @test NCLMain(nlp, max_iter = 15).iter <= 15
+            @test isa(NCLMain(nlp), Tuple{GenericExecutionStats, Bool})
+            @test NCLMain(nlp, max_iter = 15)[1].iter <= 15
+        end
+
+        @testset "Problem resolution" for name in problem_names
+            @test NCLMain(CUTEstModel(name; decode=false), max_iter = 100)[2] # several tests
         end
     end
 end

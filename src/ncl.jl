@@ -122,7 +122,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
     
     
     #** III. Lagrangian
-        ∇f_x = grad(nlp, x)
+        ∇f_x = grad(nlp, x)       
         ∇lag = ∇f_x - jtprod(nlp, x, y_temp) + z_L - z_U
         
         if norm(∇lag, Inf) > ω # Not a stationnary point for the lagrangian
@@ -148,13 +148,20 @@ Arguments:
     - nlp: optimization problem described by the modelization NLPModels.jl (voir https://github.com/JuliaSmoothOptimizers/NLPModels.jl)
       nlp is the generic problem you want to solve
 Returns:
-    x: position of the optimum found
-    y: optimal lagrangian multiplicator
-    r: value of constraints (around 0 if converged)
-    z: lagrangian multiplicator for bounds constraints
-    converged: a booleam, telling us if the progra; converged or reached the maximum of iterations fixed
+    a GenericExecutionStats, based on the NLPModelsIpopt/Knitro return :
+        SolverTools.status                              # of the last resolution
+        nlc                                             # the problem in argument,
+        solution = sol,                                 # solution found
+        iter = k,                                       # number of iteration of the ncl method (not iteration to solve subproblems)
+        objective=obj(nlc, sol),                        # objective value
+        elapsed_time=0,                                 # time of computation of the whole resolution
+        solver_specific=Dict(:multipliers_con => λ_k,   # lagrangian multipliers for : constraints
+                            :multipliers_L => z_k_L,    #                              upper bounds
+                            :multipliers_U => z_k_U     #                              lower bounds
+                            )
+        )
 """
-function ncl(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real, printing_iterations::Bool, printing_iterations_solver::Bool, printing_check::Bool) ::GenericExecutionStats
+function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real, printing_iterations::Bool, printing_iterations_solver::Bool, printing_check::Bool) ::GenericExecutionStats
     # ** I. Names and variables
         Type = typeof(nlc.meta.x0[1])
         nlc.ρ = 1 # step
@@ -226,6 +233,7 @@ function ncl(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real, prin
 
                         sol = vcat(x_k, r_k) # TODO: optimiser (cf reslution_k...)
 
+                        ## Testing
                         converged = NLPModel_solved(nlc, sol, -λ_k, z_k_U, z_k_L, ω_k, printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
                         status = resolution_k.status
 
@@ -236,17 +244,23 @@ function ncl(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real, prin
                                 println("EXIT: optimal solution NOT found, reached max_iter")
                             end
                         end
-                    
-                        return GenericExecutionStats(status, nlc,
-                                                     solution = sol, iter = k,
-                                                     objective=obj(nlc, sol), 
-                                                     elapsed_time=0,
-                                                     solver_specific=Dict(:multipliers_con => λ_k,
-                                                                          :multipliers_L => z_k_L,
-                                                                          :multipliers_U => z_k_U
-                                                                         )
-                                                    )
+                        
+                        ## And return
+                        if converged | (k == max_iter) # TODO: clarify
+                            return GenericExecutionStats(status, nlc,
+                                                        solution = sol, iter = k,
+                                                        objective=obj(nlc, sol), 
+                                                        elapsed_time=0,
+                                                        solver_specific=Dict(:multipliers_con => λ_k,
+                                                                            :multipliers_L => z_k_L,
+                                                                            :multipliers_U => z_k_U
+                                                                            )
+                                                        )
+                        end
                     end
+
+
+
 
                 else # The residue is to still too large
                     nlc.ρ = τ * nlc.ρ # increase the step # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence

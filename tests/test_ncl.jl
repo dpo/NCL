@@ -6,7 +6,9 @@ using NLPModelsIpopt
 include("../src/ncl.jl")
 
 function test_ncl(test::Bool) ::Test.DefaultTestSet
-    # Test problem
+    
+    
+    # Test problem 1
         ρ = 1.
         y = [2., 1.]
 
@@ -32,26 +34,26 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
         nlc = NLCModel(nlp)::NLCModel
 
-    nlc.y = y
-    nlc.ρ = ρ
+        nlc.y = y
+        nlc.ρ = ρ
 
     # Resolution of NLP with NLPModelsIpopt #! Attention aux mult d'IPOPT !
-        resolution_nlp_ipopt = ipopt(nlp, print_level = 0, tol = 0.01)
-        x_nlp_ipopt = resolution_nlp_ipopt.solution
+        resol_nlp_ipopt = ipopt(nlp, print_level = 0, tol = 0.01)
+        x_nlp_ipopt = resol_nlp_ipopt.solution
         
         # Get multipliers
-        λ_nlp_ipopt = resolution_nlp_ipopt.solver_specific[:multipliers_con]
-        z_U_nlp_ipopt = resolution_nlp_ipopt.solver_specific[:multipliers_U]
-        z_L_nlp_ipopt = resolution_nlp_ipopt.solver_specific[:multipliers_L]
+        λ_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_con]
+        z_U_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_U]
+        z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
 
     # Resolution of NLC with NLPModelsIpopt
-        resolution_nlc_ipopt = ipopt(nlc, print_level = 0, tol = 0.01)
-        x_nlc_ipopt = resolution_nlc_ipopt.solution
+        resol_nlc_ipopt = ipopt(nlc, print_level = 0, tol = 0.01)
+        x_nlc_ipopt = resol_nlc_ipopt.solution
         
         # Get multipliers
-        λ_nlc_ipopt = resolution_nlc_ipopt.solver_specific[:multipliers_con]
-        z_U_nlc_ipopt = resolution_nlc_ipopt.solver_specific[:multipliers_U]
-        z_L_nlc_ipopt = resolution_nlc_ipopt.solver_specific[:multipliers_L]
+        λ_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_con]
+        z_U_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_U]
+        z_L_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_L]
     
 
     
@@ -60,11 +62,11 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         printing_iterations = false
         printing_iterations_solver = false
 
-        resolution_nlc_ncl = ncl(nlc, 50, true, 0.1, printing_iterations, printing_iterations_solver, printing_check)
-        x_ncl = resolution_nlc_ncl.solution
-        λ_ncl = resolution_nlc_ncl.solver_specific[:multipliers_con]
-        z_U_ncl = resolution_nlc_ncl.solver_specific[:multipliers_U]
-        z_L_ncl = resolution_nlc_ncl.solver_specific[:multipliers_L]
+        resol_nlc_ncl = NCLSolve(nlc, 50, true, 0.1, printing_iterations, printing_iterations_solver, printing_check)
+        x_ncl = resol_nlc_ncl.solution
+        λ_ncl = resol_nlc_ncl.solver_specific[:multipliers_con]
+        z_U_ncl = resol_nlc_ncl.solver_specific[:multipliers_U]
+        z_L_ncl = resol_nlc_ncl.solver_specific[:multipliers_L]
 
 
     
