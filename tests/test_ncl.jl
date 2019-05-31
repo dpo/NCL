@@ -38,7 +38,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         nlc.ρ = ρ
 
     # Resolution of NLP with NLPModelsIpopt #! Attention aux mult d'IPOPT !
-        resol_nlp_ipopt = ipopt(nlp, print_level = 0, tol = 0.01)
+        resol_nlp_ipopt = NLPModelsIpopt.ipopt(nlp, print_level = 0, tol = 0.01)
         x_nlp_ipopt = resol_nlp_ipopt.solution
         
         # Get multipliers
@@ -47,7 +47,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
 
     # Resolution of NLC with NLPModelsIpopt
-        resol_nlc_ipopt = ipopt(nlc, print_level = 0, tol = 0.01)
+        resol_nlc_ipopt = NLPModelsIpopt.ipopt(nlc, print_level = 0, tol = 0.01)
         x_nlc_ipopt = resol_nlc_ipopt.solution
         
         # Get multipliers
@@ -62,7 +62,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         printing_iterations = false
         printing_iterations_solver = false
 
-        resol_nlc_ncl = NCLSolve(nlc, 50, true, 0.1, printing_iterations, printing_iterations_solver, printing_check)
+        resol_nlc_ncl = NCLSolve(nlc, 50, true, 0.1, 0.1, printing_iterations, printing_iterations_solver, printing_check)
         x_ncl = resol_nlc_ncl.solution
         λ_ncl = resol_nlc_ncl.solver_specific[:multipliers_con]
         z_U_ncl = resol_nlc_ncl.solver_specific[:multipliers_U]

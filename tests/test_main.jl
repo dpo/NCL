@@ -3,28 +3,13 @@ using Test
 using NLPModels
 using CUTEst
 
+
 function decodemodel(name)
-    finalize(name)
-    CUTEstModel(name)
+    finalize(CUTEstModel(name))
 end
 
-probs = ["AKIVA", "ALLINITU", "ARGLINA", "ARGLINB", "ARGLINC","ARGTRIGLS", "ARWHEAD"]
+probs = ["HS" * string(i) for i in 8:10]
 broadcast(decodemodel, probs)
-
-addprocs(2)
-@everywhere using CUTEst
-@everywhere function evalmodel(name)
-   nlp = CUTEstModel(name; decode=false)
-   retval = obj(nlp, nlp.meta.x0)
-   finalize(nlp)
-   retval
-end
-
-fvals = pmap(evalmodel, probs)
-
-
-
-
 
 
 include("test_ncl.jl")
@@ -66,11 +51,22 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
         @testset "NCLMain" begin
             @test isa(NCLMain(nlp), Tuple{GenericExecutionStats, Bool})
             @test NCLMain(nlp, max_iter = 15)[1].iter <= 15
+
+            finalize(nlp)
+
+            for name in probs # several tests
+                nlp = CUTEstModel(name)
+                println(nlp)
+                test_name = name * " problem resolution"
+                @testset "$test_name" begin
+                    @test NCLMain(nlp, max_iter = 300)[2] # several tests
+                    @test NCLMain(nlp, max_iter = 300)[1].iter <= 300
+                end
+                finalize(nlp)
+            end
         end
 
-        @testset "Problem resolution" for name in problem_names
-            @test NCLMain(CUTEstModel(name; decode=false), max_iter = 100)[2] # several tests
-        end
+
     end
 end
 

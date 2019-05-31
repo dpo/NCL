@@ -27,15 +27,15 @@ Tests if the (x, y) is a solution of the KKT conditions of the nlp problem (nlp 
 Note: the lagrangian is considered as :
     l(x, y) = f(x) - y' * c(x)          (!!! -, not + !!!)
 """
-function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, z_U::Vector{<:Real}, z_L::Vector{<:Real}, ω::Real, printing::Bool) ::Bool
+function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, z_U::Vector{<:Real}, z_L::Vector{<:Real}, ω::Real, η::Real, printing::Bool) ::Bool
     if printing
-        println(nlp.meta.name)
+        println("NLPModel_solved called on " * nlp.meta.name)
     end
 
     #** I. Bounds constraints
         #** II.1 Feasability
             for i in 1:nlp.meta.nvar 
-                if !(nlp.meta.lvar[i] - ω <= x[i] <= nlp.meta.uvar[i] + ω) 
+                if !(nlp.meta.lvar[i] - η <= x[i] <= nlp.meta.uvar[i] + η) 
                     if printing
                         println("    variable " * string(i) * " out of bounds + tolerance") 
                     end
@@ -44,7 +44,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
 
         #** I.2 Complementarity for bounds
                     if nlp.meta.lvar[i] > -Inf # ? Optimiser avec jupp, jlow ?
-                        if z_L[i] * (x[i] - nlp.meta.lvar[i]) > ω  
+                        if z_L[i] * (x[i] - nlp.meta.lvar[i]) > η  
                             if printing
                                 println("    complementarity not respected, see lowerbound of var " * string(i))
                                 @show z_L[i] * (nlp.meta.lvar[i] - x[i])
@@ -53,7 +53,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                         end
                     end
                     if nlp.meta.uvar[i] < Inf # ? Optimiser avec jupp, jlow ?
-                        if z_U[i] * (nlp.meta.uvar[i] - x[i]) > ω  
+                        if z_U[i] * (nlp.meta.uvar[i] - x[i]) > η  
                             if printing
                                 println("    complementarity not respected, see upperbound of var " * string(i))
                                 @show z_U[i] * (nlp.meta.uvar[i] - x[i])
@@ -71,12 +71,12 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
 
         #** II.1 Feasability
             for i in 1:nlp.meta.ncon
-                if !(nlp.meta.lcon[i] - ω <= c_x[i] <= nlp.meta.ucon[i] + ω)
+                if !(nlp.meta.lcon[i] - η <= c_x[i] <= nlp.meta.ucon[i] + η)
                     if printing
                         println("    constraint " * string(i) * " out of bounds + tolerance")
                         @show c_x[i]
-                        @show nlp.meta.ucon[i] + ω
-                        @show nlp.meta.lcon[i] - ω 
+                        @show nlp.meta.ucon[i] + η
+                        @show nlp.meta.lcon[i] - η 
                     end
                     return false 
                 end
@@ -92,7 +92,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                         y_temp[i] = - abs(y_temp[i])
                     end
 
-                    if (y[i] * (c_x[i] - nlp.meta.lcon[i])) > ω
+                    if (y[i] * (c_x[i] - nlp.meta.lcon[i])) > η
                         if printing
                             println("    complementarity not respected, see lower cons " * string(i))
                             @show y[i]
@@ -107,7 +107,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                         y_temp[i] = abs(y_temp[i])
                     end
 
-                    if (y[i] * (nlp.meta.ucon[i] - c_x[i])) > ω  
+                    if (y[i] * (nlp.meta.ucon[i] - c_x[i])) > η  
                         if printing
                             println("    complementarity not respected, see upper cons " * string(i))
                             @show y[i]
@@ -127,6 +127,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
         
         if norm(∇lag, Inf) > ω # Not a stationnary point for the lagrangian
             if printing
+                println("    not a stationnary point for the lagrangian")
                 @show ∇f_x
                 @show transpose(jac(nlp, x))
                 @show y_temp
@@ -137,7 +138,10 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
             end
             return false
         end
-
+    
+    if printing
+        println("    " * nlp.meta.name * " solved !")
+    end
     return true # all the tests were passed, x, y respects feasability, complementarity not respected, see and ∇lag(x, y) almost = 0
 end
 
@@ -161,17 +165,21 @@ Returns:
                             )
         )
 """
-function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real, printing_iterations::Bool, printing_iterations_solver::Bool, printing_check::Bool) ::GenericExecutionStats
+function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real, η_end::Real, printing_iterations::Bool, printing_iterations_solver::Bool, printing_check::Bool) ::GenericExecutionStats
+    if printing_iterations
+        println("NCLSolve called on " * nlc.meta.name)
+    end
+    
     # ** I. Names and variables
         Type = typeof(nlc.meta.x0[1])
         nlc.ρ = 1 # step
         τ = 10 # scale (used to update the ρ_k step)
-        α = 0.5 # Constant (α needs to be < 1)
-        β = 1 # Constant
+        α = 0.1 # Constant (α needs to be < 1)
+        β = 0.2 # Constant
 
         # ω_end = global tolerance, in argument
         ω_k = 0.5 # sub problem tolerance
-        η_end = 0.5 # global infeasability
+        #η_end = global infeasability in argument
         η_k = 2 # sub problem infeasability
 
         # initial points
@@ -189,12 +197,9 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
             k += 1
             # ** II.1 Get subproblem's solution
                 if use_ipopt
-                    resolution_k = ipopt(nlc, tol = ω_k, print_level = printing_iterations_solver ? 3 : 0)
+                    resolution_k = NLPModelsIpopt.ipopt(nlc, tol = ω_k, print_level = printing_iterations_solver ? 3 : 0)
+                    
                     # Get variables
-                    if printing_iterations
-                        @show resolution_k.solution
-                    end
-
                     x_k = resolution_k.solution[1:nlc.nvar_x]
                     r_k = resolution_k.solution[nlc.nvar_x+1 : nlc.nvar_x+nlc.nvar_r]
 
@@ -234,29 +239,31 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                         sol = vcat(x_k, r_k) # TODO: optimiser (cf reslution_k...)
 
                         ## Testing
-                        converged = NLPModel_solved(nlc, sol, -λ_k, z_k_U, z_k_L, ω_k, printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
+                        converged = NLPModel_solved(nlc.nlp, x_k, -λ_k, z_k_U[1:nlc.nvar_x], z_k_L[1:nlc.nvar_x], ω_end, η_end, printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
                         status = resolution_k.status
 
                         if printing_iterations
-                            if NLPModel_solved(nlc, sol, -λ_k, z_k_U, z_k_L, ω_end, printing_check)
-                                println("EXIT: optimal solution found")
-                            else
-                                println("EXIT: optimal solution NOT found, reached max_iter")
+                            println("    r_k assez petit pour regarder l'optimalité")
+                            if converged # TODO : ne pas vérifier avec le ncl, c'est débile, il faut regarder avec le nlp !
+                                println("    EXIT: optimal solution found")
+                            end
+                            if k == max_iter
+                                println("    EXIT: reached max_iter")
                             end
                         end
                         
                         ## And return
-                        if converged | (k == max_iter) # TODO: clarify
-                            return GenericExecutionStats(status, nlc,
-                                                        solution = sol, iter = k,
-                                                        objective=obj(nlc, sol), 
-                                                        elapsed_time=0,
-                                                        solver_specific=Dict(:multipliers_con => λ_k,
-                                                                            :multipliers_L => z_k_L,
-                                                                            :multipliers_U => z_k_U
-                                                                            )
-                                                        )
-                        end
+                        #if converged | (k == max_iter) # TODO: clarify
+                        return GenericExecutionStats(status, nlc,
+                                                    solution = sol, iter = k,
+                                                    objective=obj(nlc, sol), 
+                                                    elapsed_time=0,
+                                                    solver_specific=Dict(:multipliers_con => λ_k,
+                                                                        :multipliers_L => z_k_L,
+                                                                        :multipliers_U => z_k_U
+                                                                        )
+                                                    )
+                        #end
                     end
 
 
@@ -270,7 +277,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                 # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/nlc.ρ, nlc.ρ = 100ρ_k, η_k = 1/nlc.ρ^0.1
             
             if printing_iterations
-                @show nlc.ρ, η_k, norm(r_k,Inf)
+                @show k, nlc.ρ, η_k, norm(r_k,Inf), x_k, r_k
             end
         end    
 end
