@@ -8,12 +8,12 @@ include("../src/ncl.jl")
 function test_ncl(test::Bool) ::Test.DefaultTestSet
     
     printing_check = true
-    printing_iterations = false
+    printing_iterations = true
     printing_iterations_solver = false
     ω = 0.01
     η = 0.0001
     ϵ = 0.0001
-    # Test problem 1
+    # Test problem
         ρ = 1.
         y = [2., 1.]
 
@@ -60,7 +60,9 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         z_U_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_U]
         z_L_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_L]
     
-
+        @show x_nlc_ipopt
+        @show λ_nlc_ipopt
+        @show cons(nlc, x_nlc_ipopt)
     
     # Resolution of NLC with NCL method
         resol_nlc_ncl = NCLSolve(nlc, 50, true, ω, η, ϵ, printing_iterations, printing_iterations_solver, printing_check)
@@ -82,13 +84,17 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
             end
 
             @testset "NLPModel_solved(nlc) function" begin
-                @test_broken NLPModel_solved(nlc, x_nlc_ipopt, -λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, ω, η, ϵ, printing_check)
+                @test_broken NLPModel_solved(nlc, x_nlc_ipopt, -λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, ω, η, ϵ, printing_check) # Complémentarité 2eme contrainte non respectée
             end
 
             @testset "ncl algorithm" begin
                 @test NLPModel_solved(nlp, x_ncl[1:nlc.nvar_x], -λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], ω, η, ϵ, printing_check) 
             end
 
+        end
+    else
+        @testset "Avoid type bug" begin
+            @test true
         end
     end
 end
