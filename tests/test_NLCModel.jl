@@ -205,7 +205,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 end
             end
         else
-            @testset "Avoid type bug" begin
+            @testset "Avoid return type bug" begin
                 @test true
             end
         end

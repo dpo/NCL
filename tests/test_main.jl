@@ -17,12 +17,10 @@ include("test_NLCModel.jl")
 include("../src/main.jl")
 
 function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_main_command::Bool) ::Test.DefaultTestSet
-    if test_NCLModel_command
-        test_NLCModel(true)
-    end
-    if test_ncl_command
-        test_ncl(true)
-    end
+    test_NLCModel(test_NCLModel_command)
+    
+    test_ncl(test_ncl_command)
+    
     if test_main_command
         ρ = 1.
         y = [2., 1.]
@@ -69,7 +67,7 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
         end
 
     else
-        @testset "Avoid type bug" begin
+        @testset "Avoid return type bug" begin
             @test true
         end
     end
