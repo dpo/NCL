@@ -41,25 +41,33 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                 if !(nlp.meta.lvar[i] - η <= x[i] <= nlp.meta.uvar[i] + η) 
                     if printing
                         println("    variable " * string(i) * " out of bounds + tolerance") 
+                        println("    x[, ", i, "] = ", x[i])
+                        println("    nlp.meta.lvar[, ", i, "] = ", nlp.meta.lvar[i])
+                        println("    nlp.meta.uvar[, ", i, "] = ", nlp.meta.uvar[i])
                     end
                     return false
                 end
 
         #** I.2 Complementarity for bounds
                     if nlp.meta.lvar[i] > -Inf # ? Optimiser avec jupp, jlow ?
+
                         if z_L[i] * (x[i] - nlp.meta.lvar[i]) > ϵ  
                             if printing
-                                println("    complementarity not respected, see lowerbound of var " * string(i))
-                                @show z_L[i] * (nlp.meta.lvar[i] - x[i])
+                                println("    complementarity = ", (z_L[i] * (x[i] - nlp.meta.lvar[i])), " out of tolerance ϵ = ", ϵ, ". See lower var cons " * string(i))
+                                println("      z_L[", i, "]             = ", z_L[i])
+                                println("      x[", i, "]           = ", x[i])
+                                println("      nlp.meta.lvar[", i, "] = ", nlp.meta.lvar[i])
                             end
                             return false
                         end
                     end
                     if nlp.meta.uvar[i] < Inf # ? Optimiser avec jupp, jlow ?
-                        if z_U[i] * (nlp.meta.uvar[i] - x[i]) > ϵ  
+                        if z_U[i] * (x[i] - nlp.meta.uvar[i]) > ϵ  
                             if printing
-                                println("    complementarity not respected, see upperbound of var " * string(i))
-                                @show z_U[i] * (nlp.meta.uvar[i] - x[i])
+                                println("    complementarity = ", (z_U[i] * (x[i] - nlp.meta.uvar[i])), " out of tolerance ϵ = ", ϵ, ". See upper var cons " * string(i))
+                                println("      z_U[", i, "]             = ", z_U[i])
+                                println("      x[", i, "]           = ", x[i])
+                                println("      nlp.meta.uvar[", i, "] = ", nlp.meta.uvar[i])
                             end
                             return false
                         end
@@ -77,54 +85,54 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                 if !(nlp.meta.lcon[i] - η <= c_x[i] <= nlp.meta.ucon[i] + η)
                     if printing
                         println("    constraint " * string(i) * " out of bounds + tolerance")
-                        println("    c_x[", i, "]               = ", c_x[i])
-                        println("    nlp.meta.ucon[", i, "] + η = ", nlp.meta.ucon[i] + η)
-                        println("    nlp.meta.lcon[", i, "] - η = ", nlp.meta.lcon[i] - η)
+                        println("      c_x[", i, "]               = ", c_x[i])
+                        println("      nlp.meta.ucon[", i, "] + η = ", nlp.meta.ucon[i] + η)
+                        println("      nlp.meta.lcon[", i, "] - η = ", nlp.meta.lcon[i] - η)
                     end
                     return false 
                 end
 
                 if i in nlp.meta.jinf
                     @warn "    infeasable problem passed to NLPModel_solved.\n    Check the constraint" * string(i)
-                    return(false)
+                    return false
                 end
 
         #** II.2 Complementarity
                 if nlp.meta.lcon[i] > -Inf # ? Optimiser avec jupp, jlow ?
-                    if !((i in nlp.meta.jrng) | (i in nlp.meta.jfix))
-                        y_temp[i] = - abs(y_temp[i])
+                    if !((i in nlp.meta.jrng) | (i in nlp.meta.jfix)) & (y_temp[i] >= 0)
+                        y_temp[i] = - y_temp[i]
                         if printing
                             println("    y[", i, "]      = ", y[i])
                             println("    y_temp[", i, "] = ", y_temp[i])
                         end
                     end
 
-                    if (y[i] * (c_x[i] - nlp.meta.lcon[i])) > ϵ
+                    if !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) # Complemntarity condition (sign handled by the condition above and the feasability test)
                         if printing
-                            println("    complementarity not respected, see lower cons " * string(i))
-                            println("    y[", i, "]             = ", y[i])
-                            println("    c_x[", i, "]           = ", c_x[i])
-                            println("    nlp.meta.lcon[", i, "] = ", nlp.meta.lcon[i])
+                            println("    complementarity = ", (y_temp[i] * (c_x[i] - nlp.meta.lcon[i])), " out of tolerance ϵ = ", ϵ, ". See lower cons " * string(i))
+                            println("      y[", i, "]             = ", y[i])
+                            println("      c_x[", i, "]           = ", c_x[i])
+                            println("      nlp.meta.lcon[", i, "] = ", nlp.meta.lcon[i])
                         end
                         return false
                     end
                 end
             
                 if nlp.meta.ucon[i] < Inf # ? Optimiser avec jupp, jlow ?
-                    if !((i in nlp.meta.jrng) | (i in nlp.meta.jfix))
-                        y_temp[i] = abs(y_temp[i])
+                    if !((i in nlp.meta.jrng) | (i in nlp.meta.jfix)) & (y_temp[i] <= 0)
+                        y_temp[i] = - y_temp[i]
                         if printing
                             println("    y[", i, "]      = ", y[i])
                             println("    y_temp[", i, "] = ", y_temp[i])
                         end
                     end
 
-                    if (y[i] * (nlp.meta.ucon[i] - c_x[i])) > ϵ  
+                    if !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  # Complemntarity condition (sign handled by the condition above and the feasability test)
                         if printing
-                            println("    complementarity not respected, see upper cons " * string(i))
-                            println("    y[", i, "]             = ", y[i])
-                            println("    c_x[", i, "]           = ", c_x[i])
-                            println("    nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
+                            println("    complementarity = ", (y_temp[i] * (c_x[i] - nlp.meta.ucon[i])), " out of tolerance ϵ = ", ϵ, ". See upper cons " * string(i))
+                            println("      y[", i, "]             = ", y[i])
+                            println("      c_x[", i, "]           = ", c_x[i])
+                            println("      nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
                         end
                         return false
                     end
@@ -140,13 +148,13 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
         if norm(∇lag, Inf) > ω # Not a stationnary point for the lagrangian
             if printing
                 println("    not a stationnary point for the lagrangian")
-                println("    ∇f_x              = ", ∇f_x)
-                println("    t(Jac_x)          = ", transpose(jac(nlp, x)))
-                println("    y_temp            = ", y_temp)
-                println("    t(Jac_x) * y_temp = ", jtprod(nlp, x, y_temp))
-                println("    -z_U              = ", -z_U)
-                println("    z_L               = ", z_L)
-                println("    ∇lag_x            = ", ∇lag)
+                println("      ∇f_x              = ", ∇f_x)
+                println("      t(Jac_x)          = ", transpose(jac(nlp, x)))
+                println("      y_temp            = ", y_temp)
+                println("      t(Jac_x) * y_temp = ", jtprod(nlp, x, y_temp))
+                println("      -z_U              = ", -z_U)
+                println("      z_L               = ", z_L)
+                println("      ∇lag_x            = ", ∇lag)
             end
             return false
         end
@@ -206,7 +214,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
         k = 0
         converged = false
 
-        while k < max_iter && !converged
+        while (k < max_iter) & !converged
             k += 1
             # ** II.1 Get subproblem's solution
                 if use_ipopt
@@ -224,9 +232,6 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                 else # Knitro
                     resolution_k = _knitro(nlc)::GenericExecutionStats
                     # Get variables
-                    if printing_iterations
-                        @show resolution_k.solution
-                    end
 
                     x_k = resolution_k.solution.x[1:nlc.nvar_x]
                     r_k = resolution_k.solution.x[nlc.nvar_x+1:nlc.nvar_r]
