@@ -35,6 +35,17 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
         println("\nNLPModel_solved called on " * nlp.meta.name)
     end
 
+#! A fixer !!!!!!!
+    
+    if any(z_U .< -ϵ) & any(z_L .> ϵ) 
+        @show z_U
+        @show z_L
+        error("sign problem of z_U or z_L passed in argument to NLPModel_solved.\n 
+               z_U and z_L are supposed to be of same sign : z_U >= 0, z_L <= 0.\n 
+               Here, some components of z_U or z_L are negative, but not all of them.")
+    end
+
+    
     #** I. Bounds constraints
         #** II.1 Feasability
             for i in 1:nlp.meta.nvar 
@@ -49,8 +60,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                 end
 
         #** I.2 Complementarity for bounds
-                    if nlp.meta.lvar[i] > -Inf # ? Optimiser avec jupp, jlow ?
-
+                    if nlp.meta.lvar[i] > -Inf
                         if z_L[i] * (x[i] - nlp.meta.lvar[i]) > ϵ  
                             if printing
                                 println("    complementarity = ", (z_L[i] * (x[i] - nlp.meta.lvar[i])), " out of tolerance ϵ = ", ϵ, ". See lower var cons " * string(i))
@@ -61,7 +71,8 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                             return false
                         end
                     end
-                    if nlp.meta.uvar[i] < Inf # ? Optimiser avec jupp, jlow ?
+
+                    if nlp.meta.uvar[i] < Inf
                         if z_U[i] * (x[i] - nlp.meta.uvar[i]) > ϵ  
                             if printing
                                 println("    complementarity = ", (z_U[i] * (x[i] - nlp.meta.uvar[i])), " out of tolerance ϵ = ", ϵ, ". See upper var cons " * string(i))
@@ -96,48 +107,49 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                     @warn "    infeasable problem passed to NLPModel_solved.\n    Check the constraint" * string(i)
                     return false
                 end
+            end
 
         #** II.2 Complementarity
-                if nlp.meta.lcon[i] > -Inf # ? Optimiser avec jupp, jlow ?
-                    if !((i in nlp.meta.jrng) | (i in nlp.meta.jfix)) & (y_temp[i] >= 0)
-                        y_temp[i] = - y_temp[i]
-                        if printing
-                            println("    y[", i, "]      = ", y[i])
-                            println("    y_temp[", i, "] = ", y_temp[i])
-                        end
-                    end
-
-                    if !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) # Complemntarity condition (sign handled by the condition above and the feasability test)
-                        if printing
-                            println("    complementarity = ", (y_temp[i] * (c_x[i] - nlp.meta.lcon[i])), " out of tolerance ϵ = ", ϵ, ". See lower cons " * string(i))
-                            println("      y[", i, "]             = ", y[i])
-                            println("      c_x[", i, "]           = ", c_x[i])
-                            println("      nlp.meta.lcon[", i, "] = ", nlp.meta.lcon[i])
-                        end
-                        return false
+            for i in nlp.meta.jlow # lower constraints
+                if (y_temp[i] >= 0)
+                    y_temp[i] = - y_temp[i]
+                    if printing
+                        println("    y[", i, "]      = ", y[i])
+                        println("    y_temp[", i, "] = ", y_temp[i])
                     end
                 end
+
+                if !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) # Complemntarity condition (sign handled by the condition above and the feasability test)
+                    if printing
+                        println("    complementarity = ", (y_temp[i] * (c_x[i] - nlp.meta.lcon[i])), " out of tolerance ϵ = ", ϵ, ". See lower cons " * string(i))
+                        println("      y[", i, "]             = ", y[i])
+                        println("      c_x[", i, "]           = ", c_x[i])
+                        println("      nlp.meta.lcon[", i, "] = ", nlp.meta.lcon[i])
+                    end
+                    return false
+                end
+            end
             
-                if nlp.meta.ucon[i] < Inf # ? Optimiser avec jupp, jlow ?
-                    if !((i in nlp.meta.jrng) | (i in nlp.meta.jfix)) & (y_temp[i] <= 0)
-                        y_temp[i] = - y_temp[i]
-                        if printing
-                            println("    y[", i, "]      = ", y[i])
-                            println("    y_temp[", i, "] = ", y_temp[i])
-                        end
-                    end
 
-                    if !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  # Complemntarity condition (sign handled by the condition above and the feasability test)
-                        if printing
-                            println("    complementarity = ", (y_temp[i] * (c_x[i] - nlp.meta.ucon[i])), " out of tolerance ϵ = ", ϵ, ". See upper cons " * string(i))
-                            println("      y[", i, "]             = ", y[i])
-                            println("      c_x[", i, "]           = ", c_x[i])
-                            println("      nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
-                        end
-                        return false
+            for i in nlp.meta.jupp # upper constraints
+                if y_temp[i] <= 0
+                    y_temp[i] = - y_temp[i]
+                    if printing
+                        println("    y[", i, "]      = ", y[i])
+                        println("    y_temp[", i, "] = ", y_temp[i])
                     end
-
                 end
+
+                if !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  # Complmentarity condition (sign handled by the condition above and the feasability test)
+                    if printing
+                        println("    complementarity = ", (y_temp[i] * (c_x[i] - nlp.meta.ucon[i])), " out of tolerance ϵ = ", ϵ, ". See upper cons " * string(i))
+                        println("      y[", i, "]             = ", y[i])
+                        println("      c_x[", i, "]           = ", c_x[i])
+                        println("      nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
+                    end
+                    return false
+                end
+
             end
     
     
@@ -151,6 +163,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                 println("      ∇f_x              = ", ∇f_x)
                 println("      t(Jac_x)          = ", transpose(jac(nlp, x)))
                 println("      y_temp            = ", y_temp)
+                println("      y                 = ", y)
                 println("      t(Jac_x) * y_temp = ", jtprod(nlp, x, y_temp))
                 println("      -z_U              = ", -z_U)
                 println("      z_L               = ", z_L)
