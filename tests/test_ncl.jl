@@ -76,16 +76,16 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
             # TODO: fix this problem...
 
             @testset "NLPModel_solved(nlp) function" begin
-                @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, 2], [0, -1], [0, 0], 0.01, printing_check) # solved by hand
-                @test NLPModel_solved(nlp, x_nlp_ipopt, -λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, 1, printing_check)
+                @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, 2], [0, -1], [0, 0], 0.01, 0.01, printing_check) # solved by hand
+                @test NLPModel_solved(nlp, x_nlp_ipopt, -λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, 1, 1, printing_check)
             end
 
             @testset "NLPModel_solved(nlc) function" begin
-                @test_broken NLPModel_solved(nlc, x_nlc_ipopt, -λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, 1, printing_check)
+                @test_broken NLPModel_solved(nlc, x_nlc_ipopt, -λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, 1, 1, printing_check)
             end
 
             @testset "ncl algorithm" begin
-                @test NLPModel_solved(nlp, x_ncl[1:nlc.nvar_x], -λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], 0.1, printing_check) 
+                @test NLPModel_solved(nlp, x_ncl[1:nlc.nvar_x], -λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], 0.1, 0.1, printing_check) 
             end
 
         end
