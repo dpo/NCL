@@ -35,8 +35,6 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
         println("\nNLPModel_solved called on " * nlp.meta.name)
     end
 
-#! A fixer !!!!!!!
-    
     if any(z_U .< -ϵ) & any(z_L .> ϵ) 
         @show z_U
         @show z_L
@@ -90,6 +88,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
     #** II. Other constraints
         c_x = cons(nlp, x)
         y_temp = y
+        # ! Faire une vraie copy, pour éviter les conneries
 
         #** II.1 Feasability
             for i in 1:nlp.meta.ncon
@@ -111,7 +110,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
 
         #** II.2 Complementarity
             for i in nlp.meta.jlow # lower constraints
-                if (y_temp[i] >= 0)
+                if (y_temp[i] >= ϵ)
                     y_temp[i] = - y_temp[i]
                     if printing
                         println("    y[", i, "]      = ", y[i])
@@ -132,7 +131,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
             
 
             for i in nlp.meta.jupp # upper constraints
-                if y_temp[i] <= 0
+                if y_temp[i] <= -ϵ
                     y_temp[i] = - y_temp[i]
                     if printing
                         println("    y[", i, "]      = ", y[i])
@@ -155,7 +154,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
     
     #** III. Lagrangian
         ∇f_x = grad(nlp, x)       
-        ∇lag = ∇f_x - jtprod(nlp, x, y_temp) + z_L - z_U
+        ∇lag = ∇f_x + jtprod(nlp, x, y_temp) + z_L - z_U
         
         if norm(∇lag, Inf) > ω # Not a stationnary point for the lagrangian
             if printing
@@ -230,7 +229,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
         while (k < max_iter) & !converged
             k += 1
             # ** II.1 Get subproblem's solution
-                if use_ipopt
+            if use_ipopt
                     resolution_k = NLPModelsIpopt.ipopt(nlc, tol = ω_k, constr_viol_tol = η_k, compl_inf_tol = ϵ_end, print_level = printing_iterations_solver ? 3 : 0, ignore_time = true)
                     
                     # Get variables
@@ -284,8 +283,8 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                         sol = vcat(x_k, r_k) # TODO: optimiser (cf resolution_k...)
 
                         ## Testing
-                        converged = NLPModel_solved(nlc.nlp, x_k, -λ_k, z_k_U[1:nlc.nvar_x], z_k_L[1:nlc.nvar_x], ω_end, η_end, ϵ_end, printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
-                        if printing_check & !converged # means we printed some thing with NLPModel_solved, so we skip a line
+                        converged = NLPModel_solved(nlc.nlp, x_k, λ_k, z_k_U[1:nlc.nvar_x], z_k_L[1:nlc.nvar_x], ω_end, η_end, ϵ_end, printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
+                        if printing_check & !converged & printing_check # means we printed some thing with NLPModel_solved, so we skip a line
                             println("\n")
                         end
                         

@@ -8,7 +8,7 @@ include("../src/ncl.jl")
 function test_ncl(test::Bool) ::Test.DefaultTestSet
     
     printing_check = true
-    printing_iterations = true
+    printing_iterations = false
     printing_iterations_solver = false
     ω = 0.01
     η = 0.0001
@@ -60,40 +60,56 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         z_U_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_U]
         z_L_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_L]
     
-        @show x_nlc_ipopt
-        @show λ_nlc_ipopt
-        @show cons(nlc, x_nlc_ipopt)
+        
     
     # Resolution of NLC with NCL method
         resol_nlc_ncl = NCLSolve(nlc, 50, true, ω, η, ϵ, printing_iterations, printing_iterations_solver, printing_check)
+
         x_ncl = resol_nlc_ncl.solution
         λ_ncl = resol_nlc_ncl.solver_specific[:multipliers_con]
         z_U_ncl = resol_nlc_ncl.solver_specific[:multipliers_U]
         z_L_ncl = resol_nlc_ncl.solver_specific[:multipliers_L]
 
+        @show x_nlc_ipopt
+        @show λ_nlc_ipopt
+        @show nlc.meta.lcon
+        nlc.y = y # back to the first value
+        nlc.ρ = ρ
+        @show cons(nlc, x_nlc_ipopt)
+        @show nlc.meta.ucon
+        @show grad(nlc, x_nlc_ipopt)
+
 
     
+    
+    
+        ########################## - lambda ou - jprod...
+
+
+
     if test
         @testset "ncl.jl" begin
             #! NLPModel_solved doesn't work every time, probably because of sign of multipliers (with sign of constraint and jacobian)...
             # TODO: fix this problem...
 
             @testset "NLPModel_solved(nlp) function" begin
-                @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, 2], [0, -1], [0, 0], ω, η, ϵ, printing_check) # solved by hand
-                @test NLPModel_solved(nlp, x_nlp_ipopt, -λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
+                @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, -2], [0, -1], [0, 0], ω, η, ϵ, printing_check) # solved by hand
+                @test NLPModel_solved(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
             end
 
             @testset "NLPModel_solved(nlc) function" begin
-                @test_broken NLPModel_solved(nlc, x_nlc_ipopt, -λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, ω, η, ϵ, printing_check) # Complémentarité 2eme contrainte non respectée
+                nlc.y = y # back to the first value
+                nlc.ρ = ρ
+                @test NLPModel_solved(nlc, x_nlc_ipopt, λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, ω, η, ϵ, printing_check) # Complémentarité 2eme contrainte non respectée
             end
 
             @testset "ncl algorithm" begin
-                @test NLPModel_solved(nlp, x_ncl[1:nlc.nvar_x], -λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], ω, η, ϵ, printing_check) 
+                @test NLPModel_solved(nlp, x_ncl[1:nlc.nvar_x], λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], ω, η, ϵ, printing_check) 
             end
 
         end
     else
-        @testset "Avoid type bug" begin
+        @testset "Avoid return type bug" begin
             @test true
         end
     end
