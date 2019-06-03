@@ -29,7 +29,13 @@ mutable struct NLCModel <: AbstractNLPModel
 		ρ::Real
 end
 
-function NLCModel(nlp::AbstractNLPModel)::NLCModel
+function NLCModel(nlp::AbstractNLPModel ; printing = false::Bool)::NLCModel
+	# * 0. printing
+		if printing
+			println("\nNLCModel called on " * nlp.meta.name)
+		end
+	
+	
 	# Information about the original problem
 		if (nlp.meta.lin == Int[]) & (isa(nlp, ADNLPModel)) & (nlp.meta.name == "Unitary test problem")
 			jres = [2, 4] 
