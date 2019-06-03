@@ -7,7 +7,12 @@ include("../src/ncl.jl")
 
 function test_ncl(test::Bool) ::Test.DefaultTestSet
     
-    
+    printing_check = true
+    printing_iterations = false
+    printing_iterations_solver = false
+    ω = 0.01
+    η = 0.0001
+    ϵ = 0.0001
     # Test problem 1
         ρ = 1.
         y = [2., 1.]
@@ -38,7 +43,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         nlc.ρ = ρ
 
     # Resolution of NLP with NLPModelsIpopt #! Attention aux mult d'IPOPT !
-        resol_nlp_ipopt = NLPModelsIpopt.ipopt(nlp, print_level = 0, tol = 0.01)
+        resol_nlp_ipopt = NLPModelsIpopt.ipopt(nlp, print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
         x_nlp_ipopt = resol_nlp_ipopt.solution
         
         # Get multipliers
@@ -47,7 +52,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
 
     # Resolution of NLC with NLPModelsIpopt
-        resol_nlc_ipopt = NLPModelsIpopt.ipopt(nlc, print_level = 0, tol = 0.01)
+        resol_nlc_ipopt = NLPModelsIpopt.ipopt(nlc, print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
         x_nlc_ipopt = resol_nlc_ipopt.solution
         
         # Get multipliers
@@ -58,11 +63,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
 
     
     # Resolution of NLC with NCL method
-        printing_check = false
-        printing_iterations = false
-        printing_iterations_solver = false
-
-        resol_nlc_ncl = NCLSolve(nlc, 50, true, 0.1, 0.1, printing_iterations, printing_iterations_solver, printing_check)
+        resol_nlc_ncl = NCLSolve(nlc, 50, true, ω, η, ϵ, printing_iterations, printing_iterations_solver, printing_check)
         x_ncl = resol_nlc_ncl.solution
         λ_ncl = resol_nlc_ncl.solver_specific[:multipliers_con]
         z_U_ncl = resol_nlc_ncl.solver_specific[:multipliers_U]
@@ -76,16 +77,16 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
             # TODO: fix this problem...
 
             @testset "NLPModel_solved(nlp) function" begin
-                @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, 2], [0, -1], [0, 0], 0.01, 0.01, printing_check) # solved by hand
-                @test NLPModel_solved(nlp, x_nlp_ipopt, -λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, 1, 1, printing_check)
+                @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, 2], [0, -1], [0, 0], ω, η, ϵ, printing_check) # solved by hand
+                @test NLPModel_solved(nlp, x_nlp_ipopt, -λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
             end
 
             @testset "NLPModel_solved(nlc) function" begin
-                @test_broken NLPModel_solved(nlc, x_nlc_ipopt, -λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, 1, 1, printing_check)
+                @test_broken NLPModel_solved(nlc, x_nlc_ipopt, -λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, ω, η, ϵ, printing_check)
             end
 
             @testset "ncl algorithm" begin
-                @test NLPModel_solved(nlp, x_ncl[1:nlc.nvar_x], -λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], 0.1, 0.1, printing_check) 
+                @test NLPModel_solved(nlp, x_ncl[1:nlc.nvar_x], -λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], ω, η, ϵ, printing_check) 
             end
 
         end

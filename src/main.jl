@@ -5,6 +5,9 @@ using NLPModelsIpopt
 include("ncl.jl")
 include("NLCModel.jl")
 
+
+
+#! TODO "tol" de resolution ne doit pas être utilisé pour le grad du lagrangien
 printing = true
 """
 Main function for the NCL method. 
@@ -13,16 +16,16 @@ Main function for the NCL method.
     Calls ncl.jl on it,
     Returns (x (solution), y (lagrangian multipliers for constraints), z (lagrangian multpliers for bound constraints))
 """
-function NCLMain(nlp::AbstractNLPModel; tol = 0.01::Real, tol_infeas = 0.1::Real, max_iter = 200::Int64, use_ipopt = true::Bool, printing_iterations = printing::Bool, printing_iterations_solver = false::Bool, printing_check = printing::Bool) ::Tuple{GenericExecutionStats, Bool}
+function NCLMain(nlp::AbstractNLPModel; tol = 0.01::Real, constr_viol_tol = 0.001::Real, compl_inf_tol = 0.001::Real, max_iter = 200::Int64, use_ipopt = true::Bool, printing_iterations = printing::Bool, printing_iterations_solver = false::Bool, printing_check = printing::Bool) ::Tuple{GenericExecutionStats, Bool}
     if (nlp.meta.ncon == 0) | (nlp.meta.nnln == 0)
         if printing_iterations
             println("Résolution de " * nlp.meta.name * " par IPOPT / KNITRO")
         end
-        
+
         if use_ipopt
-            return (NLPModelsIpopt.ipopt(nlp, tol = tol, max_iter = max_iter, print_level = printing_iterations_solver ? 3 : 0), true)
+            return (NLPModelsIpopt.ipopt(nlp, tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter, print_level=printing_iterations_solver ? 3 : 0), true)
         else
-            return (_knitro(nlp, tol = tol, max_iter = max_iter, print_level = printing_iterations_solver ? 3 : 0), true)
+            return (_knitro(nlp, tol = tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter = max_iter, print_level = printing_iterations_solver ? 3 : 0), true)
         end
 
     else
@@ -31,7 +34,7 @@ function NCLMain(nlp::AbstractNLPModel; tol = 0.01::Real, tol_infeas = 0.1::Real
             println("\n")
         end
 
-        resol = NCLSolve(nlc, max_iter, use_ipopt, tol, tol_infeas, printing_iterations, printing_iterations_solver, printing_check)
+        resol = NCLSolve(nlc, max_iter, use_ipopt, tol, constr_viol_tol, compl_inf_tol, printing_iterations, printing_iterations_solver, printing_check)
         if printing_iterations
             println("\n")
         end
