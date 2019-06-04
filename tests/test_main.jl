@@ -8,7 +8,7 @@ function decodemodel(name)
     finalize(CUTEstModel(name))
 end
 
-probs = ["HS" * string(i) for i in 8:10]
+probs = ["HS" * string(i) for i in 8:20]
 broadcast(decodemodel, probs)
 
 
