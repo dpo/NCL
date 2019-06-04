@@ -35,22 +35,23 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
         println("\nNLPModel_solved called on " * nlp.meta.name)
     end
 
-    if any(z_U .< -ϵ) & any(z_L .> ϵ) 
-        println("    z_U = ", z_U)
-        println("    z_L = ", z_L)
+    #** 0. Warnings and mode determination
+        if any(z_U .< -ϵ) & any(z_L .> ϵ) 
+            println("    z_U = ", z_U)
+            println("    z_L = ", z_L)
 
-        error("sign problem of z_U or z_L passed in argument to NLPModel_solved.\n 
-               z_U and z_L are supposed to be of same sign : z_U >= 0, z_L <= 0.\n 
-               Here, some components of z_U or z_L are of the wrong sign")
-    end
+            error("sign problem of z_U or z_L passed in argument to NLPModel_solved.\n 
+                z_U and z_L are supposed to be of same sign : z_U >= 0, z_L <= 0.\n 
+                Here, some components of z_U or z_L are of the wrong sign")
+        end
 
-    if (z_U == []) & (nlp.meta.iupp != []) # NLPModelsKnitro returns z_U = [], "didn't find how to treat those separately"
-        knitro = true
-        z = z_L
-        z_temp = copy(z)
-    else 
-        knitro = false
-    end
+        if (z_U == []) & (nlp.meta.iupp != []) # NLPModelsKnitro returns z_U = [], "didn't find how to treat those separately"
+            knitro = true
+            z = z_L
+            z_temp = copy(z)
+        else 
+            knitro = false
+        end
     
     #** I. Bounds constraints
         if knitro
@@ -139,8 +140,9 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
     
 
     #** II. Other constraints
-        c_x = cons(nlp, x) # Precomputation
-        y_temp = copy(y) # real copy, to avoid initial data modification
+        #** II.0 Precomputation
+            c_x = cons(nlp, x) # Precomputation
+            y_temp = copy(y) # real copy, to avoid initial data modification
 
         #** II.1 Feasability
             for i in 1:nlp.meta.ncon
@@ -209,32 +211,50 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
         ∇f_x = grad(nlp, x)      
         
         if knitro
-            ∇lag = ∇f_x + jtprod(nlp, x, y_temp) + z_L
-            #∇lag = ∇f_x - jtprod(nlp, x, y) + z_L
+            ∇lag_x = ∇f_x + jtprod(nlp, x, y_temp) + z_L
+            #∇lag_x = ∇f_x - jtprod(nlp, x, y) + z_L
+
+            if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
+                if printing
+                    println("    not a stationnary point for the lagrangian")
+                    println("      ∇f_x              = ", ∇f_x)
+                    println("      t(Jac_x)          = ", transpose(jac(nlp, x)))
+                    println("      y_temp            = ", y_temp)
+                    println("      y                 = ", y)
+                    println("      t(Jac_x) * y_temp = ", jtprod(nlp, x, y_temp))
+                    println("      t(Jac_x) * y      = ", jtprod(nlp, x, y))
+                    println("      z                 = ", z)
+                    println("      ∇lag_x            = ", ∇lag_x)
+                end
+                return false
+            end
         else
-            ∇lag = ∇f_x + jtprod(nlp, x, y_temp) + z_L - z_U
-            #∇lag = ∇f_x - jtprod(nlp, x, y) + z_L - z_U
+            ∇lag_x = ∇f_x + jtprod(nlp, x, y_temp) + z_L - z_U
+            #∇lag_x = ∇f_x + jtprod(nlp, x, y) + z_L - z_U
+
+            if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
+                if printing
+                    println("    not a stationnary point for the lagrangian")
+                    println("      ∇f_x              = ", ∇f_x)
+                    println("      t(Jac_x)          = ", transpose(jac(nlp, x)))
+                    println("      y_temp            = ", y_temp)
+                    println("      y                 = ", y)
+                    println("      t(Jac_x) * y_temp = ", jtprod(nlp, x, y_temp))
+                    println("      t(Jac_x) * y      = ", jtprod(nlp, x, y))
+                    println("      -z_U              = ", -z_U)
+                    println("      z_L               = ", z_L)
+                    println("      ∇lag_x            = ", ∇lag_x)
+                end
+                return false
+            end
         end
         
-        if norm(∇lag, Inf) > ω # Not a stationnary point for the lagrangian
-            if printing
-                println("    not a stationnary point for the lagrangian")
-                println("      ∇f_x              = ", ∇f_x)
-                println("      t(Jac_x)          = ", transpose(jac(nlp, x)))
-                println("      y_temp            = ", y_temp)
-                println("      y                 = ", y)
-                println("      t(Jac_x) * y_temp = ", jtprod(nlp, x, y_temp))
-                println("      -z_U              = ", -z_U)
-                println("      z_L               = ", z_L)
-                println("      ∇lag_x            = ", ∇lag)
-            end
-            return false
-        end
+        
     
     if printing
         println("    " * nlp.meta.name * " solved !")
     end
-    return true # all the tests were passed, x, y respects feasability, complementarity not respected, see and ∇lag(x, y) almost = 0
+    return true # all the tests were passed, x, y respects feasability, complementarity not respected, see and ∇lag_x(x, y) almost = 0
 end
 
 
@@ -289,17 +309,17 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
         while (k < max_iter) & !converged
             k += 1
             # ** II.1 Get subproblem's solution
-            if use_ipopt
-                    resolution_k = NLPModelsIpopt.ipopt(nlc, tol = ω_k, constr_viol_tol = η_k, compl_inf_tol = ϵ_end, print_level = printing_iterations_solver ? 3 : 0, ignore_time = true)
-                    
-                    # Get variables
-                    x_k = resolution_k.solution[1:nlc.nvar_x]
-                    r_k = resolution_k.solution[nlc.nvar_x+1 : nlc.nvar_x+nlc.nvar_r]
+                if use_ipopt
+                        resolution_k = NLPModelsIpopt.ipopt(nlc, tol = ω_k, constr_viol_tol = η_k, compl_inf_tol = ϵ_end, print_level = printing_iterations_solver ? 3 : 0, ignore_time = true)
+                        
+                        # Get variables
+                        x_k = resolution_k.solution[1:nlc.nvar_x]
+                        r_k = resolution_k.solution[nlc.nvar_x+1 : nlc.nvar_x+nlc.nvar_r]
 
-                    # Get multipliers
-                    λ_k = resolution_k.solver_specific[:multipliers_con] 
-                    z_k_U = resolution_k.solver_specific[:multipliers_U]
-                    z_k_L = resolution_k.solver_specific[:multipliers_L]
+                        # Get multipliers
+                        λ_k = resolution_k.solver_specific[:multipliers_con] 
+                        z_k_U = resolution_k.solver_specific[:multipliers_U]
+                        z_k_L = resolution_k.solver_specific[:multipliers_L]
 
                 else # Knitro
                     resolution_k = _knitro(nlc)::GenericExecutionStats
@@ -313,6 +333,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                     z_k_U = resolution_k.solver_specific[:multipliers_U] #! =[] dans ce cas, pas séparé par KNITRO...
                     z_k_L = resolution_k.solver_specific[:multipliers_L]
                 end
+
                 if printing_iterations
                     println("   -----------------")
                     println("    k             = ", k, 
@@ -325,8 +346,8 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                             "\n    r_k           = ", r_k)
                 end
                 
-                # TODO (recherche) : Points intérieurs à chaud...
-                # TODO (recherche) : tester la proximité des multiplicateurs de renvoyés par KNITRO et le y_k du problème (si r petit, probablement proches.)
+        # TODO (recherche) : Points intérieurs à chaud...
+        # TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le nlc.y du problème (si r petit, probablement proches.)
 
             # ** II.2 Treatment & update
                 if norm(r_k,Inf) <= max(η_k, η_end) # The residue has decreased enough
@@ -334,43 +355,42 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                     η_k = η_k / (1 + nlc.ρ ^ β) # (heuristic)
                     
                     # ** II.2.1 Solution found ?
-                    #tolerance
-                    if (norm(r_k,Inf) <= η_end) | (k == max_iter) # check if r_k is small enough, or if we've reached the end
-                        if printing_iterations
-                            println("    r_k small enough for optimality checking")
-                        end
-
-                        ## Testing
-                        converged = NLPModel_solved(nlc.nlp, x_k, -λ_k, z_k_U[1:nlc.nvar_x], z_k_L[1:nlc.nvar_x], ω_end, η_end, ϵ_end, printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
-                        if printing_check & !converged & printing_check # means we printed some thing with NLPModel_solved, so we skip a line
-                            print("\n ------- Not fitting with KKT conditions ----------\n")
-                        end
-                        
-                        status = resolution_k.status
-
-                        if printing_iterations
-                            if converged
-                                println("    EXIT: optimal solution found")
+                        if (norm(r_k,Inf) <= η_end) | (k == max_iter) # check if r_k is small enough, or if we've reached the end
+                            if printing_iterations
+                                println("    r_k small enough for optimality checking")
                             end
-                            if k == max_iter
-                                println("    EXIT: reached max_iter")
+
+                            ## Testing
+                            converged = NLPModel_solved(nlc.nlp, x_k, -λ_k, z_k_U[1:nlc.nvar_x], z_k_L[1:nlc.nvar_x], ω_end, η_end, ϵ_end, printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
+                            if printing_check & !converged & printing_check # means we printed some thing with NLPModel_solved, so we skip a line
+                                print("\n ------- Not fitting with KKT conditions ----------\n")
+                            end
+                            
+                            status = resolution_k.status
+
+                            if printing_iterations
+                                if converged
+                                    println("    EXIT: optimal solution found")
+                                end
+                                if k == max_iter
+                                    println("    EXIT: reached max_iter")
+                                end
+                            end
+                            
+                            ## And return
+                            if converged | (k == max_iter) # TODO: clarify
+                                return GenericExecutionStats(status, nlc,
+                                                            solution = resolution_k.solution,
+                                                            iter = k,
+                                                            objective=obj(nlc, resolution_k.solution), 
+                                                            elapsed_time=0,
+                                                            solver_specific=Dict(:multipliers_con => λ_k,
+                                                                                :multipliers_L => z_k_L,
+                                                                                :multipliers_U => z_k_U
+                                                                                )
+                                                            )
                             end
                         end
-                        
-                        ## And return
-                        if converged | (k == max_iter) # TODO: clarify
-                            return GenericExecutionStats(status, nlc,
-                                                        solution = resolution_k.solution,
-                                                        iter = k,
-                                                        objective=obj(nlc, resolution_k.solution), 
-                                                        elapsed_time=0,
-                                                        solver_specific=Dict(:multipliers_con => λ_k,
-                                                                            :multipliers_L => z_k_L,
-                                                                            :multipliers_U => z_k_U
-                                                                            )
-                                                        )
-                        end
-                    end
 
                 else # The residue is to still too large
                     nlc.ρ = τ * nlc.ρ # increase the step # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence

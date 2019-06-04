@@ -92,7 +92,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
             # TODO: fix this problem...
 
             @testset "NLPModel_solved(nlp) function" begin
-                @test NLPModel_solved(nlp, [0.5, 1.0], [-1, 0, 0, -2], [0, -1], [0, 0], ω, η, ϵ, printing_check) # solved by hand
+                @test NLPModel_solved(nlp, [0.5, 1.0], [-1.0/3.0, 0., 0., -2.0/3.0], [0, 1.], [0., 0.0], ω, η, ϵ, printing_check) # solved by hand
                 @test NLPModel_solved(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
             end
 
