@@ -82,7 +82,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
             # TODO: fix this problem...
 
             @testset "KKT_check(nlp) function" begin
-                @test_broken KKT_check(nlp, [0.5, 1.0], [1.0/3.0, 0., 0., 2.0/3.0], [0, 1.], [0., 0.0], ω, η, ϵ, printing_check) # solved by hand
+                @test_broken KKT_check(nlp, [0.5, 1.0], [1., 0., 0., -2.0], [0, 1.], [0., 0.0], ω, η, ϵ, printing_check) # solved by hand
                 @test KKT_check(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
             end
 
