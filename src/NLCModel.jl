@@ -43,8 +43,11 @@ function NLCModel(nlp::AbstractNLPModel ; printing = false::Bool)::NLCModel
 		else
 			nvar_r = nlp.meta.nnln # linear constraints are not considered here in the NCL method. 
 			jres = nlp.meta.nln # copy, useless, but permits to use the unitary test problem computed
-			@show jres				
-			@show nvar_r
+			
+			if printing
+				println("    NLCModel : jres = ", jres)
+				println("    NLCModel : nvar_r = ", nvar_r)
+			end
 		end
 
 		nvar_x = nlp.meta.nvar
