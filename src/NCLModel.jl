@@ -11,7 +11,7 @@ and creates a new problem, modifying
 	the objective function (sort of augmented lagrangian, without considering linear constraints) 
 	the constraints (with residuals)
 """
-mutable struct NLCModel <: AbstractNLPModel
+mutable struct NCLModel <: AbstractNLPModel
 	# Information about the original problem
 		nlp::AbstractNLPModel # The original problem
 		nvar_x::Int64 # Number of variable of the nlp problem
@@ -29,7 +29,7 @@ mutable struct NLCModel <: AbstractNLPModel
 		ρ::Real
 end
 
-function NLCModel(nlp::AbstractNLPModel ; printing = false::Bool)::NLCModel #TODO add rho y, ac val par defaut, type de retour, NLP/NCL...
+function NCLModel(nlp::AbstractNLPModel ; printing = false::Bool)::NCLModel #TODO add rho y, ac val par defaut, type de retour, NLP/NCL...
 	# * 0. printing
 		if printing
 			println("\nNLCModel called on " * nlp.meta.name)
@@ -46,8 +46,8 @@ function NLCModel(nlp::AbstractNLPModel ; printing = false::Bool)::NLCModel #TOD
 			jres = nlp.meta.nln # copy, useless, but permits to use the unitary test problem computed
 			
 			if printing
-				println("    NLCModel : jres = ", jres)
-				println("    NLCModel : nvar_r = ", nvar_r)
+				println("    NCLModel : jres = ", jres)
+				println("    NCLModel : nvar_r = ", nvar_r)
 			end
 		end
 
@@ -70,10 +70,10 @@ function NLCModel(nlp::AbstractNLPModel ; printing = false::Bool)::NLCModel #TOD
 							)
 
 		if nlp.meta.jinf != Int64[]
-			error("argument problem passed to NLCModel with constraint " * string(nlp.meta.jinf) * " infeasible")
+			error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jinf) * " infeasible")
 		end
 		if nlp.meta.jfree != Int64[]
-			error("argument problem passed to NLCModel with constraint " * string(nlp.meta.jfree) * " free")
+			error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jfree) * " free")
 		end
 	
 	# Parameters
@@ -84,8 +84,8 @@ function NLCModel(nlp::AbstractNLPModel ; printing = false::Bool)::NLCModel #TOD
 		#end
 		#ρ = penal
 
-	# NLCModel created:
-		return NLCModel(nlp, 
+	# NCLModel created:
+		return NCLModel(nlp, 
 						nvar_x, 
 						nvar_r, 
 						minimize,	
@@ -98,7 +98,7 @@ function NLCModel(nlp::AbstractNLPModel ; printing = false::Bool)::NLCModel #TOD
 end
 
 
-function NLPModels.obj(nlc::NLCModel, X::Vector{<:Real})::Real
+function NLPModels.obj(nlc::NCLModel, X::Vector{<:Real})::Real
 	increment!(nlc, :neval_obj)
 	if nlc.minimize
 		if nlc.nvar_r == 0 # little test to avoid []' * [] #TODO: simplifier, inutile
@@ -123,17 +123,17 @@ end
 
 
 
-function NLPModels.grad(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.grad(nlc::NCLModel, X::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_grad)
 	gx = vcat(grad(nlc.nlp, X[1:nlc.nvar_x]), nlc.ρ * X[nlc.nvar_x+1:end] + nlc.y)
 	return gx
 end
 #TODO grad_check
-function NLPModels.grad!(nlc::NLCModel, X::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.grad!(nlc::NCLModel, X::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_grad)
 
 	if length(gx) != nlc.nvar
-		println("ERROR: wrong length of argument gx passed to grad! in NLCModel
+		println("ERROR: wrong length of argument gx passed to grad! in NCLModel
 				 gx should be of length " * string(nlc.nvar) * " but length " * string(length(gx)) * 
 				 "given
 				 Empty vector returned")
@@ -152,7 +152,7 @@ end
 
 
 # TODO (simple): sparse du triangle inf, pas matrice complète
-function NLPModels.hess(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Matrix{<:Real}
+function NLPModels.hess(nlc::NCLModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Matrix{<:Real}
 	increment!(nlc, :neval_hess)
 	H = zeros(nlc.nvar, nlc.nvar)
 	# Original information
@@ -164,7 +164,7 @@ function NLPModels.hess(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zer
 	return H
 end
 
-function NLPModels.hess_coord(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
+function NLPModels.hess_coord(nlc::NCLModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 	increment!(nlc, :neval_hess)
 	# Original information
 		hrows, hcols, hvals = hess_coord(nlc.nlp, X[1:nlc.nvar_x], obj_weight=obj_weight, y=y)
@@ -176,7 +176,7 @@ function NLPModels.hess_coord(nlc::NLCModel, X::Vector{<:Real} ; obj_weight=1.0,
 	return (hrows, hcols, hvals)
 end
 
-function NLPModels.hess_structure(nlc::NLCModel) ::Tuple{Vector{Int64},Vector{Int64}}
+function NLPModels.hess_structure(nlc::NCLModel) ::Tuple{Vector{Int64},Vector{Int64}}
 	increment!(nlc, :neval_hess)
 	# Original information
 		hrows, hcols = hess_structure(nlc.nlp)
@@ -187,7 +187,7 @@ function NLPModels.hess_structure(nlc::NLCModel) ::Tuple{Vector{Int64},Vector{In
 	return (hrows, hcols)
 end
 
-function NLPModels.hess_coord!(nlc::NLCModel, X::Vector{<:Real}, hrows::Vector{<:Int64}, hcols::Vector{<:Int64}, hvals::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
+function NLPModels.hess_coord!(nlc::NCLModel, X::Vector{<:Real}, hrows::Vector{<:Int64}, hcols::Vector{<:Int64}, hvals::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 	increment!(nlc, :neval_hess)
 	#Pre computation
 		len_hcols = length(hcols)
@@ -201,11 +201,11 @@ function NLPModels.hess_coord!(nlc::NLCModel, X::Vector{<:Real}, hrows::Vector{<
 	return (hrows, hcols, hvals)
 end
 
-function NLPModels.hprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
+function NLPModels.hprod(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
 	increment!(nlc, :neval_hprod)
 	# Test feasability
 		if length(v) != nlc.nvar
-			error("wrong length of argument v passed to hprod in NLCModel
+			error("wrong length of argument v passed to hprod in NCLModel
 				   gx should be of length " * string(nlc.nvar) * " but length " * string(length(v)) * "given")
 		end
 
@@ -218,11 +218,11 @@ function NLPModels.hprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} ; o
 	return Hv
 end
 
-function NLPModels.hprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} , Hv::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
+function NLPModels.hprod!(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real} , Hv::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
 	increment!(nlc, :neval_hprod)
 	# Test feasability
 		if length(v) != nlc.nvar
-			error("wrong length of argument v passed to hprod in NLCModel
+			error("wrong length of argument v passed to hprod in NCLModel
 				   gx should be of length " * string(nlc.nvar) * " but length " * string(length(v)) * "given")
 		end
 
@@ -236,7 +236,7 @@ function NLPModels.hprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real} , 
 end
 
 
-function NLPModels.cons(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.cons(nlc::NCLModel, X::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_cons)
 	# Original information
 		cx = cons(nlc.nlp, X[1:nlc.nvar_x]) # pre computation
@@ -247,7 +247,7 @@ function NLPModels.cons(nlc::NLCModel, X::Vector{<:Real}) ::Vector{<:Real}
 	return cx
 end
 
-function NLPModels.cons!(nlc::NLCModel, X::Vector{<:Real}, cx::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.cons!(nlc::NCLModel, X::Vector{<:Real}, cx::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_cons)
 	# Original information
 		cons!(nlc.nlp, X[1:nlc.nvar_x], cx) # pre computation
@@ -260,7 +260,7 @@ end
 
 # TODO (simple): return sparse, pas matrice complète
 #sparse(row col val)
-function NLPModels.jac(nlc::NLCModel, X::Vector{<:Real}) ::Matrix{<:Real}
+function NLPModels.jac(nlc::NCLModel, X::Vector{<:Real}) ::Matrix{<:Real}
 	increment!(nlc, :neval_jac)
 	# Original information
 		J = jac(nlc.nlp, X[1:nlc.nvar_x])
@@ -272,7 +272,7 @@ function NLPModels.jac(nlc::NLCModel, X::Vector{<:Real}) ::Matrix{<:Real}
 	return J
 end
 
-function NLPModels.jac_coord(nlc::NLCModel, X::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
+function NLPModels.jac_coord(nlc::NCLModel, X::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 	increment!(nlc, :neval_jac)
 	# Original information
 		jrows, jcols, jvals = jac_coord(nlc.nlp, X[1:nlc.nvar_x])
@@ -284,7 +284,7 @@ function NLPModels.jac_coord(nlc::NLCModel, X::Vector{<:Real}) ::Tuple{Vector{In
 	return (jrows, jcols, jvals)
 end
 
-function NLPModels.jac_coord!(nlc::NLCModel, X::Vector{<:Real}, jrows::Vector{<:Int64}, jcols::Vector{<:Int64}, jvals::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
+function NLPModels.jac_coord!(nlc::NCLModel, X::Vector{<:Real}, jrows::Vector{<:Int64}, jcols::Vector{<:Int64}, jvals::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 	increment!(nlc, :neval_jac)
 	#Pre computation
 		len_jcols = length(jcols)
@@ -300,7 +300,7 @@ function NLPModels.jac_coord!(nlc::NLCModel, X::Vector{<:Real}, jrows::Vector{<:
 end
 
 
-function NLPModels.jac_structure(nlc::NLCModel) ::Tuple{Vector{Int64},Vector{Int64}}
+function NLPModels.jac_structure(nlc::NCLModel) ::Tuple{Vector{Int64},Vector{Int64}}
 	increment!(nlc, :neval_jac)
 	# Original information
 		jrows, jcols = jac_structure(nlc.nlp)
@@ -311,11 +311,11 @@ function NLPModels.jac_structure(nlc::NLCModel) ::Tuple{Vector{Int64},Vector{Int
 	return jrows, jcols
 end
 
-function NLPModels.jprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.jprod(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jprod)
 	# Test feasability
 		if length(v) != nlc.nvar
-			error("wrong sizes of argument v passed to jprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}")
+			error("wrong sizes of argument v passed to jprod(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}")
 		end
 		
 	# Original information
@@ -328,11 +328,11 @@ function NLPModels.jprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}) ::
 	return Jv + Resv
 end
 
-function NLPModels.jprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.jprod!(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jprod)
 	# Test feasability
 		if length(v) != nlc.nvar
-			error("wrong sizes of argument v passed to jprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}")
+			error("wrong sizes of argument v passed to jprod!(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jv::Vector{<:Real}) ::Vector{<:Real}")
 		end
 
 	# Original information
@@ -346,11 +346,11 @@ function NLPModels.jprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, J
 	return Jv
 end
 
-function NLPModels.jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.jtprod(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jtprod)
 	# Test feasability
 		if length(v) != nlc.nlp.meta.ncon
-			error("wrong length of argument v passed to jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
+			error("wrong length of argument v passed to jtprod(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
 		end
 
 	# Original information
@@ -365,11 +365,11 @@ function NLPModels.jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}) :
 	return Jv
 end
 
-function NLPModels.jtprod!(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}
+function NLPModels.jtprod!(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}
 	increment!(nlc, :neval_jtprod)
 	# Test feasability
 	if length(v) != nlc.nlp.meta.ncon
-		error("wrong length of argument v passed to jtprod(nlc::NLCModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
+		error("wrong length of argument v passed to jtprod(nlc::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
 	end
 
 	# New information (due to residuals)

@@ -3,7 +3,7 @@ using Ipopt
 using NLPModelsIpopt
 
 include("ncl.jl")
-include("NLCModel.jl")
+include("NCLModel.jl")
 
 
 
@@ -11,7 +11,7 @@ printing = true
 """
 Main function for the NCL method. 
     Takes an AbstractNLPModel as initial problem, 
-    Converts it to a NLCModel,
+    Converts it to a NCLModel,
     Calls ncl.jl on it,
     Returns (x (solution), y (lagrangian multipliers for constraints), z (lagrangian multpliers for bound constraints))
 """
@@ -29,7 +29,7 @@ function NCLMain(nlp::AbstractNLPModel; tol::Real = 0.01, constr_viol_tol = 0.00
         end
 
     else
-        nlc = NLCModel(nlp, printing = printing_iterations)
+        nlc = NCLModel(nlp, printing = printing_iterations)
         if printing_iterations
             println("\n")
         end
