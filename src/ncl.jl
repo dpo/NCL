@@ -365,7 +365,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
         # TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le nlc.y du problème (si r petit, probablement proches.)
 
             # ** II.2 Treatment & update
-                if norm(r_k,Inf) <= max(η_k, η_end) | (k == max_iter) # The residue has decreased enough
+                if (norm(r_k,Inf) <= max(η_k, η_end)) | (k == max_iter) # The residue has decreased enough
                     nlc.y = nlc.y + nlc.ρ * r_k # Updating multiplier
                     η_k = η_k / (1 + nlc.ρ ^ β) # (heuristic)
                     

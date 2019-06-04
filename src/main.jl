@@ -8,7 +8,7 @@ include("NLCModel.jl")
 
 
 #! TODO "tol" de resolution ne doit pas être utilisé pour le grad du lagrangien
-printing = true
+printing = false
 """
 Main function for the NCL method. 
     Takes an AbstractNLPModel as initial problem, 
