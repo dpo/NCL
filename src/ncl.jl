@@ -229,8 +229,20 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
                 return false
             end
         else
-            ∇lag_x = ∇f_x + jtprod(nlp, x, y_temp) + z_L - z_U
+            ∇lag_x = ∇f_x + jtprod(nlp, x, y_temp) - z_L - z_U
             #∇lag_x = ∇f_x + jtprod(nlp, x, y) + z_L - z_U
+
+
+
+            #! Bizarre
+            #? - z_L - z_U fonctionne...
+            #! Bizarre
+
+
+
+
+
+
 
             if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
                 if printing
@@ -277,6 +289,10 @@ Returns:
                             )
         )
 """
+
+#! Problem : Type error si pas de convergence
+
+
 function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real, η_end::Real, ϵ_end::Real, printing_iterations::Bool, printing_iterations_solver::Bool, printing_check::Bool) ::GenericExecutionStats 
     if printing_iterations
         println("NCLSolve called on " * nlc.meta.name)
@@ -335,8 +351,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                 end
 
                 if printing_iterations
-                    println("   -----------------")
-                    println("    k             = ", k, 
+                    println("   ----- Iter k = ", k, "-----",
                             "\n    nlc.ρ         = ", nlc.ρ, 
                             "\n    η_k           = ", η_k, 
                             "\n    norm(r_k,Inf) = ", norm(r_k,Inf), 
@@ -350,7 +365,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
         # TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le nlc.y du problème (si r petit, probablement proches.)
 
             # ** II.2 Treatment & update
-                if norm(r_k,Inf) <= max(η_k, η_end) # The residue has decreased enough
+                if norm(r_k,Inf) <= max(η_k, η_end) | (k == max_iter) # The residue has decreased enough
                     nlc.y = nlc.y + nlc.ρ * r_k # Updating multiplier
                     η_k = η_k / (1 + nlc.ρ ^ β) # (heuristic)
                     

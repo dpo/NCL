@@ -7,7 +7,7 @@ include("../src/ncl.jl")
 
 function test_ncl(test::Bool) ::Test.DefaultTestSet
     
-    printing_check = true
+    printing_check = false
     printing_iterations = false
     printing_iterations_solver = false
     ω = 0.01
@@ -69,17 +69,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         λ_ncl = resol_nlc_ncl.solver_specific[:multipliers_con]
         z_U_ncl = resol_nlc_ncl.solver_specific[:multipliers_U]
         z_L_ncl = resol_nlc_ncl.solver_specific[:multipliers_L]
-
-        @show x_nlc_ipopt
-        @show λ_nlc_ipopt
-        @show nlc.meta.lcon
-        nlc.y = y # back to the first value
-        nlc.ρ = ρ
-        @show cons(nlc, x_nlc_ipopt)
-        @show nlc.meta.ucon
-
-
-    
+  
     
     
         ########################## - lambda ou - jprod...
@@ -91,7 +81,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
             #! NLPModel_solved doesn't work every time, probably because of sign of multipliers (with sign of constraint and jacobian)...
             # TODO: fix this problem...
 
-            @testset "NLPModel_solved(nlp) function" begin
+            @testset "NLPModel_solved(nlp) function" begin #? -z_L - z_U ??????
                 @test NLPModel_solved(nlp, [0.5, 1.0], [-1.0/3.0, 0., 0., -2.0/3.0], [0, 1.], [0., 0.0], ω, η, ϵ, printing_check) # solved by hand
                 @test NLPModel_solved(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
             end
@@ -99,6 +89,12 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
             @testset "NLPModel_solved(nlc) function" begin
                 nlc.y = y # back to the first value
                 nlc.ρ = ρ
+                #@show x_nlc_ipopt
+                #@show λ_nlc_ipopt
+                #@show nlc.meta.lcon
+                #@show cons(nlc, x_nlc_ipopt)
+                #@show nlc.meta.ucon
+                #@show transpose(jac(nlc, x_nlc_ipopt))
                 @test NLPModel_solved(nlc, x_nlc_ipopt, λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, ω, η, ϵ, printing_check) # Complémentarité 2eme contrainte non respectée
             end
 
