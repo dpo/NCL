@@ -63,7 +63,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         
     
     # Resolution of NLC with NCL method
-        resol_nlc_ncl = NCLSolve(nlc, 50, true, ω, η, ϵ, printing_iterations, printing_iterations_solver, printing_check)
+        resol_nlc_ncl = NCLSolve(nlc, 10, true, ω, η, ϵ, printing_iterations, false, false)
 
         x_ncl = resol_nlc_ncl.solution
         λ_ncl = resol_nlc_ncl.solver_specific[:multipliers_con]
@@ -77,7 +77,6 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         nlc.ρ = ρ
         @show cons(nlc, x_nlc_ipopt)
         @show nlc.meta.ucon
-        @show grad(nlc, x_nlc_ipopt)
 
 
     

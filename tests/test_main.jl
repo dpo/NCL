@@ -18,9 +18,9 @@ include("../src/main.jl")
 
 function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_main_command::Bool) ::Test.DefaultTestSet
     test_NLCModel(test_NCLModel_command)
-    
+
     test_ncl(test_ncl_command)
-    
+    @show 4
     if test_main_command
         ρ = 1.
         y = [2., 1.]
@@ -40,7 +40,7 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
                 0.5]
         c(x) = [x[1] - x[2], # linear
                 x[1]^2 + x[2], # non linear one, range constraint
-                x[1] - x[2], # linear, lower bounded 
+                x[1] - x[2], # linear, lower bounded
                 x[1] * x[2]] # equality one
 
         name_nlp = "Unitary test problem"
@@ -73,4 +73,4 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
     end
 end
 
-test_main(true,true,false)
+test_main(true,true,true)
