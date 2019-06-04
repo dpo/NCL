@@ -235,7 +235,7 @@ function NLPModel_solved(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:R
 
 
             #! Bizarre
-            #? - z_L - z_U fonctionne...
+            # TODO : -(z_L - z_U)
             #! Bizarre
 
 
@@ -304,6 +304,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
         τ = 10.0 # scale (used to update the ρ_k step)
         α = 0.1 # Constant (α needs to be < 1)
         β = 0.2 # Constant
+        #TODO : Pierric
 
         # ω_end = global tolerance, in argument
         ω_k = 0.5 # sub problem tolerance
@@ -365,7 +366,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
         # TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le nlc.y du problème (si r petit, probablement proches.)
 
             # ** II.2 Treatment & update
-                if (norm(r_k,Inf) <= max(η_k, η_end)) | (k == max_iter) # The residue has decreased enough
+                if (norm(r_k,Inf) <= max(η_k, η_end)) | (k == max_iter) # The residual has decreased enough
                     nlc.y = nlc.y + nlc.ρ * r_k # Updating multiplier
                     η_k = η_k / (1 + nlc.ρ ^ β) # (heuristic)
                     
@@ -381,7 +382,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                                 print("\n ------- Not fitting with KKT conditions ----------\n")
                             end
                             
-                            status = resolution_k.status
+                            status = resolution_k.status #TODO: Creer un vrai statut
 
                             if printing_iterations
                                 if converged
@@ -407,7 +408,7 @@ function NCLSolve(nlc::NLCModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                             end
                         end
 
-                else # The residue is to still too large
+                else # The residual is to still too large
                     nlc.ρ = τ * nlc.ρ # increase the step # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
                     η_k = η_end / (1 + nlc.ρ ^ α) # Change infeasability (heuristic) # ? (simple) η_end ou η_0, cf article
                     # TODO (recherche...) : update ω_k 

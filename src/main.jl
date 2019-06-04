@@ -7,8 +7,7 @@ include("NLCModel.jl")
 
 
 
-#! TODO "tol" de resolution ne doit pas être utilisé pour le grad du lagrangien
-printing = false
+printing = true
 """
 Main function for the NCL method. 
     Takes an AbstractNLPModel as initial problem, 
@@ -16,7 +15,8 @@ Main function for the NCL method.
     Calls ncl.jl on it,
     Returns (x (solution), y (lagrangian multipliers for constraints), z (lagrangian multpliers for bound constraints))
 """
-function NCLMain(nlp::AbstractNLPModel; tol = 0.01::Real, constr_viol_tol = 0.001::Real, compl_inf_tol = 0.001::Real, max_iter = 200::Int64, use_ipopt = true::Bool, printing_iterations = printing::Bool, printing_iterations_solver = false::Bool, printing_check = printing::Bool) ::Tuple{GenericExecutionStats, Bool}
+#TODO kwargs... + surcharge NCLSolve
+function NCLMain(nlp::AbstractNLPModel; tol::Real = 0.01, constr_viol_tol = 0.001::Real, compl_inf_tol = 0.001::Real, max_iter = 200::Int64, use_ipopt = true::Bool, printing_iterations = printing::Bool, printing_iterations_solver = false::Bool, printing_check = printing::Bool) ::Tuple{GenericExecutionStats, Bool} 
     if (nlp.meta.ncon == 0) | (nlp.meta.nnln == 0)
         if printing_iterations
             println("Résolution de " * nlp.meta.name * " par IPOPT / KNITRO")

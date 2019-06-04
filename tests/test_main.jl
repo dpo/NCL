@@ -8,7 +8,7 @@ function decodemodel(name)
     finalize(CUTEstModel(name))
 end
 
-probs = ["HS" * string(i) for i in 8:20]
+probs = ["HS" * string(i) for i in 10:10]
 broadcast(decodemodel, probs)
 
 
@@ -20,7 +20,7 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
     test_NLCModel(test_NCLModel_command)
 
     test_ncl(test_ncl_command)
-    @show 4
+    
     if test_main_command
         ρ = 1.
         y = [2., 1.]
@@ -49,7 +49,7 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
         @testset "NCLMain" begin
             println(nlp)
 
-            @test isa(NCLMain(nlp), Tuple{GenericExecutionStats, Bool})
+            #@test isa(NCLMain(nlp), Tuple{GenericExecutionStats, Bool})
             #@test NCLMain(nlp, max_iter = 15)[1].iter <= 15
 
             finalize(nlp)
@@ -73,4 +73,4 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
     end
 end
 
-test_main(true,true,true)
+test_main(false,false,true)
