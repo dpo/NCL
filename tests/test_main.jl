@@ -8,12 +8,12 @@ function decodemodel(name)
     finalize(CUTEstModel(name))
 end
 
-probs = ["HS" * string(i) for i in 10:10]
+probs = ["HS" * string(i) for i in 10:20]
 broadcast(decodemodel, probs)
 
 
 include("test_ncl.jl")
-include("test_NLCModel.jl")
+include("test_NCLModel.jl")
 include("../src/main.jl")
 
 function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_main_command::Bool) ::Test.DefaultTestSet
@@ -73,4 +73,4 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
     end
 end
 
-test_main(false,false,true)
+test_main(true,true,true)
