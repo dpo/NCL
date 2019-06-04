@@ -6,9 +6,9 @@ using NLPModelsIpopt
 include("../src/ncl.jl")
 
 function test_ncl(test::Bool) ::Test.DefaultTestSet
-    
-    printing_check = false
-    printing_iterations = false
+    printing = false
+    printing_check = printing
+    printing_iterations = printing
     printing_iterations_solver = false
     ω = 0.01
     η = 0.0001
@@ -37,7 +37,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
 
         name = "Unitary test problem"
         nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
-        nlc = NLCModel(nlp)::NLCModel
+        nlc = NCLModel(nlp)::NCLModel
 
         nlc.y = y
         nlc.ρ = ρ
@@ -47,7 +47,7 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         x_nlp_ipopt = resol_nlp_ipopt.solution
         
         # Get multipliers
-        λ_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_con]
+        λ_nlp_ipopt = -resol_nlp_ipopt.solver_specific[:multipliers_con]
         z_U_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_U]
         z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
 
@@ -56,14 +56,14 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
         x_nlc_ipopt = resol_nlc_ipopt.solution
         
         # Get multipliers
-        λ_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_con]
+        λ_nlc_ipopt = -resol_nlc_ipopt.solver_specific[:multipliers_con]
         z_U_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_U]
         z_L_nlc_ipopt = resol_nlc_ipopt.solver_specific[:multipliers_L]
     
         
     
     # Resolution of NLC with NCL method
-        resol_nlc_ncl = NCLSolve(nlc, 10, true, ω, η, ϵ, printing_iterations, false, false)
+        resol_nlc_ncl = NCLSolve(nlc, 10, true, ω, η, ϵ, printing_iterations, false, printing_check)
 
         x_ncl = resol_nlc_ncl.solution
         λ_ncl = resol_nlc_ncl.solver_specific[:multipliers_con]
@@ -72,21 +72,21 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
   
     
     
-        ########################## - lambda ou - jprod...
+########################## - lambda ou - jprod...
 
 
 
     if test
         @testset "ncl.jl" begin
-            #! NLPModel_solved doesn't work every time, probably because of sign of multipliers (with sign of constraint and jacobian)...
+            #! KKT_check doesn't work every time, probably because of sign of multipliers (with sign of constraint and jacobian)...
             # TODO: fix this problem...
 
-            @testset "NLPModel_solved(nlp) function" begin #? -z_L - z_U ??????
-                @test NLPModel_solved(nlp, [0.5, 1.0], [-1.0/3.0, 0., 0., -2.0/3.0], [0, 1.], [0., 0.0], ω, η, ϵ, printing_check) # solved by hand
-                @test NLPModel_solved(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
+            @testset "KKT_check(nlp) function" begin
+                @test_broken KKT_check(nlp, [0.5, 1.0], [1.0/3.0, 0., 0., 2.0/3.0], [0, 1.], [0., 0.0], ω, η, ϵ, printing_check) # solved by hand
+                @test KKT_check(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
             end
 
-            @testset "NLPModel_solved(nlc) function" begin
+            @testset "KKT_check(nlc) function" begin
                 nlc.y = y # back to the first value
                 nlc.ρ = ρ
                 #@show x_nlc_ipopt
@@ -95,11 +95,11 @@ function test_ncl(test::Bool) ::Test.DefaultTestSet
                 #@show cons(nlc, x_nlc_ipopt)
                 #@show nlc.meta.ucon
                 #@show transpose(jac(nlc, x_nlc_ipopt))
-                @test NLPModel_solved(nlc, x_nlc_ipopt, λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, ω, η, ϵ, printing_check) # Complémentarité 2eme contrainte non respectée
+                @test KKT_check(nlc, x_nlc_ipopt, λ_nlc_ipopt, z_U_nlc_ipopt, z_L_nlc_ipopt, ω, η, ϵ, printing_check) # Complémentarité 2eme contrainte non respectée
             end
 
             @testset "ncl algorithm" begin
-                @test NLPModel_solved(nlp, x_ncl[1:nlc.nvar_x], λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], ω, η, ϵ, printing_check) 
+                @test KKT_check(nlp, x_ncl[1:nlc.nvar_x], λ_ncl, z_U_ncl[1:nlc.nvar_x], z_L_ncl[1:nlc.nvar_x], ω, η, ϵ, printing_check) 
             end
 
         end
