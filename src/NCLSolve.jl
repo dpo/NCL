@@ -328,7 +328,7 @@ Returns:
                             )
         )
 """
-function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.0001, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 200, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing) ::GenericExecutionStats 
+function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.0001, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 200, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing, warm_start_init_point = "no") ::GenericExecutionStats 
     if printing_iterations
         println("NCLSolve called on " * ncl.meta.name)
     end
@@ -410,14 +410,20 @@ function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.00
                     
                     #** II.2.1 Solution found ?
                         if (norm(r_k,Inf) <= η_end) | (k == max_iter) # check if r_k is small enough, or if we've reached the end
-                            if printing_iterations
-                                println("    norm(r_k,Inf) = ", norm(r_k,Inf), " <= η_end = ", η_end, " going to KKT_check")
-                            end
+                            
 
                             ## Testing
-                            converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], ω_end, η_end, ϵ_end, printing_check) 
-                            if printing_check & !converged # means we printed some thing with KKT_check, so we skip a line
-                                print("\n ------- Not fitting with KKT conditions ----------\n")
+                            if !(norm(r_k,Inf) <= η_end)
+                                converged = false
+                            else
+                                if printing_iterations
+                                    println("    norm(r_k,Inf) = ", norm(r_k,Inf), " <= η_end = ", η_end, " going to KKT_check")
+                                end
+                                
+                                converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], ω_end, η_end, ϵ_end, printing_check) 
+                                if printing_check & !converged # means we printed some thing with KKT_check, so we skip a line
+                                    print("\n ------- Not fitting with KKT conditions ----------\n")
+                                end
                             end
                             
                             status = resolution_k.status #TODO: Creer un vrai statut
