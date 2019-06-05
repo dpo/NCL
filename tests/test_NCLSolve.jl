@@ -80,7 +80,7 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
         @testset "NCLSolve.jl" begin
 
             @testset "KKT_check function" begin
-                @testset "KKT_check(nlp) function" begin
+                @testset "KKT_check(nlp)" begin
                     @test_broken KKT_check(nlp, [0.5, 1.0], [1., 0., 0., -2.0], [0, 1.], [0., 0.0], ω, η, ϵ, printing_check) # solved by hand
                     @test KKT_check(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
                 end
@@ -89,15 +89,9 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
                     @test KKT_check(nlp, x_ncl[1:ncl.nvar_x], λ_ncl, z_U_ncl[1:ncl.nvar_x], z_L_ncl[1:ncl.nvar_x], ω, η, ϵ, printing_check) 
                 end
 
-                @testset "KKT_check(ncl) function" begin
+                @testset "KKT_check(ncl)" begin
                     ncl.y = [2., 1.]
-                    ncl.ρ = ρ # back to the first value
-                    #@show x_ncl_ipopt
-                    #@show λ_ncl_ipopt
-                    #@show ncl.meta.lcon
-                    #@show cons(ncl, x_ncl_ipopt)
-                    #@show ncl.meta.ucon
-                    #@show transpose(jac(ncl, x_ncl_ipopt))
+                    ncl.ρ = ρ # back to the first value (it was modified by NCLSolve)
                     @test KKT_check(ncl, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, printing_check) # Complémentarité 2eme contrainte non respectée
                 end
             end

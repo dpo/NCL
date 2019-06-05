@@ -4,12 +4,7 @@ using NLPModels
 using CUTEst
 
 
-function decodemodel(name)
-    finalize(CUTEstModel(name))
-end
-
-probs = ["HS" * string(i) for i in [10,12,14]]
-broadcast(decodemodel, probs)
+probs = ["HS" * string(i) for i in 1:12]
 
 
 include("test_NCLSolve.jl")
@@ -51,7 +46,6 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
                 #println(nlp)
                 test_name = name * " problem resolution"
                 @testset "$test_name" begin
-                    println(NCLSolve(nlp, max_iter = 30)[1].status) # several tests
                     @test NCLSolve(nlp, max_iter = 200)[2]
                 end
                 finalize(nlp)

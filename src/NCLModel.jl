@@ -125,7 +125,6 @@ using Test
 			return gx
 		end
 
-		
 		function NLPModels.grad!(ncl::NCLModel, X::Vector{<:Real}, gx::Vector{<:Real}) ::Vector{<:Real}
 			increment!(ncl, :neval_grad)
 
@@ -150,8 +149,14 @@ using Test
 	#** II.3 Hessian of the Lagrangian
 		function NLPModels.hess(ncl::NCLModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Matrix{<:Real}
 			increment!(ncl, :neval_hess)
+			H = zeros(ncl.nvar, ncl.nvar)
+			# Original information
+				H[1:ncl.nvar_x, 1:ncl.nvar_x] = hess(ncl.nlp, X[1:ncl.nvar_x], obj_weight=obj_weight, y=y) # Original hessian
 			
-			return sparse(hess_coord(ncl, X, obj_weight=obj_weight, y=y)...)
+			# New information (due to residuals)
+				H[ncl.nvar_x+1:end, ncl.nvar_x+1:end] = H[ncl.nvar_x+1:end, ncl.nvar_x+1:end] + ncl.ρ * I # Added by residuals (constant because of quadratic penalization) 
+		
+			return H #?sparse(hess_coord(ncl, X, obj_weight=obj_weight, y=y)...)
 		end
 
 		function NLPModels.hess_coord(ncl::NCLModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
