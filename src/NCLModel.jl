@@ -47,8 +47,7 @@ using Test
 				jres = nlp.meta.nln # copy, useless, but permits to use the unitary test problem computed
 				
 				if printing
-					println("    NCLModel : jres = ", jres)
-					println("    NCLModel : nvar_r = ", nvar_r)
+					println("    NCLModel : added ", nvar_r, " residuals, at indices ", jres)
 				end
 			end
 

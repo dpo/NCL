@@ -419,7 +419,7 @@ function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.00
                                 if printing_iterations
                                     println("    norm(r_k,Inf) = ", norm(r_k,Inf), " <= η_end = ", η_end, " going to KKT_check")
                                 end
-                                
+
                                 converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], ω_end, η_end, ϵ_end, printing_check) 
                                 if printing_check & !converged # means we printed some thing with KKT_check, so we skip a line
                                     print("\n ------- Not fitting with KKT conditions ----------\n")
@@ -474,7 +474,7 @@ Main function for the NCL method.
     Runs NCL method on it, (via the other NCLSolve function)
     Returns (x (solution), y (lagrangian multipliers for constraints), z (lagrangian multpliers for bound constraints))
 """
-function NCLSolve(nlp::AbstractNLPModel; tol::Real = 0.001, constr_viol_tol::Real = 0.0001, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 200, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing) ::Tuple{GenericExecutionStats, Bool} 
+function NCLSolve(nlp::AbstractNLPModel; tol::Real = 0.001, constr_viol_tol::Real = 0.0001, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 200, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing, warm_start_init_point = "no") ::Tuple{GenericExecutionStats, Bool} 
     #** I. Test : NCL or Ipopt
         if (nlp.meta.ncon == 0) | (nlp.meta.nnln == 0)
             if printing_iterations
@@ -482,9 +482,9 @@ function NCLSolve(nlp::AbstractNLPModel; tol::Real = 0.001, constr_viol_tol::Rea
             end
 
             if use_ipopt
-                return (NLPModelsIpopt.ipopt(nlp, tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter, print_level=printing_iterations_solver ? 3 : 0), true)
+                return (NLPModelsIpopt.ipopt(nlp, tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter, print_level=printing_iterations_solver ? 3 : 0, warm_start_init_point = warm_start_init_point), true)
             else
-                return (_knitro(nlp, tol = tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter = max_iter, print_level = printing_iterations_solver ? 3 : 0), true)
+                return (_knitro(nlp, tol = tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter = max_iter, print_level = printing_iterations_solver ? 3 : 0, warm_start_init_point = warm_start_init_point), true)
             end
 
         else
@@ -495,7 +495,7 @@ function NCLSolve(nlp::AbstractNLPModel; tol::Real = 0.001, constr_viol_tol::Rea
                 println("\n")
             end
 
-            resol = NCLSolve(ncl, tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter, use_ipopt=use_ipopt, printing_iterations=printing_iterations, printing_iterations_solver=printing_iterations_solver, printing_check=printing_check)
+            resol = NCLSolve(ncl, tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter, use_ipopt=use_ipopt, printing_iterations=printing_iterations, printing_iterations_solver=printing_iterations_solver, printing_check=printing_check, warm_start_init_point = warm_start_init_point)
             if printing_iterations
                 println("\n")
             end
