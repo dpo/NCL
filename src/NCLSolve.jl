@@ -328,14 +328,16 @@ Returns:
                             )
         )
 """
-function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.0001, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 200, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing, warm_start_init_point = "no") ::GenericExecutionStats 
+function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 1e-6, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 20, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing, warm_start_init_point = "no") ::GenericExecutionStats 
     if printing_iterations
         println("NCLSolve called on " * ncl.meta.name)
     end
     
     # ** I. Names and variables
         Type = typeof(ncl.meta.x0[1])
-        ncl.ρ = 1.0 # step
+        ncl.ρ = 100.0 # step
+        ρ_max = 1e10 #biggest penalization authorized
+
         τ = 10.0 # scale (used to update the ρ_k step)
         α = 0.1 # Constant (α needs to be < 1)
         β = 0.2 # Constant
@@ -344,9 +346,11 @@ function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.00
         ω_end = tol #global tolerance, in argument
         ω_k = 0.5 # sub problem tolerance
         η_end = constr_viol_tol #global infeasability in argument
-        η_k = 2.0 # sub problem infeasability
+        η_k = 1e-2 # sub problem infeasability
+        η_min = 1e-8 # smallest infeasability authorized
         ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
         
+
         # initial points
         x_k = zeros(Type, ncl.nvar_x)
         r_k = zeros(Type, ncl.nvar_r)
@@ -357,13 +361,17 @@ function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.00
 
     # ** II. Optimization loop and return
         k = 0
+        mu_init = 1e-3
         converged = false
 
         while (k < max_iter) & !converged
             k += 1
+            if (k%2 == 0) & (k <= 10)
+                mu_init = mu_init * 0.1
+            end
             # ** II.1 Get subproblem's solution
                 if use_ipopt
-                        resolution_k = NLPModelsIpopt.ipopt(ncl, tol = ω_k, constr_viol_tol = η_k, compl_inf_tol = ϵ_end, print_level = printing_iterations_solver ? 3 : 0, ignore_time = true)
+                        resolution_k = NLPModelsIpopt.ipopt(ncl, tol = ω_k, constr_viol_tol = η_k, compl_inf_tol = ϵ_end, print_level = printing_iterations_solver ? 3 : 0, ignore_time = true, warm_start_init_point = warm_start_init_point, mu_init = mu_init, dual_inf_tol=1e-6, max_iter = 1000)
                         
                         # Get variables
                         x_k = resolution_k.solution[1:ncl.nvar_x]
@@ -406,8 +414,10 @@ function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.00
             # ** II.2 Treatment & update
                 if (norm(r_k,Inf) <= max(η_k, η_end)) | (k == max_iter) # The residual has decreased enough
                     ncl.y = ncl.y + ncl.ρ * r_k # Updating multiplier
-                    η_k = η_k / (1 + ncl.ρ ^ β) # (heuristic)
-                    
+                    η_k = max(η_k/τ, η_min) # η_k / (1 + ncl.ρ ^ β) # (heuristic)
+                    if η_k == η_min
+                        @warn "min feas reached"
+                    end
                     #** II.2.1 Solution found ?
                         if (norm(r_k,Inf) <= η_end) | (k == max_iter) # check if r_k is small enough, or if we've reached the end
                             
@@ -455,8 +465,11 @@ function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.00
 
                 else # The residual is to still too large
                     ncl.ρ = τ * ncl.ρ # increase the step # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
-                    η_k = η_end / (1 + ncl.ρ ^ α) # Change infeasability (heuristic) # ? (simple) η_end ou η_0, cf article
-                    # TODO (recherche...) : update ω_k 
+                    #η_k = η_end / (1 + ncl.ρ ^ α) # Change infeasability (heuristic) # ? (simple) η_end ou η_0, cf article
+                    if ncl.ρ == ρ_max
+                        @warn "miax penal reached"
+                    end
+                # TODO (recherche...) : update ω_k 
                 end
                 # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/ncl.ρ, ncl.ρ = 100ρ_k, η_k = 1/ncl.ρ^0.1
         end    
@@ -474,7 +487,7 @@ Main function for the NCL method.
     Runs NCL method on it, (via the other NCLSolve function)
     Returns (x (solution), y (lagrangian multipliers for constraints), z (lagrangian multpliers for bound constraints))
 """
-function NCLSolve(nlp::AbstractNLPModel; tol::Real = 0.001, constr_viol_tol::Real = 0.0001, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 200, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing, warm_start_init_point = "no") ::Tuple{GenericExecutionStats, Bool} 
+function NCLSolve(nlp::AbstractNLPModel; tol::Real = 0.001, constr_viol_tol::Real = 1e-6, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 20, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing, warm_start_init_point = "no") ::Tuple{GenericExecutionStats, Bool} 
     #** I. Test : NCL or Ipopt
         if (nlp.meta.ncon == 0) | (nlp.meta.nnln == 0)
             if printing_iterations
