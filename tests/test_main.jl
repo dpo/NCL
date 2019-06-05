@@ -8,18 +8,17 @@ function decodemodel(name)
     finalize(CUTEstModel(name))
 end
 
-probs = ["HS" * string(i) for i in 10:20]
+probs = ["HS" * string(i) for i in [10,12,14]]
 broadcast(decodemodel, probs)
 
 
-include("test_ncl.jl")
+include("test_NCLSolve.jl")
 include("test_NCLModel.jl")
-include("../src/main.jl")
 
 function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_main_command::Bool) ::Test.DefaultTestSet
     test_NLCModel(test_NCLModel_command)
 
-    test_ncl(test_ncl_command)
+    test_NCLSolve(test_ncl_command)
     
     if test_main_command
         ρ = 1.
@@ -46,21 +45,14 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
         name_nlp = "Unitary test problem"
         nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name_nlp)::ADNLPModel
 
-        @testset "NCLMain" begin
-            println(nlp)
-
-            #@test isa(NCLMain(nlp), Tuple{GenericExecutionStats, Bool})
-            #@test NCLMain(nlp, max_iter = 15)[1].iter <= 15
-
-            finalize(nlp)
-
+        @testset "NCLSolve" begin
             for name in probs # several tests
                 nlp = CUTEstModel(name)
-                println(nlp)
+                #println(nlp)
                 test_name = name * " problem resolution"
                 @testset "$test_name" begin
-                    @test NCLMain(nlp, max_iter = 40)[2] # several tests
-                    #@test NCLMain(nlp, max_iter = 40)[1].iter <= 40
+                    println(NCLSolve(nlp, max_iter = 30)[1].status) # several tests
+                    @test NCLSolve(nlp, max_iter = 200)[2]
                 end
                 finalize(nlp)
             end

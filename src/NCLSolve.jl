@@ -1,6 +1,6 @@
 # comment
 # ** Important
-# ! Alert, problem
+# ! Warning / Problem
 # ? Question
 # TODO 
 
@@ -8,38 +8,31 @@ using LinearAlgebra
 using NLPModels
 using SolverTools
 using Ipopt
-
-#include("../src/NLPModelsIpopt_perso.jl")
-#import ipopt
-#using NLPModelsKnitro #! not found...
 using NLPModelsIpopt
 include("NCLModel.jl")
 
+#using NLPModelsKnitro
 
 
-
-
-
-
-# TODO complementarité de range (irng ET jrng ...)
-
-
-
-
-
-
-
-
-
-
-
-# ? Mais appel a la fonction long aussi. Inline faisable avec @inline si interessant
 
 # TODOs :
-    #! si r_k = [], on r2sout toujours au même endroit, envoyer à Ipopt
-    #! erreur dans \nabla_lag .......y_temp.......
+    #! si r_k = [], on resout toujours au même endroit, envoyer à Ipopt
 
 
+
+"""
+mult_format_check verifys that z_U and z_L are given in the right format to KKT_check. 
+For the constraint multipliers, λ, if i is in jlow or jupp, λ[i] is modified to be >= 0 (it is done inside KKT_check). 
+
+!!! Important note !!! The convention is : 
+(P) min f(x)
+    s.t. c(x) >= 0
+
+And then
+    multipliers λ >= 0
+    Lagrangien(x, λ) = f(x) - λ' * c(x)
+    ∇_{x}[lag(x, λ)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * λ - (z_L - z_U)
+"""
 function mult_format_check(z_U::Vector{<:Real}, z_L::Vector{<:Real}, ϵ::Real) ::Tuple{Vector{<:Real}, Vector{<:Real}}
     if (any(z_U .< -ϵ) & any(z_U .> ϵ))
         println("    z_U = ", z_U)
@@ -57,11 +50,17 @@ function mult_format_check(z_U::Vector{<:Real}, z_L::Vector{<:Real}, ϵ::Real) :
                Here, some components are negatives")
     end
 
-    if all(z_U .< ϵ)
+    if all(z_U .< ϵ) & any(z_U .< - ϵ)
+        @warn "z_U was <= ϵ (complementarity tolerance) and non zero so it was changed to its opposite. Multipliers are supposed to be all >= 0"
+        @show z_U
+        @show ϵ
         z_U = - z_U
     end
 
-    if all(z_L .< ϵ)
+    if all(z_L .< ϵ) & any(z_L .< - ϵ)
+        @warn "z_L was <= ϵ (complementarity tolerance) and non zero so it was changed to its opposite. Multipliers are supposed to be all >= 0"
+        @show z_L
+        @show ϵ
         z_L = - z_L
     end
 
@@ -69,17 +68,22 @@ function mult_format_check(z_U::Vector{<:Real}, z_L::Vector{<:Real}, ϵ::Real) :
 end
 
 
+
+
 """
-Tests if the (x, y) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism) within ω as a tolerance
+KKT_check tests if (x, λ) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism, it is suposed to be an AbstractNLPModel), within 
+    ω as a tolerance for the lagrangian gradient norm
+    η as a tolerance for constraint infeasability
+    ϵ as a tolerance for complementarity checking
 
 !!! Important note !!! the lagrangian is considered as :
-    l(x, y) = f(x) - y' * c(x)          
+    l(x, λ) = f(x) - λ' * c(x)          
     with c(x) >= 0
-            y >= 0
+            λ >= 0
 """
-function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, z_U::Vector{<:Real}, z_L::Vector{<:Real}, ω::Real, η::Real, ϵ::Real, printing::Bool) ::Bool
+function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real}, z_U::Vector{<:Real}, z_L::Vector{<:Real}, ω::Real, η::Real, ϵ::Real, printing::Bool) ::Bool
     if printing
-        println("\nNLPModel_solved called on " * nlp.meta.name)
+        println("\nKKT_check called on " * nlp.meta.name)
     end
 
     #** 0. Warnings and mode determination
@@ -177,12 +181,11 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, 
                 end
         end
     
-    
 
     #** II. Other constraints
         #** II.0 Precomputation
             c_x = cons(nlp, x) # Precomputation
-            y_temp = copy(y) # real copy, to avoid initial data modification
+            λ_temp = copy(λ) # real copy, to avoid initial data modification
             
 
         #** II.1 Feasability
@@ -206,18 +209,15 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, 
         #** II.2 Complementarity
             #* II.2.1 Lower complementarity
                 for i in nlp.meta.jlow # lower constraints
-                    if (y_temp[i] <= ϵ)
-                        y_temp[i] = - y_temp[i]
-                        if printing
-                            println("    y[", i, "]      = ", y[i])
-                            println("    y_temp[", i, "] = ", y_temp[i])
-                        end
+                    if (λ_temp[i] <= - ϵ)
+                        λ_temp[i] = - λ_temp[i]
+                        @warn "λ[" * string(i) * "] = " * string(λ[i]) * " was <= -ϵ = " * string(-ϵ) * " so it was changed in its opposite. Check your convention for multipliers"
                     end
 
-                    if !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) # Complementarity condition (sign handled by the condition above and the feasability test)
+                    if !(-ϵ <= (λ_temp[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) # Complementarity condition (sign handled by the condition above and the feasability test)
                         if printing
-                            println("    complementarity = ", (y_temp[i] * (c_x[i] - nlp.meta.lcon[i])), " out of tolerance ϵ = ", ϵ, ". See lower cons " * string(i))
-                            println("      y[", i, "]             = ", y[i])
+                            println("    complementarity = ", (λ_temp[i] * (c_x[i] - nlp.meta.lcon[i])), " out of tolerance ϵ = ", ϵ, ". See lower cons " * string(i))
+                            println("      λ[", i, "]             = ", λ[i])
                             println("      c_x[", i, "]           = ", c_x[i])
                             println("      nlp.meta.lcon[", i, "] = ", nlp.meta.lcon[i])
                         end
@@ -227,18 +227,15 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, 
             
             #* II.2.2 Upper complementarity
                 for i in nlp.meta.jupp # upper constraints
-                    if y_temp[i] <= -ϵ
-                        y_temp[i] = - y_temp[i]
-                        if printing
-                            println("    y[", i, "]      = ", y[i])
-                            println("    y_temp[", i, "] = ", y_temp[i])
-                        end
+                    if (λ_temp[i] <= -ϵ)
+                        λ_temp[i] = - λ_temp[i]
+                        @warn "λ[" * string(i) * "] = " * string(λ[i]) * " was <= ϵ = " * string(-ϵ) * " so it was changed in its opposite. Check your convention for multipliers"
                     end
 
-                    if !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  # Complmentarity condition (sign handled by the condition above and the feasability test)
+                    if !(-ϵ <= (λ_temp[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  # Complmentarity condition (sign handled by the condition above and the feasability test)
                         if printing
-                            println("    complementarity = ", (y_temp[i] * (c_x[i] - nlp.meta.ucon[i])), " out of tolerance ϵ = ", ϵ, ". See upper cons " * string(i))
-                            println("      y[", i, "]             = ", y[i])
+                            println("    complementarity = ", (λ_temp[i] * (c_x[i] - nlp.meta.ucon[i])), " out of tolerance ϵ = ", ϵ, ". See upper cons " * string(i))
+                            println("      λ[", i, "]             = ", λ[i])
                             println("      c_x[", i, "]           = ", c_x[i])
                             println("      nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
                         end
@@ -248,60 +245,54 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, 
                 end
 
             #* II.2.3 Range complementarity 
-                #! Impossible to do without sub multipliers
-                #for i in nlp.meta.jrng # upper constraints
-                #    if !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ) | !(-ϵ <= (y_temp[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ)  # Complmentarity condition (sign handled by the condition above and the feasability test)
-                #        if printing
-                #            println("    complementarity = ", (y_temp[i] * (c_x[i] - nlp.meta.ucon[i]), (y_temp[i] * (c_x[i] - nlp.meta.lcon[i]))), " out of tolerance ϵ = ", ϵ, ". See upper cons " * string(i))
-                #            println("      y[", i, "]             = ", y[i])
-                #            println("      c_x[", i, "]           = ", c_x[i])
-                #            println("      nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
-                #        end
-                #        return false
-                #    end
-                #
-                #end
+                for i in nlp.meta.jrng # upper constraints
+                    if !(-ϵ <= (λ_temp[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ) & !(-ϵ <= (λ_temp[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ)  # Complementarity condition (for range constraint, we have necessarily : [λ_temp[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ_temp[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
+                        if printing
+                            println("    (range) complementarity = ", (λ_temp[i] * (c_x[i] - nlp.meta.ucon[i]), (λ_temp[i] * (c_x[i] - nlp.meta.lcon[i]))), " out of tolerance ϵ = ", ϵ, ". See upper cons " * string(i))
+                            println("      λ[", i, "]             = ", λ[i])
+                            println("      c_x[", i, "]           = ", c_x[i])
+                            println("      nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
+                            println("      nlp.meta.lcon[", i, "] = ", nlp.meta.lcon[i])
+                        end
+                        return false
+                    end
+                
+                end
     
     
     #** III. Lagrangian
         ∇f_x = grad(nlp, x)      
         
         if knitro
-            ∇lag_x = ∇f_x + jtprod(nlp, x, y_temp) + z_L
-            #∇lag_x = ∇f_x - jtprod(nlp, x, y) + z_L
+            ∇lag_x = ∇f_x - jtprod(nlp, x, λ_temp) - z_L
+            #∇lag_x = ∇f_x - jtprod(nlp, x, λ) + z_L
 
             if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
                 if printing
                     println("    not a stationnary point for the lagrangian")
                     println("      ∇f_x              = ", ∇f_x)
                     println("      t(Jac_x)          = ", transpose(jac(nlp, x)))
-                    println("      y_temp            = ", y_temp)
-                    println("      y                 = ", y)
-                    println("      t(Jac_x) * y_temp = ", jtprod(nlp, x, y_temp))
-                    println("      t(Jac_x) * y      = ", jtprod(nlp, x, y))
+                    println("      λ_temp            = ", λ_temp)
+                    println("      λ                 = ", λ)
+                    println("      t(Jac_x) * λ_temp = ", jtprod(nlp, x, λ_temp))
+                    println("      t(Jac_x) * λ      = ", jtprod(nlp, x, λ))
                     println("      z                 = ", z)
                     println("      ∇lag_x            = ", ∇lag_x)
                 end
                 return false
             end
         else
-            ∇lag_x = ∇f_x - jtprod(nlp, x, y_temp) - (z_L - z_U)
-
-            #! Bizarre
-            # TODO : -(z_L - z_U)
-            #! Bizarre
-
+            ∇lag_x = ∇f_x - jtprod(nlp, x, λ_temp) - (z_L - z_U)
             if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
                 if printing
                     println("    not a stationnary point for the lagrangian")
-                    println("      ∇f_x              = ", ∇f_x)
-                    println("      t(Jac_x)          = ", transpose(jac(nlp, x)))
-                    println("      y_temp            = ", y_temp)
-                    println("      y                 = ", y)
-                    println("      t(Jac_x) * y_temp = ", jtprod(nlp, x, y_temp))
-                    println("      t(Jac_x) * y      = ", jtprod(nlp, x, y))
-                    println("      - (z_L - z_U)     = ", - (z_L - z_U))
-                    println("      ∇lag_x            = ", ∇lag_x)
+                    println("      ∇f_x                = ", ∇f_x)
+                    println("      λ_temp              = ", λ_temp)
+                    println("      λ                   = ", λ)
+                    println("      - t(Jac_x) * λ_temp = ", - jtprod(nlp, x, λ_temp))
+                    println("      - t(Jac_x) * λ      = ", - jtprod(nlp, x, λ))
+                    println("      - (z_L - z_U)       = ", - (z_L - z_U))
+                    println("      ∇lag_x              = ", ∇lag_x)
                 end
                 return false
             end
@@ -312,8 +303,10 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, y::Vector{<:Real}, 
     if printing
         println("    " * nlp.meta.name * " solved !")
     end
-    return true # all the tests were passed, x, y respects feasability, complementarity not respected, see and ∇lag_x(x, y) almost = 0
+    return true # all the tests were passed, x, λ respects feasability, complementarity not respected, see and ∇lag_x(x, λ) almost = 0
 end
+
+
 
 
 """
@@ -323,11 +316,11 @@ Arguments:
       nlp is the generic problem you want to solve
 Returns:
     a GenericExecutionStats, based on the NLPModelsIpopt/Knitro return :
-        SolverTools.status                              # of the last resolution
-        nlc                                             # the problem in argument,
+        SolverTools.status                              # of the last resolution #! TODO : Créer un vrai statut
+        ncl                                             # the problem in argument,
         solution = sol,                                 # solution found
         iter = k,                                       # number of iteration of the ncl method (not iteration to solve subproblems)
-        objective=obj(nlc, sol),                        # objective value
+        objective=obj(ncl, sol),                        # objective value
         elapsed_time=0,                                 # time of computation of the whole resolution
         solver_specific=Dict(:multipliers_con => λ_k,   # lagrangian multipliers for : constraints
                             :multipliers_L => z_k_L,    #                              upper bounds
@@ -335,35 +328,32 @@ Returns:
                             )
         )
 """
-
-#! Problem : Type error si pas de convergence
-
-
-function NCLSolve(nlc::NCLModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real, η_end::Real, ϵ_end::Real, printing_iterations::Bool, printing_iterations_solver::Bool, printing_check::Bool) ::GenericExecutionStats 
+function NCLSolve(ncl::NCLModel; tol::Real = 0.001, constr_viol_tol::Real = 0.0001, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 200, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing) ::GenericExecutionStats 
     if printing_iterations
-        println("NCLSolve called on " * nlc.meta.name)
+        println("NCLSolve called on " * ncl.meta.name)
     end
     
     # ** I. Names and variables
-        Type = typeof(nlc.meta.x0[1])
-        nlc.ρ = 1.0 # step
+        Type = typeof(ncl.meta.x0[1])
+        ncl.ρ = 1.0 # step
         τ = 10.0 # scale (used to update the ρ_k step)
         α = 0.1 # Constant (α needs to be < 1)
         β = 0.2 # Constant
         #TODO : Pierric
 
-        # ω_end = global tolerance, in argument
+        ω_end = tol #global tolerance, in argument
         ω_k = 0.5 # sub problem tolerance
-        #η_end = global infeasability in argument
+        η_end = constr_viol_tol #global infeasability in argument
         η_k = 2.0 # sub problem infeasability
-        #ϵ_end = global tolerance for complementarity conditions
+        ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
         
         # initial points
-        x_k = zeros(Type, nlc.nvar_x)
-        r_k = zeros(Type, nlc.nvar_r)
-        λ_k = zeros(Type, nlc.meta.ncon)
-        z_k_U = zeros(Type, length(nlc.meta.uvar))
-        z_k_L = zeros(Type, length(nlc.meta.lvar))
+        x_k = zeros(Type, ncl.nvar_x)
+        r_k = zeros(Type, ncl.nvar_r)
+        λ_k = zeros(Type, ncl.meta.ncon)
+        z_k_U = zeros(Type, length(ncl.meta.uvar))
+        z_k_L = zeros(Type, length(ncl.meta.lvar))
+        
 
     # ** II. Optimization loop and return
         k = 0
@@ -373,23 +363,24 @@ function NCLSolve(nlc::NCLModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
             k += 1
             # ** II.1 Get subproblem's solution
                 if use_ipopt
-                        resolution_k = NLPModelsIpopt.ipopt(nlc, tol = ω_k, constr_viol_tol = η_k, compl_inf_tol = ϵ_end, print_level = printing_iterations_solver ? 3 : 0, ignore_time = true)
+                        resolution_k = NLPModelsIpopt.ipopt(ncl, tol = ω_k, constr_viol_tol = η_k, compl_inf_tol = ϵ_end, print_level = printing_iterations_solver ? 3 : 0, ignore_time = true)
                         
                         # Get variables
-                        x_k = resolution_k.solution[1:nlc.nvar_x]
-                        r_k = resolution_k.solution[nlc.nvar_x+1 : nlc.nvar_x+nlc.nvar_r]
+                        x_k = resolution_k.solution[1:ncl.nvar_x]
+                        r_k = resolution_k.solution[ncl.nvar_x+1 : ncl.nvar_x+ncl.nvar_r]
 
                         # Get multipliers
+                        #! Beware, ipopt doesn't use our convention in KKT_check for constraint multipliers, so we took the opposite. For bound multiplier it seems to work though.
                         λ_k = - resolution_k.solver_specific[:multipliers_con] 
                         z_k_U = resolution_k.solver_specific[:multipliers_U]
                         z_k_L = resolution_k.solver_specific[:multipliers_L]
 
                 else # Knitro
-                    resolution_k = _knitro(nlc)::GenericExecutionStats
+                    resolution_k = _knitro(ncl)::GenericExecutionStats
 
                     # Get variables
-                    x_k = resolution_k.solution.x[1:nlc.nvar_x]
-                    r_k = resolution_k.solution.x[nlc.nvar_x+1:nlc.nvar_r]
+                    x_k = resolution_k.solution.x[1:ncl.nvar_x]
+                    r_k = resolution_k.solution.x[ncl.nvar_x+1:ncl.nvar_r]
 
                     # Get multipliers
                     λ_k = resolution_k.solver_specific[:multipliers_con]
@@ -399,10 +390,10 @@ function NCLSolve(nlc::NCLModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
 
                 if printing_iterations
                     println("   ----- Iter k = ", k, "-----",
-                            "\n    nlc.ρ         = ", nlc.ρ, 
+                            "\n    ncl.ρ         = ", ncl.ρ, 
                             "\n    x_k           = ", x_k, 
                             "\n    λ_k           = ", λ_k, 
-                            "\n    nlc.y         = ", nlc.y, 
+                            "\n    ncl.y         = ", ncl.y, 
                             "\n    r_k           = ", r_k,
                             "\n    η_k           = ", η_k,  
                             "\n    norm(r_k,Inf) = ", norm(r_k,Inf)
@@ -410,22 +401,22 @@ function NCLSolve(nlc::NCLModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                 end
                 
         # TODO (recherche) : Points intérieurs à chaud...
-        # TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le nlc.y du problème (si r petit, probablement proches.)
+        # TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le ncl.y du problème (si r petit, probablement proches.)
 
             # ** II.2 Treatment & update
                 if (norm(r_k,Inf) <= max(η_k, η_end)) | (k == max_iter) # The residual has decreased enough
-                    nlc.y = nlc.y + nlc.ρ * r_k # Updating multiplier
-                    η_k = η_k / (1 + nlc.ρ ^ β) # (heuristic)
+                    ncl.y = ncl.y + ncl.ρ * r_k # Updating multiplier
+                    η_k = η_k / (1 + ncl.ρ ^ β) # (heuristic)
                     
-                    # ** II.2.1 Solution found ?
+                    #** II.2.1 Solution found ?
                         if (norm(r_k,Inf) <= η_end) | (k == max_iter) # check if r_k is small enough, or if we've reached the end
                             if printing_iterations
                                 println("    norm(r_k,Inf) = ", norm(r_k,Inf), " <= η_end = ", η_end, " going to KKT_check")
                             end
 
                             ## Testing
-                            converged = KKT_check(nlc.nlp, x_k, λ_k, z_k_U[1:nlc.nvar_x], z_k_L[1:nlc.nvar_x], ω_end, η_end, ϵ_end, printing_check) # TODO (~recherche) : Voir si nécessaire ou si lorsque la tolérance de KNITRO renvoyée est assez faible et r assez petit, on a aussi résolu le problème initial    
-                            if printing_check & !converged & printing_check # means we printed some thing with KKT_check, so we skip a line
+                            converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], ω_end, η_end, ϵ_end, printing_check) 
+                            if printing_check & !converged # means we printed some thing with KKT_check, so we skip a line
                                 print("\n ------- Not fitting with KKT conditions ----------\n")
                             end
                             
@@ -440,26 +431,72 @@ function NCLSolve(nlc::NCLModel, max_iter::Int64, use_ipopt::Bool, ω_end::Real,
                                 end
                             end
                             
-                            ## And return
-                            if converged | (k == max_iter) # TODO: clarify
-                                return GenericExecutionStats(status, nlc,
+                    #** II.2.2 Return if end of the algorithm
+                            if converged | (k == max_iter)
+                                return GenericExecutionStats(status, ncl, # TODO optimalité dans le GenericExecutionStats
                                                             solution = resolution_k.solution,
                                                             iter = k,
-                                                            objective=obj(nlc, resolution_k.solution), 
+                                                            objective=obj(ncl, resolution_k.solution), 
                                                             elapsed_time=0,
                                                             solver_specific=Dict(:multipliers_con => λ_k,
                                                                                 :multipliers_L => z_k_L,
-                                                                                :multipliers_U => z_k_U
+                                                                                :multipliers_U => z_k_U,
+                                                                                :optimal => converged
                                                                                 )
                                                             )
                             end
                         end
 
                 else # The residual is to still too large
-                    nlc.ρ = τ * nlc.ρ # increase the step # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
-                    η_k = η_end / (1 + nlc.ρ ^ α) # Change infeasability (heuristic) # ? (simple) η_end ou η_0, cf article
+                    ncl.ρ = τ * ncl.ρ # increase the step # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
+                    η_k = η_end / (1 + ncl.ρ ^ α) # Change infeasability (heuristic) # ? (simple) η_end ou η_0, cf article
                     # TODO (recherche...) : update ω_k 
                 end
-                # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/nlc.ρ, nlc.ρ = 100ρ_k, η_k = 1/nlc.ρ^0.1
+                # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/ncl.ρ, ncl.ρ = 100ρ_k, η_k = 1/ncl.ρ^0.1
         end    
+end
+
+
+#TODO ? kwargs... ?
+
+
+printing = false
+"""
+Main function for the NCL method. 
+    Takes an AbstractNLPModel as initial problem, 
+    Converts it to a NCLModel,
+    Runs NCL method on it, (via the other NCLSolve function)
+    Returns (x (solution), y (lagrangian multipliers for constraints), z (lagrangian multpliers for bound constraints))
+"""
+function NCLSolve(nlp::AbstractNLPModel; tol::Real = 0.001, constr_viol_tol::Real = 0.0001, compl_inf_tol::Real = 0.0001, max_iter::Int64 = 200, use_ipopt::Bool = true, printing_iterations::Bool = printing, printing_iterations_solver::Bool = false, printing_check::Bool = printing) ::Tuple{GenericExecutionStats, Bool} 
+    #** I. Test : NCL or Ipopt
+        if (nlp.meta.ncon == 0) | (nlp.meta.nnln == 0)
+            if printing_iterations
+                println("Résolution de " * nlp.meta.name * " par IPOPT / KNITRO")
+            end
+
+            if use_ipopt
+                return (NLPModelsIpopt.ipopt(nlp, tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter, print_level=printing_iterations_solver ? 3 : 0), true)
+            else
+                return (_knitro(nlp, tol = tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter = max_iter, print_level = printing_iterations_solver ? 3 : 0), true)
+            end
+
+        else
+
+    #** II. NCL Resolution
+            ncl = NCLModel(nlp, printing = printing_iterations)
+            if printing_iterations
+                println("\n")
+            end
+
+            resol = NCLSolve(ncl, tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter, use_ipopt=use_ipopt, printing_iterations=printing_iterations, printing_iterations_solver=printing_iterations_solver, printing_check=printing_check)
+            if printing_iterations
+                println("\n")
+            end
+    
+    #** III. Optimality and return
+            optimal = !(resol.iter == max_iter)
+
+            return (resol, optimal)
+        end
 end
