@@ -30,25 +30,19 @@ using Test
 			ρ::Real
 	end
 
-	function NCLModel(nlp::AbstractNLPModel ; print_level::Int64 = 0, ρ::Real = 1.0, )::NCLModel #TODO add y, ac val par defaut, type de retour, NLP/NCL...
+	function NCLModel(nlp::AbstractNLPModel ; print_level::Int64 = 0, ρ::Real = 1.0, res_nlin_cons::Bool = false)::NCLModel #TODO add y, ac val par defaut, type de retour, NLP/NCL...
 		# * 0. printing
 			if print_level >= 1
 				println("\nNLCModel called on " * nlp.meta.name)
 			end
 		
 		
-		# Information about the original problem
-		#TODO modifier pour utiliser lin dans ADNLPModel
-			if (nlp.meta.lin == Int[]) & (isa(nlp, ADNLPModel)) & (nlp.meta.name == "Unitary test problem")
-				jres = [2, 4] 
-				nvar_r = 2 # linear constraints are not considered here in the NCL method. 
-			else
-				nvar_r = nlp.meta.nnln # linear constraints are not considered here in the NCL method. 
-				jres = nlp.meta.nln # copy, useless, but permits to use the unitary test problem computed
-				
-				if print_level >= 2 
-					println("    NCLModel : added ", nvar_r, " residuals")
-				end
+		# Information about the original problem			
+			nvar_r = nlp.meta.nnln # linear constraints are not considered here in the NCL method. 
+			jres = nlp.meta.nln # copy, useless, but permits to use the unitary test problem computed
+			
+			if print_level >= 2 
+				println("    NCLModel : added ", nvar_r, " residuals")
 			end
 
 			nvar_x = nlp.meta.nvar
@@ -103,16 +97,14 @@ using Test
 		function NLPModels.obj(ncl::NCLModel, X::Vector{<:Real})::Real
 			increment!(ncl, :neval_obj)
 			obj_val = obj(ncl.nlp, X[1:ncl.nvar_x])
+			obj_res = (ncl.y[1:ncl.nvar_r])' * X[ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r] +
+					   0.5 * ncl.ρ * (norm(X[ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r], 2) ^ 2
+					  )
 			if ncl.minimize
-				obj_val +
-				(ncl.y[1:ncl.nvar_r])' * X[ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r] +
-				0.5 * ncl.ρ * (norm(X[ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r], 2) ^ 2)
-
+				return obj_val + obj_res
 			else # argmax f(x) = argmin -f(x)
 				ncl.minimize = true 
-				- obj_val +
-				ncl.y' * X[ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r] +
-				0.5 * ncl.ρ * (norm(X[ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r], 2) ^ 2)
+				- obj_val + obj_res
 			end
 		end
 
@@ -286,7 +278,7 @@ using Test
 				orig_len = len_jcols - ncl.nvar_r
 
 			# Original information
-			jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len] = jac_coord!(ncl.nlp, X[1:ncl.nvar_x], jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len]) # we necessarily need the place for ncl.nvar_r ones in the value array
+				jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len] = jac_coord!(ncl.nlp, X[1:ncl.nvar_x], jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len]) # we necessarily need the place for ncl.nvar_r ones in the value array
 
 			# New information (due to residuals)
 				jvals[orig_len + 1 : len_jcols] = ones(typeof(jvals[1]), ncl.nvar_r) # we assume length(jrows) = length(jcols) = length(jvals)

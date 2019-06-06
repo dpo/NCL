@@ -38,7 +38,7 @@ function test_main(test_NCLModel_command::Bool, test_NCLSolve_command::Bool, tes
                 x[1] * x[2]] # equality one
 
         name_nlp = "Unitary test problem"
-        nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name_nlp)::ADNLPModel
+        nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name_nlp, lin=[1,3])::ADNLPModel
 
         @testset "NCLSolve" begin
             for name in probs # several tests

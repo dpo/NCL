@@ -4,6 +4,7 @@ using Ipopt
 using NLPModelsIpopt
 
 include("../src/NCLSolve.jl")
+include("../src/NCLModel.jl")
 
 function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
     print_level = 0
@@ -34,7 +35,7 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
                 x[1] * x[2]] # equality one
 
         name = "Unitary test problem"
-        nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name)::ADNLPModel
+        nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])::ADNLPModel
         ncl = NCLModel(nlp)::NCLModel
 
         ncl.y = y
