@@ -66,7 +66,7 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
             
         
         # Resolution of NCL with NCL method
-            resol_ncl_ncl = NCLSolve(ncl, max_iter = 10, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, printing_iterations=printing_iterations, printing_iterations_solver=false, printing_check=printing_check)
+            resol_ncl_ncl = NCLSolve(ncl, max_iter_NCL = 30, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, printing_iterations=printing_iterations, printing_iterations_solver=false, printing_check=printing_check)
             y_end = copy(ncl.y)
             x_ncl = resol_ncl_ncl.solution
 

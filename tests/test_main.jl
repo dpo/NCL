@@ -4,16 +4,16 @@ using NLPModels
 using CUTEst
 
 
-probs = ["HS" * string(i) for i in 1:12]
+probs = ["HS" * string(i) for i in 8:12]
 
 
 include("test_NCLSolve.jl")
 include("test_NCLModel.jl")
 
-function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_main_command::Bool) ::Test.DefaultTestSet
+function test_main(test_NCLModel_command::Bool, test_NCLSolve_command::Bool, test_main_command::Bool) ::Test.DefaultTestSet
     test_NLCModel(test_NCLModel_command)
 
-    test_NCLSolve(test_ncl_command)
+    test_NCLSolve(test_NCLSolve_command)
     
     if test_main_command
         ρ = 1.
@@ -46,7 +46,7 @@ function test_main(test_NCLModel_command::Bool, test_ncl_command::Bool, test_mai
                 #println(nlp)
                 test_name = name * " problem resolution"
                 @testset "$test_name" begin
-                    @test NCLSolve(nlp, max_iter = 200)[2]
+                    @test NCLSolve(nlp, max_iter_NCL = 30)[2]
                 end
                 finalize(nlp)
             end
