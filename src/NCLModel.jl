@@ -13,34 +13,49 @@ using Test
 		the constraints (with residuals)
 	"""
 	mutable struct NCLModel <: AbstractNLPModel
-		# Information about the original problem
+		#* I. Information about the residuals
 			nlp::AbstractNLPModel # The original problem
 			nvar_x::Int64 # Number of variable of the nlp problem
 			nvar_r::Int64 # Number of residuals for the nlp problem (in fact nvar_r = length(nln), if there are no free/infeasible constraints)
 			minimize::Bool # true if the aim of the problem is to minimize, false otherwise
 			jres::Vector{Int64} # Vector of indices of the non linear constraints (implemented only if nlp.meta.lin is empty)
+			res_lin_cons::Bool # Boolean to chose i you put residuals upon linear constraints (true) or not
 
-		# Constant parameters
+		#* II. Constant parameters
 			meta::AbstractNLPModelMeta # Informations for this problem
 			counters::Counters # Counters of calls to functions like obj, grad, cons, of the problem
 			nvar::Int64 # Number of variable of this problem (nvar_x + nvar_r)
 			
-		# Parameters for the objective function
+		#* III. Parameters for the objective function
 			y::Vector{<:Real}
 			ρ::Real
 	end
 
-	function NCLModel(nlp::AbstractNLPModel ; print_level::Int64 = 0, ρ::Real = 1.0, res_nlin_cons::Bool = false)::NCLModel #TODO add y, ac val par defaut, type de retour, NLP/NCL...
-		# * 0. printing
+	function NCLModel(nlp::AbstractNLPModel ; print_level::Int64 = 0, ρ::Real = 1.0, res_lin_cons::Bool = false)::NCLModel #TODO add y, ac val par defaut, type de retour, NLP/NCL...
+		#* 0. Printing
 			if print_level >= 1
 				println("\nNLCModel called on " * nlp.meta.name)
+
+				
+				if print_level >= 2 
+					if res_lin_cons
+						println("    No residuals on linear constraints, only non linear are considered (set res_lin_cons to true, if you want to consider linear constraints as well)")
+					else
+						println("    Residuals on linear constraints, (set res_lin_cons to false, if you want to consider only non linear constraints)")
+					end
+				end
 			end
 		
 		
-		# Information about the original problem			
-			nvar_r = nlp.meta.nnln # linear constraints are not considered here in the NCL method. 
-			jres = nlp.meta.nln # copy, useless, but permits to use the unitary test problem computed
-			
+		#* I. Information about the residuals
+			if res_lin_cons	
+				nvar_r = nlp.meta.ncon # linear constraints are not considered in this case. 
+				jres = [] # copy, useless, #! Simplify !
+			else		
+				nvar_r = nlp.meta.nnln # Both linear and non linear constraints are considered in this case. 
+				jres = nlp.meta.nln # copy, useless, #! Simplify !
+			end	
+
 			if print_level >= 2 
 				println("    NCLModel : added ", nvar_r, " residuals")
 			end
@@ -48,7 +63,7 @@ using Test
 			nvar_x = nlp.meta.nvar
 			minimize = nlp.meta.minimize
 			
-		# Constant parameters
+		#* II. Constant parameters
 			nvar = nvar_x + nvar_r
 			meta = NLPModelMeta(nvar ;
 								lvar = vcat(nlp.meta.lvar, -Inf * ones(nvar_r)), # No bounds upon residuals
@@ -70,20 +85,15 @@ using Test
 				error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jfree) * " free")
 			end
 		
-		# Parameters
-			#if length(mult) != nvar_r # ? Utile ?
-			#	y = zeros(typeof(nlp.meta.x0[1]), nvar_r)
-			#else
-			#	y = mult
-			#end
-			#ρ = penal
 
-		# NCLModel created:
+
+		#* III. NCLModel created:
 			return NCLModel(nlp, 
 							nvar_x, 
 							nvar_r, 
 							minimize,	
-							jres,		
+							jres,	
+							res_lin_cons,	
 							meta, 
 							Counters(), 
 							nvar,
@@ -120,11 +130,8 @@ using Test
 			increment!(ncl, :neval_grad)
 
 			if length(gx) != ncl.nvar
-				println("ERROR: wrong length of argument gx passed to grad! in NCLModel
-						gx should be of length " * string(ncl.nvar) * " but length " * string(length(gx)) * 
-						"given
-						Empty vector returned")
-				return <:Real[]
+				error("wrong length of argument gx passed to grad! in NCLModel
+					   gx should be of length " * string(ncl.nvar) * " but length " * string(length(gx)) * "given")
 			end
 
 			# Original information 
@@ -228,7 +235,11 @@ using Test
 				cx = cons(ncl.nlp, X[1:ncl.nvar_x]) # pre computation
 
 			# New information (due to residuals)
-				cx[ncl.jres] += X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
+				if ncl.res_lin_cons
+					cx += X[ncl.nvar_x+1:end] # a constraint on every residual
+				else
+					cx[ncl.jres] += X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
+				end
 			
 			return cx
 		end
@@ -239,7 +250,11 @@ using Test
 				cons!(ncl.nlp, X[1:ncl.nvar_x], cx) # pre computation
 
 			# New information (due to residuals)
-				cx[ncl.jres] .+= X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
+				if ncl.res_lin_cons
+					cx .+= X[ncl.nvar_x+1:end]
+				else
+					cx[ncl.jres] .+= X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
+				end
 
 			return cx
 		end
@@ -254,7 +269,9 @@ using Test
 				
 			# New information (due to residuals)
 				J = hcat(J, I) # residuals part
-				J = J[1:end, vcat(1:ncl.nvar_x, ncl.jres .+ ncl.nvar_x)] # but some constraint don't have a residual, so we remove some
+				if !ncl.res_lin_cons
+					J = J[1:end, vcat(1:ncl.nvar_x, ncl.jres .+ ncl.nvar_x)] # but linear constraint don't have a residual (in this case), so we remove some
+				end
 				
 			return J
 		end
@@ -265,7 +282,11 @@ using Test
 				jrows, jcols, jvals = jac_coord(ncl.nlp, X[1:ncl.nvar_x])
 
 			# New information (due to residuals)
-				append!(jrows, ncl.jres)
+				if ncl.res_lin_cons
+					append!(jrows, 1:ncl.meta.ncon)
+				else
+					append!(jrows, ncl.jres)
+				end
 				append!(jcols, ncl.nvar_x+1 : ncl.nvar)
 				append!(jvals, ones(typeof(jvals[1]), ncl.nvar_r))
 			return (jrows, jcols, jvals)
@@ -291,9 +312,13 @@ using Test
 			# Original information
 				jrows, jcols = jac_structure(ncl.nlp)
 
-			# New information (due to residuals) # ! If there is any problem, check the following :
-				append!(jrows, ncl.jres) # ! important that jrows = [orignial_rows, residues_rows] for the jac_coor!() function
-				append!(jcols, ncl.nvar_x+1 : ncl.nvar) # ! important that jcols = [orignial_cols, residues_cols] for the jac_coor!() function
+			# New information (due to residuals)
+				if ncl.res_lin_cons
+					append!(jrows, 1:ncl.meta.ncon)
+				else
+					append!(jrows, ncl.jres)
+				end
+				append!(jcols, ncl.nvar_x+1 : ncl.nvar)
 			return jrows, jcols
 		end
 
@@ -308,8 +333,12 @@ using Test
 				Jv = jprod(ncl.nlp, X[1:ncl.nvar_x], v[1:ncl.nvar_x])
 
 			# New information (due to residuals)
-				Resv = zeros(typeof(Jv[1,1]), ncl.nlp.meta.ncon)
-				Resv[ncl.jres] = Resv[ncl.jres] + v[ncl.nvar_x+1:end]
+				Resv = zeros(typeof(Jv[1,1]), ncl.meta.ncon)
+				if ncl.res_lin_cons
+					Resv += v[ncl.nvar_x+1:end]
+				else
+					Resv[ncl.jres] += v[ncl.nvar_x+1:end]
+				end
 
 			return Jv + Resv
 		end
@@ -322,11 +351,15 @@ using Test
 				end
 
 			# Original information
-				Jv .= jprod(ncl.nlp, X[1:ncl.nvar_x], v[1:ncl.nvar_x])
+				jprod!(ncl.nlp, X[1:ncl.nvar_x], v[1:ncl.nvar_x], Jv)
 				
 			# New information (due to residuals)
-				Resv = zeros(typeof(Jv[1,1]), ncl.nlp.meta.ncon)
-				Resv[ncl.jres] .+= v[ncl.nvar_x+1:end]
+				Resv = zeros(typeof(Jv[1,1]), ncl.meta.ncon)
+				if ncl.res_lin_cons
+					Resv = v[ncl.nvar_x+1:end]
+				else
+					Resv[ncl.jres] += v[ncl.nvar_x+1:end]
+				end
 				Jv .+= Resv
 				
 			return Jv
@@ -335,7 +368,7 @@ using Test
 		function NLPModels.jtprod(ncl::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}) ::Vector{<:Real}
 			increment!(ncl, :neval_jtprod)
 			# Test feasability
-				if length(v) != ncl.nlp.meta.ncon
+				if length(v) != ncl.meta.ncon
 					error("wrong length of argument v passed to jtprod(ncl::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
 				end
 
@@ -343,10 +376,11 @@ using Test
 				Jv = jtprod(ncl.nlp, X[1:ncl.nvar_x], v)
 
 			# New information (due to residuals)
-				# v[ncl.jres]
-			
-			# Original information
-				append!(Jv, v[ncl.jres])
+				if ncl.res_lin_cons
+					append!(Jv, v)
+				else
+					append!(Jv, v[ncl.jres])
+				end
 			
 			return Jv
 		end
@@ -354,16 +388,15 @@ using Test
 		function NLPModels.jtprod!(ncl::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}
 			increment!(ncl, :neval_jtprod)
 			# Test feasability
-			if length(v) != ncl.nlp.meta.ncon
-				error("wrong length of argument v passed to jtprod(ncl::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
+				if length(v) != ncl.meta.ncon
+					error("wrong length of argument v passed to jtprod(ncl::NCLModel, X::Vector{<:Real}, v::Vector{<:Real}, Jtv::Vector{<:Real}) ::Vector{<:Real}")
+				end
+			
+			if ncl.res_lin_cons
+				Jtv = append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), v)
+			else
+				Jtv = append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), v[ncl.jres])
 			end
-
-			# New information (due to residuals)
-				Resv = v[ncl.jres]
-
-			# Original information
-				Jtv .= append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), Resv)
-
 			return Jtv
 		end
 
