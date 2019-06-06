@@ -52,15 +52,11 @@ function mult_format_check(z_U::Vector{<:Real}, z_L::Vector{<:Real}, ϵ::Real) :
 
     if all(z_U .< ϵ) & any(z_U .< - ϵ)
         @warn "z_U was <= ϵ (complementarity tolerance) and non zero so it was changed to its opposite. Multipliers are supposed to be all >= 0"
-        @show z_U
-        @show ϵ
         z_U = - z_U
     end
 
     if all(z_L .< ϵ) & any(z_L .< - ϵ)
         @warn "z_L was <= ϵ (complementarity tolerance) and non zero so it was changed to its opposite. Multipliers are supposed to be all >= 0"
-        @show z_L
-        @show ϵ
         z_L = - z_L
     end
 
@@ -343,7 +339,7 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
     if print_level >= 1
         println("    " * nlp.meta.name * " solved !")
     end
-    return true # all the tests were passed, x, λ respects feasability, complementarity not respected, see and ∇lag_x(x, λ) almost = 0
+    return true # all the tests were passed, x, λ respects feasability, complementarity respected, and ∇lag_x(x, λ) almost = 0
 end
 
 
@@ -406,7 +402,7 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
 
         ω_end = tol #global tolerance, in argument
         ω_k = 1e-8 # sub problem tolerance
-    #! change eta_end
+        #! change eta_end
         η_end = 1e-6 #constr_viol_tol #global infeasability in argument
         η_k = 1e-2 # sub problem infeasability
         η_min = 1e-8 # smallest infeasability authorized
@@ -427,18 +423,19 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
 
         while (k <= max_iter_NCL) & !converged
             k += 1
-
-            if k==2
-                mu_init = 1e-4
-            elseif k==4
-                mu_init = 1e-5
-            elseif k==6
-                mu_init = 1e-6
-            elseif k==8
-                mu_init = 1e-7
-            elseif k==10
-                mu_init = 1e-8
-            end
+            
+            #! TODO choix des mu_init à améliorer...
+                if k==2
+                    mu_init = 1e-4
+                elseif k==4
+                    mu_init = 1e-5
+                elseif k==6
+                    mu_init = 1e-6
+                elseif k==8
+                    mu_init = 1e-7
+                elseif k==10
+                    mu_init = 1e-8
+                end
             # ** II.1 Get subproblem's solution
                 if use_ipopt
                         resolution_k = NLPModelsIpopt.ipopt(ncl, 
@@ -515,7 +512,7 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
                                 if print_level >= 2
                                     println("    norm(r_k,Inf) = ", norm(r_k,Inf), " <= η_end = ", η_end, " going to KKT_check")
                                 end
-    #! remove true, put KKT_check
+                #! remove true, put KKT_check
                                 converged = true #KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], ω_end, η_end, ϵ_end, print_level) 
                             end
                             
