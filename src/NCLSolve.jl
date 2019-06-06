@@ -86,17 +86,16 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
         z_U, z_L = mult_format_check(z_U, z_L, ϵ)
 
         if (z_U == []) & (nlp.meta.iupp != []) # NLPModelsKnitro returns z_U = [], "didn't find how to treat those separately"
-            knitro = true
+            only_z_L = true
             z = z_L
-            z_temp = copy(z) #! Useful ?
         else 
-            knitro = false
+            only_z_L = false
         end
     
     #** I. Bounds constraints
-        if knitro
-            #** II.1 Feasability (same if knitro or not)
-                for i in 1:nlp.meta.nvar 
+        if only_z_L
+            for i in 1:nlp.meta.nvar 
+                #** II.1 Feasability (same if only_z_L or not)
                     if !(nlp.meta.lvar[i] - η <= x[i] <= nlp.meta.uvar[i] + η) 
                         if print_level >= 2
                             println("    variable " * string(i) * " out of bounds + tolerance") 
@@ -109,43 +108,24 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
                         end
                         return false
                     end
-                end
-
-            #** [knitro] I.2 Complementarity for bounds
-                #* [knitro] I.2.1 Lower bound complementarity
-                    for i in nlp.meta.ilow
-                        if !(-ϵ <= z[i] * (x[i] - nlp.meta.lvar[i]) <= ϵ) # Complementarity condition (sign handled by the feasability test)
-                            if print_level >= 2
-                                println("    complementarity = ", (z[i] * (x[i] - nlp.meta.lvar[i])), " out of tolerance ϵ = ", ϵ, ". See lower var cons " * string(i))
-                                
-                                if print_level >= 3
-                                    println("      z[", i, "]             = ", z[i])
-                                    println("      x[", i, "]           = ", x[i])
-                                    println("      nlp.meta.lvar[", i, "] = ", nlp.meta.lvar[i])
-                                end
+                
+                #** [only_z_L] I.2 Complementarity for bounds
+                    if !( (-ϵ <= z[i] * (x[i] - nlp.meta.lvar[i]) <= ϵ)  |  (-ϵ <= z[i] * (x[i] - nlp.meta.uvar[i]) <= ϵ) ) # Complementarity condition (sign handled by the feasability test)
+                        if print_level >= 2
+                            println("    one of the complementarities = ", (z[i] * (x[i] - nlp.meta.lvar[i]), z[i] * (x[i] - nlp.meta.uvar[i])), " out of tolerance ϵ = ", ϵ, ". See bound var " * string(i))
+                            
+                            if print_level >= 3
+                                println("      z[", i, "]             = ", z[i])
+                                println("      x[", i, "]           = ", x[i])
+                                println("      nlp.meta.lvar[", i, "] = ", nlp.meta.lvar[i])
+                                println("      nlp.meta.uvar[", i, "] = ", nlp.meta.uvar[i])
                             end
-                            return false
                         end
+                        return false
                     end
-                        
-
-                #* [knitro] I.2.1 Upper bound complementarity
-                    for i in nlp.meta.iupp
-                        if !(-ϵ <= z[i] * (x[i] - nlp.meta.uvar[i]) <= ϵ) # Complementarity condition (sign handled by the feasability test)
-                            if print_level >= 2
-                                println("    complementarity = ", (z[i] * (x[i] - nlp.meta.uvar[i])), " out of tolerance ϵ = ", ϵ, ". See upper var cons " * string(i))
-
-                                if print_level >= 3
-                                    println("      z[", i, "]             = ", z[i])
-                                    println("      x[", i, "]           = ", x[i])
-                                    println("      nlp.meta.uvar[", i, "] = ", nlp.meta.uvar[i])
-                                end
-                            end
-                            return false
-                        end
-                    end
+            end
         else
-            #** II.1 Feasability (same if knitro or not)
+            #** II.1 Feasability (same if only_z_L or not)
                 for i in 1:nlp.meta.nvar 
                     if !(nlp.meta.lvar[i] - η <= x[i] <= nlp.meta.uvar[i] + η) 
                         if print_level >= 2
@@ -160,12 +140,12 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
                         return false
                     end
         
-            #** [usual] I.2 Complementarity for bounds
-                #* [usual] I.2.1 Lower bound complementarity
+            #** [z_L and z_U] I.2 Complementarity for bounds
+                #* [z_L and z_U] I.2.1 Lower bound complementarity
                     if nlp.meta.lvar[i] > -Inf
                         if !(-ϵ <= z_L[i] * (x[i] - nlp.meta.lvar[i]) <= ϵ)
                             if print_level >= 2
-                                println("    complementarity = ", (z_L[i] * (x[i] - nlp.meta.lvar[i])), " out of tolerance ϵ = ", ϵ, ". See lower var cons " * string(i))
+                                println("    complementarity = ", (z_L[i] * (x[i] - nlp.meta.lvar[i])), " out of tolerance ϵ = ", ϵ, ". See lower var bound " * string(i))
 
                                 if print_level >= 3
                                     println("      z_L[", i, "]             = ", z_L[i])
@@ -177,11 +157,11 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
                         end
                     end
     
-                #* [usual] I.2.1 Upper bound complementarity
+                #* [z_L and z_U] I.2.1 Upper bound complementarity
                     if nlp.meta.uvar[i] < Inf
                         if !(-ϵ <= z_U[i] * (x[i] - nlp.meta.uvar[i]) <= ϵ)
                             if print_level >= 2
-                                println("    complementarity = ", (z_U[i] * (x[i] - nlp.meta.uvar[i])), " out of tolerance ϵ = ", ϵ, ". See upper var cons " * string(i))
+                                println("    complementarity = ", (z_U[i] * (x[i] - nlp.meta.uvar[i])), " out of tolerance ϵ = ", ϵ, ". See upper var bound " * string(i))
 
                                 if print_level >= 3
                                     println("      z_U[", i, "]             = ", z_U[i])
@@ -199,7 +179,6 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
     #** II. Other constraints
         #** II.0 Precomputation
             c_x = cons(nlp, x) # Precomputation
-            λ_temp = copy(λ) # real copy, to avoid initial data modification #! Utile ?...
             
 
         #** II.1 Feasability
@@ -224,106 +203,86 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
             end
 
         #** II.2 Complementarity
-            #* II.2.1 Lower complementarity
-                for i in nlp.meta.jlow # lower constraints
-                    if (λ_temp[i] <= - ϵ)
-                        λ_temp[i] = - λ_temp[i]
-                        @warn "λ[" * string(i) * "] = " * string(λ[i]) * " was <= -ϵ = " * string(-ϵ) * " so it was changed in its opposite. Check your convention for multipliers"
-                    end
+            for i in nlp.meta.ncon # upper constraints
+                if !( (-ϵ <= (λ[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  |  (-ϵ <= (λ[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [λ[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
+                    if print_level >= 2
+                        println("    one of the two complementarities = ", (λ[i] * (c_x[i] - nlp.meta.ucon[i]), (λ[i] * (c_x[i] - nlp.meta.lcon[i]))), " is out of tolerance ϵ = ", ϵ, ". See cons " * string(i))
 
-                    if !(-ϵ <= (λ_temp[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) # Complementarity condition (sign handled by the condition above and the feasability test)
-                        if print_level >= 2
-                            println("    complementarity = ", (λ_temp[i] * (c_x[i] - nlp.meta.lcon[i])), " out of tolerance ϵ = ", ϵ, ". See lower cons " * string(i))
-
-                            if print_level >= 3
-                                println("      λ[", i, "]             = ", λ[i])
-                                println("      c_x[", i, "]           = ", c_x[i])
-                                println("      nlp.meta.lcon[", i, "] = ", nlp.meta.lcon[i])
-                            end
+                        if print_level >= 3
+                            println("      λ[", i, "]             = ", λ[i])
+                            println("      c_x[", i, "]           = ", c_x[i])
+                            println("      nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
+                            println("      nlp.meta.lcon[", i, "] = ", nlp.meta.lcon[i])
                         end
-                        return false
                     end
+                    return false
                 end
             
-            #* II.2.2 Upper complementarity
-                for i in nlp.meta.jupp # upper constraints
-                    if (λ_temp[i] <= -ϵ)
-                        λ_temp[i] = - λ_temp[i]
-                        @warn "λ[" * string(i) * "] = " * string(λ[i]) * " was <= ϵ = " * string(-ϵ) * " so it was changed in its opposite. Check your convention for multipliers"
-                    end
+            end
 
-                    if !(-ϵ <= (λ_temp[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  # Complmentarity condition (sign handled by the condition above and the feasability test)
-                        if print_level >= 2
-                            println("    complementarity = ", (λ_temp[i] * (c_x[i] - nlp.meta.ucon[i])), " out of tolerance ϵ = ", ϵ, ". See upper cons " * string(i))
 
-                            if print_level >= 3
-                                println("      λ[", i, "]             = ", λ[i])
-                                println("      c_x[", i, "]           = ", c_x[i])
-                                println("      nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
-                            end
-                        end
-                        return false
-                    end
-
-                end
-
-            #* II.2.3 Range complementarity 
-                for i in nlp.meta.jrng # upper constraints
-                    if !(-ϵ <= (λ_temp[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ) & !(-ϵ <= (λ_temp[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ)  # Complementarity condition (for range constraint, we have necessarily : [λ_temp[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ_temp[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
-                        if print_level >= 2
-                            println("    (range) complementarity = ", (λ_temp[i] * (c_x[i] - nlp.meta.ucon[i]), (λ_temp[i] * (c_x[i] - nlp.meta.lcon[i]))), " out of tolerance ϵ = ", ϵ, ". See upper cons " * string(i))
-
-                            if print_level >= 3
-                                println("      λ[", i, "]             = ", λ[i])
-                                println("      c_x[", i, "]           = ", c_x[i])
-                                println("      nlp.meta.ucon[", i, "] = ", nlp.meta.ucon[i])
-                                println("      nlp.meta.lcon[", i, "] = ", nlp.meta.lcon[i])
-                            end
-                        end
-                        return false
-                    end
-                
-                end
-    
-    
     #** III. Lagrangian
         ∇f_x = grad(nlp, x)      
-        
-        if knitro
-            ∇lag_x = ∇f_x - jtprod(nlp, x, λ_temp) - z_L
-            #∇lag_x = ∇f_x - jtprod(nlp, x, λ) + z_L
+        if nlp.meta.ncon != 0 # just to avoid DimensionMismatch with ∇f_x - [].
+            if only_z_L
+                ∇lag_x = ∇f_x - jtprod(nlp, x, λ) - z_L
+                #∇lag_x = ∇f_x - jtprod(nlp, x, λ) + z_L
 
-            if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
-                if print_level >= 2
-                    println("    Lagrangian gradient norm = ", norm(∇lag_x, Inf), " is greater than tolerance ω = ", ω)
-                    
-                    if print_level >= 7
-                        println("      ∇f_x              = ", ∇f_x)
-                        println("      t(Jac_x)          = ", transpose(jac(nlp, x)))
-                        println("      λ_temp            = ", λ_temp)
-                        println("      λ                 = ", λ)
-                        println("      t(Jac_x) * λ_temp = ", jtprod(nlp, x, λ_temp))
-                        println("      t(Jac_x) * λ      = ", jtprod(nlp, x, λ))
-                        println("      z                 = ", z)
+                if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
+                    if print_level >= 2
+                        println("    Lagrangian gradient norm = ", norm(∇lag_x, Inf), " is greater than tolerance ω = ", ω)
+                        
+                        if 3 <= print_level <= 6
+                            @debug "If you set print_level to 7, you will get the details of the ∇lag_x computation (not advised if your problem has a big size...)"
+                        end
+                        if print_level >= 7
+                            println("      ∇f_x          = ", ∇f_x)
+                            println("      t(Jac_x)      = ", transpose(jac(nlp, x)))
+                            println("      λ             = ", λ)
+                            println("      t(Jac_x) * λ  = ", jtprod(nlp, x, λ))
+                            println("      t(Jac_x) * λ  = ", jtprod(nlp, x, λ))
+                            println("      z                 = ", z)
+                        end
                     end
+                    return false
                 end
-                return false
+            else
+                ∇lag_x = ∇f_x - jtprod(nlp, x, λ) - (z_L - z_U)
+                if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
+                    
+                    if print_level >= 2
+                        println("    Lagrangian gradient norm = ", norm(∇lag_x, Inf), " is greater than tolerance ω = ", ω)
+
+                        if 3 <= print_level <= 6
+                            @debug "If you set print_level to 7 or more, you will get the details of the ∇lag_x computation (not advised if your problem has a big size...)"
+                        end
+                        if print_level >= 7
+                            println("      ∇f_x          = ", ∇f_x)
+                            println("      t(Jac_x)      = ", transpose(jac(nlp, x)))
+                            println("      λ             = ", λ)
+                            println("      t(Jac_x) * λ  = ", jtprod(nlp, x, λ))
+                            println("      t(Jac_x) * λ  = ", jtprod(nlp, x, λ))
+                            println("      - (z_L - z_U) = ", - (z_L - z_U))
+                        end
+                    end
+
+                    if print_level >= 1
+                        println("\n  ------- Not fitting with KKT conditions ----------")
+                    end
+                    return false
+                end
             end
         else
-            ∇lag_x = ∇f_x - jtprod(nlp, x, λ_temp) - (z_L - z_U)
-            if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
-                
+            if norm(∇f_x, Inf) > ω
                 if print_level >= 2
-                    println("    Lagrangian gradient norm = ", norm(∇lag_x, Inf), " is greater than tolerance ω = ", ω)
+                    println("    (Your problem is unconstrained). \n     Objective function gradient norm = ", norm(∇f_x, Inf), " is greater than tolerance ω = ", ω)
                     
+                    if 3 <= print_level <= 6
+                        @debug "If you set print_level to 7 or more, you will get the whole ∇f_x expression (not advised if your problem has a big size...)"
+                    end
+
                     if print_level >= 7
-                        println("      ∇f_x              = ", ∇f_x)
-                        println("      t(Jac_x)          = ", transpose(jac(nlp, x)))
-                        println("      λ_temp            = ", λ_temp)
-                        println("      λ                 = ", λ)
-                        println("      t(Jac_x) * λ_temp = ", jtprod(nlp, x, λ_temp))
-                        println("      t(Jac_x) * λ      = ", jtprod(nlp, x, λ))
-                        println("      - (z_L - z_U)       = ", - (z_L - z_U))
+                        println("      ∇f_x = ", ∇f_x)
                     end
                 end
 
@@ -334,10 +293,9 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
             end
         end
         
-        
     
     if print_level >= 1
-        println("    " * nlp.meta.name * " solved !")
+        println("    " * nlp.meta.name * " problem solved !")
     end
     return true # all the tests were passed, x, λ respects feasability, complementarity respected, and ∇lag_x(x, λ) almost = 0
 end
