@@ -152,7 +152,9 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                         @test cons!(nlc, [1.,1.,0.,1.], cx) == [0.,2.,0.,2.]
                         @test cons!(nlc, [1.,0.5,1.,1.], cx) == [0.5,2.5,0.5,1.5]
                     end
+                end
 
+                @testset "NCLModel constraint jacobian" begin
                     @testset "NCLModel constraint jac()" begin
                         @test jac(nlc, [1.,1.,0.,1.]) == [1 -1 0 0 ;
                                                         2  1 1 0 ;
