@@ -75,7 +75,7 @@ using Test
 								nnzh = nlp.meta.nnzh + nvar_r,
 								ncon = nlp.meta.ncon,
 								lcon = nlp.meta.lcon,
-								ucon = nlp.meta.ucon
+								ucon = nlp.meta.ucon,
 								)
 
 			if nlp.meta.jinf != Int64[]
@@ -84,7 +84,10 @@ using Test
 			if nlp.meta.jfree != Int64[]
 				error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jfree) * " free")
 			end
-		
+
+			if nlp.meta.iinf != Int64[]
+				error("argument problem passed to NCLModel with bound constraint " * string(nlp.meta.iinf) * " infeasible")
+			end
 
 
 		#* III. NCLModel created:
