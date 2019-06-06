@@ -6,10 +6,8 @@ using NLPModelsIpopt
 include("../src/NCLSolve.jl")
 
 function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
-    printing = false
-    printing_check = printing
-    printing_iterations = printing
-    printing_iterations_solver = false
+    print_level = 0
+
     ω = 0.001
     η = 0.0001
     ϵ = 0.0001
@@ -66,7 +64,7 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
             
         
         # Resolution of NCL with NCL method
-            resol_ncl_ncl = NCLSolve(ncl, max_iter_NCL = 30, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, printing_iterations=printing_iterations, printing_iterations_solver=false, printing_check=printing_check)
+            resol_ncl_ncl = NCLSolve(ncl, max_iter_NCL = 30, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, print_level = print_level)
             y_end = copy(ncl.y)
             x_ncl = resol_ncl_ncl.solution
 
@@ -81,18 +79,18 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
 
             @testset "KKT_check function" begin
                 @testset "KKT_check(nlp)" begin
-                    @test_broken KKT_check(nlp, [0.5, 1.0], [1., 0., 0., -2.0], [0, 1.], [0., 0.0], ω, η, ϵ, printing_check) # solved by hand
-                    @test KKT_check(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, printing_check)
+                    @test_broken KKT_check(nlp, [0.5, 1.0], [1., 0., 0., -2.0], [0, 1.], [0., 0.0], ω, η, ϵ, print_level) # solved by hand
+                    @test KKT_check(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, print_level)
                 end
 
                 @testset "NCLSolve algorithm to resolve nlp" begin
-                    @test KKT_check(nlp, x_ncl[1:ncl.nvar_x], λ_ncl, z_U_ncl[1:ncl.nvar_x], z_L_ncl[1:ncl.nvar_x], ω, η, ϵ, printing_check) 
+                    @test KKT_check(nlp, x_ncl[1:ncl.nvar_x], λ_ncl, z_U_ncl[1:ncl.nvar_x], z_L_ncl[1:ncl.nvar_x], ω, η, ϵ, print_level) 
                 end
 
                 @testset "KKT_check(ncl)" begin
                     ncl.y = [2., 1.]
                     ncl.ρ = ρ # back to the first value (it was modified by NCLSolve)
-                    @test KKT_check(ncl, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, printing_check) # Complémentarité 2eme contrainte non respectée
+                    @test KKT_check(ncl, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, print_level) # Complémentarité 2eme contrainte non respectée
                 end
             end
         end

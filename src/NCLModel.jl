@@ -30,9 +30,9 @@ using Test
 			ρ::Real
 	end
 
-	function NCLModel(nlp::AbstractNLPModel ; printing::Bool = false, ρ::Real = 1.0, )::NCLModel #TODO add rho y, ac val par defaut, type de retour, NLP/NCL...
+	function NCLModel(nlp::AbstractNLPModel ; print_level::Int64 = 0, ρ::Real = 1.0, )::NCLModel #TODO add y, ac val par defaut, type de retour, NLP/NCL...
 		# * 0. printing
-			if printing
+			if print_level >= 1
 				println("\nNLCModel called on " * nlp.meta.name)
 			end
 		
@@ -46,8 +46,8 @@ using Test
 				nvar_r = nlp.meta.nnln # linear constraints are not considered here in the NCL method. 
 				jres = nlp.meta.nln # copy, useless, but permits to use the unitary test problem computed
 				
-				if printing
-					println("    NCLModel : added ", nvar_r, " residuals, at indices ", jres)
+				if print_level >= 2 
+					println("    NCLModel : added ", nvar_r, " residuals")
 				end
 			end
 
