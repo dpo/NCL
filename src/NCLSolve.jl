@@ -316,8 +316,8 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
         println("NCLSolve called on " * ncl.meta.name)
         if 2 <= print_level <= 6
             @info "If you set print_level above 6, you will get the whole ncl.y, λ_k, x_k, r_k vectors in the NCL iteration print.
-                \n If you set print_level above 7, you will get the details of the ∇lag_x computation (in case of non fitting KKT conditions)
-                \n Not advised if your problem has a big size"
+                   If you set print_level above 7, you will get the details of the ∇lag_x computation (in case of non fitting KKT conditions)
+                   Not advised if your problem has a big size\n"
         end
     end
     
@@ -346,6 +346,14 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
         η_min = 1e-10 # smallest infeasability authorized
         ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
         
+        if print_level >= 2
+            println("Optimization parameters",
+                    "\n    Global tolerance               ω_end = ", ω_end, " for gradient lagrangian norm",
+                    "\n    Global infeasability           η_end = ", η_end, " for residuals norm and constraint violation",
+                    "\n    Minimal infeasability accepted η_min = ", η_min,
+                    )
+        end
+
 
         # initial points
         x_k = zeros(Type, ncl.nvar_x)
@@ -517,6 +525,7 @@ Main function for the NCL method.
 function NCLSolve(nlp::AbstractNLPModel;                    # Problem to be solved by this method (see NCLModel.jl for further details)
                   use_ipopt::Bool = true,                   # Boolean to chose the solver you want to use (true => IPOPT, false => KNITRO)
                   max_iter_NCL::Int64 = 20,                 # Maximum number of iterations for the NCL method
+                  linear_residuals::Bool = true,            # Boolean to choose if you want residuals onlinear constraints (true), or not (false)
                   print_level::Int64 = 0,     # Options for printing iterations of the NCL method
                   kwargs...
                 ) ::Tuple{GenericExecutionStats, Bool}                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
@@ -538,7 +547,7 @@ function NCLSolve(nlp::AbstractNLPModel;                    # Problem to be solv
         else
 
     #** II. NCL Resolution
-            ncl = NCLModel(nlp, print_level = print_level)
+            ncl = NCLModel(nlp, print_level = print_level, res_lin_cons = linear_residuals)
             if print_level >= 3
                 println("\n")
             end

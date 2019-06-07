@@ -4,7 +4,7 @@ using NLPModels
 using CUTEst
 
 
-probs = ["HS" * string(i) for i in 8:12]
+probs = ["HS" * string(i) for i in 8:15]
 
 
 include("test_NCLSolve.jl")
@@ -46,7 +46,7 @@ function test_main(test_NCLModel_command::Bool, test_NCLSolve_command::Bool, tes
                 #println(nlp)
                 test_name = name * " problem resolution"
                 @testset "$test_name" begin
-                    @test NCLSolve(nlp, max_iter_NCL = 30)[2]
+                    @test NCLSolve(nlp, max_iter_NCL = 20)[2]
                 end
                 finalize(nlp)
             end
