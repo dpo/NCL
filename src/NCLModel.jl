@@ -34,8 +34,8 @@ using Test
 			nvar::Int64 # Number of variable of this problem (nvar_x + nvar_r)
 			
 		#* III. Parameters for the objective function
-			y::Vector{<:Real}
-			ρ::Real
+			y::Vector{<:Real} # Multipliers for the nlp problem, used in the lagrangian
+			ρ::Real # Penalization of the simili lagrangian
 	end
 
 	function NCLModel(nlp::AbstractNLPModel ; print_level::Int64 = 0, ρ::Real = 1.0, res_lin_cons::Bool = false)::NCLModel 
@@ -118,8 +118,8 @@ using Test
 			increment!(ncl, :neval_obj)
 			obj_val = obj(ncl.nlp, X[1:ncl.nvar_x])
 			obj_res = (ncl.y[1:ncl.nvar_r])' * X[ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r] +
-					   0.5 * ncl.ρ * (norm(X[ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r], 2) ^ 2
-					  )
+					   0.5 * ncl.ρ * sum(X[i] * X[i] for i in ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r)
+					  
 			if ncl.minimize
 				return obj_val + obj_res
 			else # argmax f(x) = argmin -f(x)
