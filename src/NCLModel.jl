@@ -107,7 +107,7 @@ using Test
 							meta, 
 							Counters(), 
 							nvar,
-							zeros(typeof(nlp.meta.x0[1]), nvar_r), 
+							ones(typeof(nlp.meta.x0[1]), nvar_r), 
 							ρ)
 	end
 
