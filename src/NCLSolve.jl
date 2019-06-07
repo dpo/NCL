@@ -16,13 +16,13 @@ include("NCLModel.jl")
 # TODO
     # TODO (feature)   : optimal::Bool dans le GenericExecutionStats
     # TODO (feature)   : Créer un vrai statut
-    
+
     # TODO (recherche) : choix des mu_init à améliorer...
     # TODO (recherche) : Points intérieurs à chaud...
     # TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le ncl.y du problème (si r petit, probablement proches.)
     # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
     # TODO (recherche) : update ω_k 
-    
+
     # TODO (Plus tard) : Pierric pour choix de alpha, beta, tau...
 
 
@@ -242,9 +242,6 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
                         println("    Lagrangian gradient norm = ", norm(∇lag_x, Inf), " is greater than tolerance ω = ", ω)
                         
                         if 3 <= print_level
-                            if print_level <= 6
-                                @info "If you set print_level above 7, you will get the details of the ∇lag_x computation (not advised if your problem has a big size...)"
-                            end
 
                             if print_level >= 7
                                 if nlp.meta.ncon != 0
@@ -317,6 +314,11 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
 
     if print_level >= 1
         println("NCLSolve called on " * ncl.meta.name)
+        if 2 <= print_level <= 6
+            @info "If you set print_level above 6, you will get the whole ncl.y, λ_k, x_k, r_k vectors in the NCL iteration print.
+                \n If you set print_level above 7, you will get the details of the ∇lag_x computation (in case of non fitting KKT conditions)
+                \n Not advised if your problem has a big size"
+        end
     end
     
     #** I. Names and variables
@@ -417,11 +419,12 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
                                 "\n| obj(ncl, x_k) = ", obj(ncl.nlp, x_k)
                                )
 
-                        if print_level <= 3    
-                        println("| norm(y - λ_k) = ", norm(ncl.y - λ_k, Inf))
+                        if print_level <= 6   
+                        println("| norm(y - λ_k) = ", norm(ncl.y - λ_k[ncl.jres], Inf))
                         end
                         
-                        if print_level >= 4
+                        
+                        if print_level >= 6
                         println("|         ncl.y = ", ncl.y,
                                 "\n|           λ_k = ", λ_k,
                                 "\n|           x_k = ", x_k,
