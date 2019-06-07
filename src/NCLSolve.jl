@@ -341,6 +341,7 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
         ω_end = tol #global tolerance, in argument
         ω_k = 1e-8 # sub problem tolerance
         #! change eta_end
+        #TODO ajuster eta_end
         η_end = 1e-6 #constr_viol_tol #global infeasability in argument
         η_k = 1e-2 # sub problem infeasability
         η_min = 1e-10 # smallest infeasability authorized
@@ -368,9 +369,8 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
         converged = false
 
         while (k <= max_iter_NCL) & !converged
-            k += 1
-            
-            
+            #** II.0 Iteration counter and mu_init
+                k += 1
                 if (k==2) & warm
                     mu_init = 1e-4
                 elseif (k==4) & warm
@@ -393,7 +393,7 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
                                                             warm_start_init_point = warm_start_init_point, 
                                                             mu_init = mu_init, 
                                                             dual_inf_tol=1e-6, 
-                                                            max_iter = 3000)
+                                                            max_iter = 1000)
                         
                         # Get variables
                         x_k = resolution_k.solution[1:ncl.nvar_x]
@@ -427,9 +427,9 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
                                 "\n| obj(ncl, x_k) = ", obj(ncl.nlp, x_k)
                                )
 
-                        if print_level <= 6   
-                        println("| norm(y - λ_k) = ", norm(ncl.y - λ_k[ncl.jres], Inf))
-                        end
+                        #if print_level <= 6   
+                        #    println("| norm(y - λ_k) = ", norm(ncl.y - λ_k[ncl.jres], Inf))
+                        #end
                         
                         
                         if print_level >= 6
@@ -467,7 +467,7 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
                                 end
 
                         #! mettre converged = true pour tester avec AMPL
-                                converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], ω_end, η_end, ϵ_end, print_level) 
+                                converged = true #KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], ω_end, η_end, ϵ_end, print_level) 
                             end
                             
                             status = resolution_k.status
@@ -547,15 +547,15 @@ function NCLSolve(nlp::AbstractNLPModel;                    # Problem to be solv
         else
 
     #** II. NCL Resolution
-            ncl = NCLModel(nlp, print_level = print_level, res_lin_cons = linear_residuals)
-            if print_level >= 3
-                println("\n")
-            end
+        ncl = NCLModel(nlp, print_level = print_level, res_lin_cons = linear_residuals)
+        if print_level >= 3
+            println("\n")
+        end
 
-            resol = NCLSolve(ncl, use_ipopt=use_ipopt, max_iter_NCL=max_iter_NCL, print_level=print_level, kwargs...) # tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter_NCL=max_iter_NCL, max_iter_solver=max_iter_solver, use_ipopt=use_ipopt, printing_iterations=printing_iterations, printing_iterations_solver=printing_iterations_solver, printing_check=printing_check, warm_start_init_point = warm_start_init_point)
-            if print_level >= 1
-                println("\n")
-            end
+        resol = NCLSolve(ncl, use_ipopt=use_ipopt, max_iter_NCL=max_iter_NCL, print_level=print_level ; kwargs...) # tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter_NCL=max_iter_NCL, max_iter_solver=max_iter_solver, use_ipopt=use_ipopt, printing_iterations=printing_iterations, printing_iterations_solver=printing_iterations_solver, printing_check=printing_check, warm_start_init_point = warm_start_init_point)
+        if print_level >= 1
+            println("\n")
+        end
     
     #** III. Optimality and return
             optimal = !(resol.iter == max_iter_NCL)
