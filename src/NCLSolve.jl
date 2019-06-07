@@ -13,17 +13,17 @@ include("NCLModel.jl")
 
 #using NLPModelsKnitro
 
-
-# TODO (feature)   : optimal::Bool dans le GenericExecutionStats
-# TODO (feature)   : Créer un vrai statut
-
-# TODO (recherche) : choix des mu_init à améliorer...
-# TODO (recherche) : Points intérieurs à chaud...
-# TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le ncl.y du problème (si r petit, probablement proches.)
-# TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
-# TODO (recherche) : update ω_k 
-
-# TODO (Plus tard) : Pierric pour choix de alpha, beta, tau...
+# TODO
+    # TODO (feature)   : optimal::Bool dans le GenericExecutionStats
+    # TODO (feature)   : Créer un vrai statut
+    
+    # TODO (recherche) : choix des mu_init à améliorer...
+    # TODO (recherche) : Points intérieurs à chaud...
+    # TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le ncl.y du problème (si r petit, probablement proches.)
+    # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
+    # TODO (recherche) : update ω_k 
+    
+    # TODO (Plus tard) : Pierric pour choix de alpha, beta, tau...
 
 
 
@@ -322,7 +322,8 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
     #** I. Names and variables
         Type = typeof(ncl.meta.x0[1])
         ncl.ρ = 100.0 # step
-        ρ_max = 1e10 #biggest penalization authorized
+        ρ_max = 1e15 #biggest penalization authorized
+        warm = warm_start_init_point == "yes"
 
         if warm_start_init_point == "yes"
             mu_init = 1e-3
@@ -340,7 +341,7 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
         #! change eta_end
         η_end = 1e-6 #constr_viol_tol #global infeasability in argument
         η_k = 1e-2 # sub problem infeasability
-        η_min = 1e-8 # smallest infeasability authorized
+        η_min = 1e-10 # smallest infeasability authorized
         ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
         
 
@@ -360,23 +361,23 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
             k += 1
             
             
-                if k==2
+                if (k==2) & warm
                     mu_init = 1e-4
-                elseif k==4
+                elseif (k==4) & warm
                     mu_init = 1e-5
-                elseif k==6
+                elseif (k==6) & warm
                     mu_init = 1e-6
-                elseif k==8
+                elseif (k==8) & warm
                     mu_init = 1e-7
-                elseif k==10
+                elseif (k==10) & warm
                     mu_init = 1e-8
                 end
             #** II.1 Get subproblem's solution
                 if use_ipopt
                         resolution_k = NLPModelsIpopt.ipopt(ncl, 
                                                             #tol = ω_k, 
-                                                            constr_viol_tol = η_k, 
-                                                            compl_inf_tol = ϵ_end, 
+                                                            #constr_viol_tol = η_k, 
+                                                            #compl_inf_tol = ϵ_end, 
                                                             print_level = max(print_level - 2, 0), 
                                                             ignore_time = true, 
                                                             warm_start_init_point = warm_start_init_point, 
@@ -408,34 +409,40 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
                 end
 
                 if print_level >= 2
-                    println("   ----- Iter k = ", k, "-----")
+                    println("  ------ Iter k = ", k, "-----")
 
                     if print_level >= 3
-                        println("\n    ncl.ρ                  = ", ncl.ρ, 
-                                "\n    mu_init                = ", mu_init, 
-                               #"\n    x_k                    = ", x_k, 
-                                "\n    obj(ncl, x_k)          = ", obj(ncl.nlp, x_k),
-                                "\n    norm(ncl.y - λ_k, Inf) = ", norm(ncl.y - λ_k, Inf),
+                        println("|         ncl.ρ = ", ncl.ρ, 
+                                "\n|       mu_init = ", mu_init,
+                                "\n| obj(ncl, x_k) = ", obj(ncl.nlp, x_k)
                                )
-                    end
 
+                        if print_level <= 3    
+                        println("| norm(y - λ_k) = ", norm(ncl.y - λ_k, Inf))
+                        end
+                        
+                        if print_level >= 4
+                        println("|         ncl.y = ", ncl.y,
+                                "\n|           λ_k = ", λ_k,
+                                "\n|           x_k = ", x_k,
+                                "\n|           r_k = ", r_k, 
+                                )
+                        end
+                    end
                     
-                        println("\n    η_k                    = ", η_k,  
-                                "\n    norm(r_k,Inf)          = ", norm(r_k,Inf)
-                               )
+                        println("|           η_k = ", η_k,
+                                "\n| norm(r_k,Inf) = ", norm(r_k,Inf))
                 end
 
-                
-                
-        
 
             #** II.2 Treatment & update
                 if (norm(r_k,Inf) <= max(η_k, η_end)) | (k == max_iter_NCL) # The residual has decreased enough
+                    
                     ncl.y = ncl.y + ncl.ρ * r_k # Updating multiplier
                     η_k = max(η_k/τ, η_min) # η_k / (1 + ncl.ρ ^ β) # (heuristic)
 
                     if η_k == η_min
-                        @warn "min feas = ", η_min, " reached"
+                        @warn "Minimum constraint violation η_min = ", η_min, " reached"
                     end
                     
                     #** II.2.1 Solution found ?
@@ -486,7 +493,7 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
                     ncl.ρ = τ * ncl.ρ # increase the step 
                     #η_k = η_end / (1 + ncl.ρ ^ α) # Change infeasability (heuristic) # ? (simple) η_end ou η_0, cf article
                     if ncl.ρ == ρ_max
-                        @warn "max penal = ", ρ_max, " reached"
+                        @warn "Maximum penalization ρ = ", ρ_max, " reached"
                     end
                 end
                 # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/ncl.ρ, ncl.ρ = 100ρ_k, η_k = 1/ncl.ρ^0.1

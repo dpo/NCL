@@ -4,6 +4,13 @@ using LinearAlgebra
 using SparseArrays
 using Test
 
+# TODO
+	# TODO add y, ac val par defaut, type de retour, NLP/NCL...
+	# TODO grad_check
+	# TODO (simple): sparse du triangle inf, pas matrice complète
+	# TODO (simple): return sparse, pas matrice complète
+	#sparse(row col val)
+
 #** I. Model and constructor
 	"""
 	Subtype of AbstractNLPModel, adapted to the NCL method. 
@@ -31,7 +38,7 @@ using Test
 			ρ::Real
 	end
 
-	function NCLModel(nlp::AbstractNLPModel ; print_level::Int64 = 0, ρ::Real = 1.0, res_lin_cons::Bool = false)::NCLModel #TODO add y, ac val par defaut, type de retour, NLP/NCL...
+	function NCLModel(nlp::AbstractNLPModel ; print_level::Int64 = 0, ρ::Real = 1.0, res_lin_cons::Bool = false)::NCLModel 
 		#* 0. Printing
 			if print_level >= 1
 				println("\nNLCModel called on " * nlp.meta.name)
@@ -39,9 +46,9 @@ using Test
 				
 				if print_level >= 2 
 					if res_lin_cons
-						println("    No residuals on linear constraints, only non linear are considered (set res_lin_cons to true, if you want to consider linear constraints as well)")
-					else
 						println("    Residuals on linear constraints, (set res_lin_cons to false, if you want to consider only non linear constraints)")
+					else
+						println("    No residuals on linear constraints, only non linear are considered (set res_lin_cons to true, if you want to consider linear constraints as well)")
 					end
 				end
 			end
@@ -121,7 +128,7 @@ using Test
 			end
 		end
 
-#TODO grad_check
+
 	#** II.2 Gradient of the objective function
 		function NLPModels.grad(ncl::NCLModel, X::Vector{<:Real}) ::Vector{<:Real}
 			increment!(ncl, :neval_grad)
@@ -146,7 +153,7 @@ using Test
 			return gx
 		end
 
-# TODO (simple): sparse du triangle inf, pas matrice complète
+
 	#** II.3 Hessian of the Lagrangian
 		function NLPModels.hess(ncl::NCLModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Matrix{<:Real}
 			increment!(ncl, :neval_hess)
@@ -262,8 +269,8 @@ using Test
 			return cx
 		end
 
-# TODO (simple): return sparse, pas matrice complète
-#sparse(row col val)
+
+
 	#** II.5 Jacobian of the constraints vector
 		function NLPModels.jac(ncl::NCLModel, X::Vector{<:Real}) ::Matrix{<:Real}
 			increment!(ncl, :neval_jac)
