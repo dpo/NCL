@@ -1,8 +1,9 @@
 using NLPModels
 using Test
 
-
 include("../src/NCLModel.jl")
+
+# TODO tests for res_lin
 
 function test_NLCModel(test::Bool) ::Test.DefaultTestSet
     # Test parameters

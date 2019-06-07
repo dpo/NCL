@@ -44,7 +44,7 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
 
     if test
 
-        # Resolution of NLP with NLPModelsIpopt #! Attention aux mult d'IPOPT !
+        # Resolution of NLP with NLPModelsIpopt
             resol_nlp_ipopt = NLPModelsIpopt.ipopt(nlp, print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
             x_nlp_ipopt = resol_nlp_ipopt.solution
             
@@ -58,14 +58,14 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
             x_ncl_ipopt = resol_ncl_ipopt.solution
             
             # Get multipliers
-            λ_ncl_ipopt = -resol_ncl_ipopt.solver_specific[:multipliers_con]
+            λ_ncl_ipopt = - resol_ncl_ipopt.solver_specific[:multipliers_con]
             z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
             z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
         
             
         
         # Resolution of NCL with NCL method
-            resol_ncl_ncl = NCLSolve(ncl, max_iter_NCL = 30, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, print_level = print_level)
+            resol_ncl_ncl = NCLSolve(ncl, max_iter_NCL = 30, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, print_level = 2)
             y_end = copy(ncl.y)
             x_ncl = resol_ncl_ncl.solution
 
@@ -89,9 +89,10 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
                 end
 
                 @testset "KKT_check(ncl)" begin
-                    ncl.y = [2., 1.]
-                    ncl.ρ = ρ # back to the first value (it was modified by NCLSolve)
-                    @test KKT_check(ncl, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, print_level) # Complémentarité 2eme contrainte non respectée
+                    # back to the first value (it was modified by NCLSolve)
+                    ncl.y = y
+                    ncl.ρ = ρ 
+                    @test KKT_check(ncl, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, 7) # Complémentarité 2eme contrainte non respectée
                 end
             end
         end
