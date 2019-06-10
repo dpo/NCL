@@ -175,6 +175,21 @@ using Test
 			return (hrows, hcols, hvals)
 		end
 
+		function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Real}, hrows::Vector{<:Int64}, hcols::Vector{<:Int64}, hvals::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
+			increment!(ncl, :neval_hess)
+			#Pre computation
+				len_hcols = length(hcols)
+				orig_len = len_hcols - ncl.nvar_r
+
+			# Original information
+				hvals[1:orig_len] = hess_coord!(ncl.nlp, X[1:ncl.nvar_x], hrows[1:orig_len], hcols[1:orig_len], hvals[1:orig_len], obj_weight=obj_weight, y=y)[3]
+			
+			# New information (due to residuals)
+				hvals[orig_len + 1 : len_hcols] = fill!(Vector{typeof(hvals[1])}(undef, ncl.nvar_r), ncl.ρ) # a vector full of ncl.ρ
+				
+			return (hrows, hcols, hvals)
+		end
+
 		function NLPModels.hess_structure(ncl::NCLModel) ::Tuple{Vector{Int64},Vector{Int64}}
 			increment!(ncl, :neval_hess)
 			# Original information
@@ -184,20 +199,6 @@ using Test
 				append!(hrows, ncl.nvar_x+1:ncl.nvar)
 				append!(hcols, ncl.nvar_x+1:ncl.nvar)
 			return (hrows, hcols)
-		end
-
-		function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Real}, hrows::Vector{<:Int64}, hcols::Vector{<:Int64}, hvals::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
-			increment!(ncl, :neval_hess)
-			#Pre computation
-				len_hcols = length(hcols)
-				orig_len = len_hcols - ncl.nvar_r
-
-			# Original information
-				hrows[1:orig_len], hcols[1:orig_len], hvals[1:orig_len] = hess_coord!(ncl.nlp, X[1:ncl.nvar_x], hrows[1:orig_len], hcols[1:orig_len], hvals[1:orig_len], obj_weight=obj_weight, y=y)
-			
-			# New information (due to residuals)
-				hvals[orig_len + 1 : len_hcols] = fill!(Vector{typeof(hvals[1])}(undef, ncl.nvar_r), ncl.ρ) # a vector full of ncl.ρ
-			return (hrows, hcols, hvals)
 		end
 
 		function NLPModels.hprod(ncl::NCLModel, X::Vector{<:Real}, v::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Vector{<:Real}
@@ -298,9 +299,9 @@ using Test
 				len_jcols = length(jcols)
 				orig_len = len_jcols - ncl.nvar_r
 
-			# Original information
-				jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len] = jac_coord!(ncl.nlp, X[1:ncl.nvar_x], jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len]) # we necessarily need the place for ncl.nvar_r ones in the value array
-
+			# Original information				
+				jvals[1:orig_len] .= jac_coord!(ncl.nlp, X[1:ncl.nvar_x], jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len])[3]  # we necessarily need the place for ncl.nvar_r ones in the value array
+				
 			# New information (due to residuals)
 				jvals[orig_len + 1 : len_jcols] = ones(typeof(jvals[1]), ncl.nvar_r) # we assume length(jrows) = length(jcols) = length(jvals)
 
