@@ -46,8 +46,8 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 x[1] * x[2]] # equality one
 
         name = "Unitary test problem"
-        nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])::ADNLPModel
-        nlc_nlin_res = NCLModel(nlp, res_lin_cons = false)::NCLModel
+        nlp = ADNLPModel(f, x0 ; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])::ADNLPModel
+        nlc_nlin_res = NCLModel(nlp ; res_lin_cons = false)::NCLModel
 
         nlc_nlin_res.y = y
         nlc_nlin_res.ρ = ρ

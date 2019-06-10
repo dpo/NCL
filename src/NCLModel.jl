@@ -155,15 +155,11 @@ using Test
 
 
 	#** II.3 Hessian of the Lagrangian
-		function NLPModels.hess(ncl::NCLModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::Matrix{<:Real}
+		function NLPModels.hess(ncl::NCLModel, X::Vector{<:Real} ; obj_weight=1.0, y=zeros) ::SparseMatrixCSC{<:Real, Int64}
 			increment!(ncl, :neval_hess)
-			H = zeros(ncl.nvar, ncl.nvar)
-			# Original information
-				H[1:ncl.nvar_x, 1:ncl.nvar_x] = hess(ncl.nlp, X[1:ncl.nvar_x], obj_weight=obj_weight, y=y) # Original hessian
 			
-			# New information (due to residuals)
-				H[ncl.nvar_x+1:end, ncl.nvar_x+1:end] = H[ncl.nvar_x+1:end, ncl.nvar_x+1:end] + ncl.ρ * I # Added by residuals (constant because of quadratic penalization) 
-		
+			H = sparse(hess_coord(ncl, X ; obj_weight=obj_weight, y=y)[1], hess_coord(ncl, X ; obj_weight=obj_weight, y=y)[2], hess_coord(ncl, X ; obj_weight=obj_weight, y=y)[3])
+
 			return H #?sparse(hess_coord(ncl, X, obj_weight=obj_weight, y=y)...)
 		end
 
@@ -272,17 +268,11 @@ using Test
 
 
 	#** II.5 Jacobian of the constraints vector
-		function NLPModels.jac(ncl::NCLModel, X::Vector{<:Real}) ::Matrix{<:Real}
+		function NLPModels.jac(ncl::NCLModel, X::Vector{<:Real}) ::SparseMatrixCSC{<:Real, Int64}
 			increment!(ncl, :neval_jac)
-			# Original information
-				J = jac(ncl.nlp, X[1:ncl.nvar_x])
 				
-			# New information (due to residuals)
-				J = hcat(J, I) # residuals part
-				if !ncl.res_lin_cons
-					J = J[1:end, vcat(1:ncl.nvar_x, ncl.jres .+ ncl.nvar_x)] # but linear constraint don't have a residual (in this case), so we remove some
-				end
-				
+			J = sparse(jac_coord(ncl, X)[1], jac_coord(ncl, X)[2], jac_coord(ncl, X)[3])
+
 			return J
 		end
 
