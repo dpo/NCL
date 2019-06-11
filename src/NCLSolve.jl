@@ -16,6 +16,8 @@ include("NCLModel.jl")
 # TODO
     # TODO (feature)   : optimal::Bool dans le GenericExecutionStats
     # TODO (feature)   : Créer un vrai statut
+    # TODO (feature)   : faire le print dans un fichier externe
+    # TODO (feature)   : print de tableau LaTeX aussi
 
     # TODO (recherche) : choix des mu_init à améliorer...
     # TODO (recherche) : Points intérieurs à chaud...
@@ -24,7 +26,7 @@ include("NCLModel.jl")
     # TODO (recherche) : update ω_k 
 
     # TODO (Plus tard) : Pierric pour choix de alpha, beta, tau...
-
+    # TODO (Plus tard) : print de tableau LaTeX aussi
 
 
 """
@@ -204,7 +206,7 @@ function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real},
             end
 
         #** II.2 Complementarity
-            for i in nlp.meta.ncon # upper constraints
+            for i in 1:nlp.meta.ncon # upper constraints
                 if !( (-ϵ <= (λ[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  |  (-ϵ <= (λ[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [λ[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
                     if print_level >= 1
                         if print_level >= 2
@@ -536,10 +538,8 @@ function NCLSolve(nlp::AbstractNLPModel;                    # Problem to be solv
                 if print_level >= 1
                     println("Résolution de " * nlp.meta.name * " par IPOPT (car 0 résidu ajouté)")
                 end
-                resol = NLPModelsIpopt.ipopt(nlp, print_level = max(print_level-2, 0), kwargs...)
-
-                println(typeof(resol.solver_specific[:internal_msg]))
-                return resol #tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter_solver, print_level=printing_iterations_solver ? 3 : 0, warm_start_init_point = warm_start_init_point), true)
+                
+                return NLPModelsIpopt.ipopt(nlp, print_level = max(print_level-2, 0), kwargs...) #tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter_solver, print_level=printing_iterations_solver ? 3 : 0, warm_start_init_point = warm_start_init_point), true)
             else
                 if print_level >= 1
                     println("Résolution de " * nlp.meta.name * " par KNITRO (car 0 résidu ajouté)")
