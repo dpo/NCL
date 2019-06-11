@@ -467,7 +467,7 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
                                 end
 
                         #! mettre converged = true pour tester avec AMPL
-                                converged = true #KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], ω_end, η_end, ϵ_end, print_level) 
+                                converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], ω_end, η_end, ϵ_end, print_level)
                             end
                             
                             status = resolution_k.status
@@ -491,7 +491,7 @@ function NCLSolve(ncl::NCLModel;                            # Problem to be solv
                                                             solver_specific=Dict(:multipliers_con => λ_k,
                                                                                 :multipliers_L => z_k_L,
                                                                                 :multipliers_U => z_k_U,
-                                                                                #:optimal => converged
+                                                                                :internal_msg => converged ? Symbol("Solve_Succeeded") : Symbol("Solve_Failed")
                                                                                 )
                                                             )
                             end
@@ -528,7 +528,7 @@ function NCLSolve(nlp::AbstractNLPModel;                    # Problem to be solv
                   linear_residuals::Bool = true,            # Boolean to choose if you want residuals onlinear constraints (true), or not (false)
                   print_level::Int64 = 0,                   # Options for printing iterations of the NCL method
                   kwargs...                                 # Other arguments for the other NCLSolve function
-                ) ::Tuple{GenericExecutionStats, Bool}      # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
+                ) ::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
 
     #** I. Test : NCL or Ipopt
         if (nlp.meta.ncon == 0) | (nlp.meta.nnln == 0)
@@ -536,12 +536,15 @@ function NCLSolve(nlp::AbstractNLPModel;                    # Problem to be solv
                 if print_level >= 1
                     println("Résolution de " * nlp.meta.name * " par IPOPT (car 0 résidu ajouté)")
                 end
-                return (NLPModelsIpopt.ipopt(nlp, print_level = max(print_level-2, 0), kwargs...), true) #tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter_solver, print_level=printing_iterations_solver ? 3 : 0, warm_start_init_point = warm_start_init_point), true)
+                resol = NLPModelsIpopt.ipopt(nlp, print_level = max(print_level-2, 0), kwargs...)
+
+                println(typeof(resol.solver_specific[:internal_msg]))
+                return resol #tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter=max_iter_solver, print_level=printing_iterations_solver ? 3 : 0, warm_start_init_point = warm_start_init_point), true)
             else
                 if print_level >= 1
                     println("Résolution de " * nlp.meta.name * " par KNITRO (car 0 résidu ajouté)")
                 end
-                return (_knitro(nlp, max(print_level-2, 0), kwargs...), true) # tol = tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter = max_iter_solver, print_level = printing_iterations_solver ? 3 : 0, warm_start_init_point = warm_start_init_point), true)
+                return _knitro(nlp, max(print_level-2, 0), kwargs...) # tol = tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter = max_iter_solver, print_level = printing_iterations_solver ? 3 : 0, warm_start_init_point = warm_start_init_point), true)
             end
 
         else
@@ -549,17 +552,20 @@ function NCLSolve(nlp::AbstractNLPModel;                    # Problem to be solv
     #** II. NCL Resolution
         ncl = NCLModel(nlp ; print_level = print_level, res_lin_cons = linear_residuals)
         if print_level >= 3
-            println("\n")
+            #println("\n")
         end
 
         resol = NCLSolve(ncl ; use_ipopt=use_ipopt, max_iter_NCL=max_iter_NCL, print_level=print_level, kwargs...) # tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol, max_iter_NCL=max_iter_NCL, max_iter_solver=max_iter_solver, use_ipopt=use_ipopt, printing_iterations=printing_iterations, printing_iterations_solver=printing_iterations_solver, printing_check=printing_check, warm_start_init_point = warm_start_init_point)
         if print_level >= 1
-            println("\n")
+            #println("\n")
         end
     
     #** III. Optimality and return
-            optimal = !(resol.iter == max_iter_NCL)
+            if print_level >= 2
+                print("   EXIT global NCLSolve function : ")
+                println(resol.solver_specific[:internal_msg])
+            end
 
-            return (resol, optimal)
+            return resol
         end
 end

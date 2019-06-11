@@ -9,6 +9,7 @@ using Test
 	# TODO grad_check
 	# TODO (simple): sparse du triangle inf, pas matrice complète
 	# TODO (simple): return sparse, pas matrice complète
+	# TODO (simple): Ajouter une fonction print
 	#sparse(row col val)
 
 #** I. Model and constructor
