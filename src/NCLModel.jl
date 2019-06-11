@@ -182,11 +182,11 @@ using Test
 				orig_len = len_hcols - ncl.nvar_r
 
 			# Original information
-				hvals[1:orig_len] = hess_coord!(ncl.nlp, X[1:ncl.nvar_x], hrows[1:orig_len], hcols[1:orig_len], hvals[1:orig_len], obj_weight=obj_weight, y=y)[3]
+				hvals[1:orig_len] .= hess_coord!(ncl.nlp, X[1:ncl.nvar_x], hrows[1:orig_len], hcols[1:orig_len], hvals[1:orig_len], obj_weight=obj_weight, y=y)[3]
 			
 			# New information (due to residuals)
-				hvals[orig_len + 1 : len_hcols] = fill!(Vector{typeof(hvals[1])}(undef, ncl.nvar_r), ncl.ρ) # a vector full of ncl.ρ
-				
+				hvals[orig_len + 1 : len_hcols] .= fill!(Vector{typeof(hvals[1])}(undef, ncl.nvar_r), ncl.ρ) # a vector full of ncl.ρ
+
 			return (hrows, hcols, hvals)
 		end
 
@@ -227,10 +227,10 @@ using Test
 				end
 
 			# Original information
-				Hv[1:ncl.nvar_x] = hprod!(ncl.nlp, X[1:ncl.nvar_x], v[1:ncl.nvar_x], Hv[1:ncl.nvar_x], obj_weight=obj_weight, y=y)
+				Hv[1:ncl.nvar_x] .= hprod!(ncl.nlp, X[1:ncl.nvar_x], v[1:ncl.nvar_x], Hv[1:ncl.nvar_x], obj_weight=obj_weight, y=y)
 			
 			# New information (due to residuals)
-			Hv[ncl.nvar_x+1:end] = ncl.ρ * v[ncl.nvar_x+1:end]
+			Hv[ncl.nvar_x+1:end] .= ncl.ρ * v[ncl.nvar_x+1:end]
 			
 			return Hv
 		end
@@ -295,13 +295,19 @@ using Test
 
 		function NLPModels.jac_coord!(ncl::NCLModel, X::Vector{<:Real}, jrows::Vector{<:Int64}, jcols::Vector{<:Int64}, jvals::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}
 			increment!(ncl, :neval_jac)
+
 			#Pre computation
 				len_jcols = length(jcols)
 				orig_len = len_jcols - ncl.nvar_r
 
-			# Original information				
-				jvals[1:orig_len] .= jac_coord!(ncl.nlp, X[1:ncl.nvar_x], jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len])[3]  # we necessarily need the place for ncl.nvar_r ones in the value array
-				
+			# Test feasability
+				if length(jvals) != len_jcols
+					error("wrong sizes of argument jvals passed to jac_coord!(ncl::NCLModel, X::Vector{<:Real}, jrows::Vector{<:Int64}, jcols::Vector{<:Int64}, jvals::Vector{<:Real}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Real}}")
+				end
+
+			# Original informations
+				jvals[1:orig_len] .= jac_coord!(ncl.nlp, X[1:ncl.nvar_x], jrows[1:orig_len], jcols[1:orig_len], jvals[1:orig_len])[3] # we necessarily need the place for ncl.nvar_r ones in the value array
+
 			# New information (due to residuals)
 				jvals[orig_len + 1 : len_jcols] = ones(typeof(jvals[1]), ncl.nvar_r) # we assume length(jrows) = length(jcols) = length(jvals)
 
@@ -394,9 +400,9 @@ using Test
 				end
 			
 			if ncl.res_lin_cons
-				Jtv = append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), v)
+				Jtv .= append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), v)
 			else
-				Jtv = append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), v[ncl.jres])
+				Jtv .= append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), v[ncl.jres])
 			end
 			return Jtv
 		end
