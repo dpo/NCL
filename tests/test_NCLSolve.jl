@@ -5,6 +5,7 @@ using NLPModelsIpopt
 
 include("../src/NCLSolve.jl")
 include("../src/NCLModel.jl")
+probs = ["HS" * string(i) for i in 1:57]
 
 function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
     
@@ -45,6 +46,19 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
         nlc_cons_res = NCLModel(nlp, res_lin_cons = true)::NCLModel
 
     if test
+        @testset "KKT_check function" begin
+            for name in probs # several tests
+                hs = CUTEstModel(name)
+                test_name = name * " problem resolution"
+                @testset "$test_name optimality via ipopt" begin
+                    resol = NLPModelsIpopt.ipopt(hs, max_iter = 5000, print_level=0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ)
+                    @test KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , ω, η, ϵ, 7)
+                end
+                finalize(hs)
+            end
+        end
+
+
         @testset "NCLSolve.jl (only linear residuals)" begin
 
             @testset "KKT_check function" begin
@@ -74,6 +88,8 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
 
                     @test KKT_check(ncl_nlin_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, print_level)
                 end
+
+                
             end
 
             @testset "KKT_check(nlp) via NCLSolve" begin
