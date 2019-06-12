@@ -1,6 +1,7 @@
 using NLPModels
 using CUTEst
 using NLPModelsIpopt
+using AmplNLReader
 include("NCLSolve.jl")
 
 #finalize(nlp)
@@ -130,19 +131,25 @@ println(hand_made_hs13)
 
 
 println("First resolution hand_made_hs13")
-resol = NLPModelsIpopt.ipopt(hand_made_hs13, tol = 1e-6, constr_viol_tol = 0.001, compl_inf_tol = 0.001, print_level = 0)
+resol = NLPModelsIpopt.ipopt(hand_made_hs13, tol = 1e-6, constr_viol_tol = 0.001, compl_inf_tol = 0.001, print_level = 5)
 
 	println("\n\nHand made hs13 check")
+		@show resol.solution
 		@show KKT_check(hand_made_hs13, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , 0.001, 0.001, 0.001, 3)
 
-	println("\n\nCUTEst hs13 check")
-		CUTEst_hs13 = CUTEstModel("HS13")
-		println(CUTEst_hs13)
-		@show KKT_check(CUTEst_hs13, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , 0.001, 0.001, 0.001, 3)
-
-println("\n\nCUTEst hs13 check and resolution")
-	resol_new = NLPModelsIpopt.ipopt(CUTEst_hs13, max_iter = 5000, tol = 1e-6, constr_viol_tol = 0.001, compl_inf_tol = 0.001, print_level = 0)
-	@show KKT_check(CUTEst_hs13, resol_new.solution, - resol_new.solver_specific[:multipliers_con] , resol_new.solver_specific[:multipliers_U] , resol_new.solver_specific[:multipliers_L] , 0.001, 0.001, 0.001, 3)
+#	println("\n\nCUTEst hs13 check")
+#		CUTEst_hs13 = CUTEstModel("HS13")
+#		println(CUTEst_hs13)
+#		@show KKT_check(CUTEst_hs13, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , 0.001, 0.001, 0.001, 3)
+#
+#println("\n\nCUTEst hs13 check and resolution")
+#	resol_new = NLPModelsIpopt.ipopt(CUTEst_hs13, max_iter = 5000, tol = 1e-6, constr_viol_tol = 0.001, compl_inf_tol = 0.001, print_level = 0)
+#	@show KKT_check(CUTEst_hs13, resol_new.solution, - resol_new.solver_specific[:multipliers_con] , resol_new.solver_specific[:multipliers_U] , resol_new.solver_specific[:multipliers_L] , 0.001, 0.001, 0.001, 3)
+#
+#ampl_hs13 = AmplModel("../../AMPL_tests/hs13.nl")
+#println("\n\nAMPL hs13 check and resolution")
+#	resol_ampl = NLPModelsIpopt.ipopt(ampl_hs13, max_iter = 5000, tol = 1e-6, constr_viol_tol = 0.001, compl_inf_tol = 0.001, print_level = 0)
+#	@show KKT_check(CUTEst_hs13, resol_ampl.solution, - resol_ampl.solver_specific[:multipliers_con] , resol_ampl.solver_specific[:multipliers_U] , resol_ampl.solver_specific[:multipliers_L] , 0.001, 0.001, 0.001, 3)
 
 
 
