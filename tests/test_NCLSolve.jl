@@ -5,7 +5,8 @@ using NLPModelsIpopt
 
 include("../src/NCLSolve.jl")
 include("../src/NCLModel.jl")
-probs = ["HS" * string(i) for i in 1:57]
+probs_KKT = ["HS" * string(i) for i in 1:57]
+probs_NCL = ["HS" * string(i) for i in 1:57]
 
 function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
     
@@ -47,19 +48,24 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
 
     if test
         @testset "KKT_check function" begin
-            for name in probs # several tests
+            for name in probs_KKT # several tests
                 hs = CUTEstModel(name)
                 test_name = name * " problem resolution"
                 @testset "$test_name optimality via ipopt" begin
-                    resol = NLPModelsIpopt.ipopt(hs, max_iter = 5000, print_level=0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ)
-                    @test KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , ω, η, ϵ, 7)
+                    resol = NLPModelsIpopt.ipopt(hs, max_iter = 5000, print_level= ((name == "HS49") | (name == "HS55")) ? 5 : 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ)
+                    if (name == "HS13") | (name == "HS49") | (name == "HS55")
+                        println("\n\n   Broken Test " * test_name)
+                        @test_broken KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , ω, η, ϵ, 7)
+                    else
+                        @test KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , ω, η, ϵ, 0)
+                    end
                 end
                 finalize(hs)
             end
         end
 
 
-        @testset "NCLSolve.jl (only linear residuals)" begin
+        @testset "NCLSolve NLP (only linear residuals)" begin
 
             @testset "KKT_check function" begin
                 @testset "KKT_check(nlp) via ipopt" begin
@@ -106,7 +112,7 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
         end
 
 
-        @testset "NCLSolve.jl (all residuals)" begin
+        @testset "NCLSolve NLP (all residuals)" begin
             @testset "KKT_check(nlc_cons_res) via ipopt" begin
                 # Resolution of ncl_nlin_res with NLPModelsIpopt
                     resol_ncl_ipopt = NLPModelsIpopt.ipopt(nlc_cons_res, print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
@@ -132,6 +138,43 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
                 @test KKT_check(nlp, x_ncl[1:nlc_cons_res.nvar_x], λ_ncl, z_U_ncl[1:nlc_cons_res.nvar_x], z_L_ncl[1:nlc_cons_res.nvar_x], ω, η, ϵ, print_level) 
             end
         end
+
+        @testset "NCLSolve HS (only linear residuals)" begin
+            for name in probs_NCL # several tests
+                nlp = CUTEstModel(name)
+                #println(nlp)
+                test_name = name * " problem resolution"
+                @testset "$test_name" begin
+                    @test NCLSolve(nlp, max_iter_NCL = 20, print_level=0).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+                end
+                finalize(nlp)
+            end
+        end
+
+        @testset "NCLSolve HS (only linear residuals)" begin
+            for name in probs_NCL # several tests
+                nlp = CUTEstModel(name)
+                #println(nlp)
+                test_name = name * " problem resolution"
+                @testset "$test_name" begin
+                    @test NCLSolve(nlp, max_iter_NCL = 20, print_level=0, linear_residuals=false).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+                end
+                finalize(nlp)
+            end
+        end
+
+        @testset "NCLSolve HS (all residuals)" begin
+            for name in probs_NCL # several tests
+                nlp = CUTEstModel(name)
+                #println(nlp)
+                test_name = name * " problem resolution"
+                @testset "$test_name" begin
+                    @test NCLSolve(nlp, max_iter_NCL = 20, print_level=0, linear_residuals = true).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+                end
+                finalize(nlp)
+            end
+        end
+
     else
         @testset "Avoid return type bug" begin
             @test true

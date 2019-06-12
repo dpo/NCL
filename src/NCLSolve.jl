@@ -30,16 +30,17 @@ include("NCLModel.jl")
 
 
 """
-mult_format_check verifys that z_U and z_L are given in the right format to KKT_check.
+mult_format_check documentation
+    mult_format_check verifys that z_U and z_L are given in the right format to KKT_check.
 
-!!! Important note !!! The convention is : 
-(P) min f(x)
-    s.t. c(x) >= 0
+    !!! Important note !!! The convention is : 
+    (P) min f(x)
+        s.t. c(x) >= 0
 
-And then
-    multipliers λ >= 0
-    Lagrangien(x, λ) = f(x) - λ' * c(x)
-    ∇_{x}[lag(x, λ)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * λ - (z_L - z_U)
+    And then
+        multipliers λ >= 0
+        Lagrangien(x, λ) = f(x) - λ' * c(x)
+        ∇_{x}[lag(x, λ)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * λ - (z_L - z_U)
 """
 function mult_format_check(z_U::Vector{<:Real}, z_L::Vector{<:Real}, ϵ::Real) ::Tuple{Vector{<:Real}, Vector{<:Real}}
     if (any(z_U .< -ϵ) & any(z_U .> ϵ))
@@ -74,21 +75,22 @@ end
 
 
 """
-KKT_check tests if (x, λ) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism, it is suposed to be an AbstractNLPModel), within 
-    ω as a tolerance for the lagrangian gradient norm
-    η as a tolerance for constraint infeasability
-    ϵ as a tolerance for complementarity checking
+KKT_check Documentation
+    KKT_check tests if (x, λ) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism, it is suposed to be an AbstractNLPModel), within 
+        ω as a tolerance for the lagrangian gradient norm
+        η as a tolerance for constraint infeasability
+        ϵ as a tolerance for complementarity checking
 
-!!! Important note !!! the lagrangian is considered as :
-    l(x, λ) = f(x) - λ' * c(x)          
-    with c(x) >= 0
-            λ >= 0
-And then
-    multipliers λ >= 0
-    Lagrangien(x, λ) = f(x) - λ' * c(x)
-    ∇_{x}[lag(x, λ)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * λ - (z_L - z_U)
+    !!! Important note !!! the lagrangian is considered as :
+        l(x, λ) = f(x) - λ' * c(x)          
+        with c(x) >= 0
+                λ >= 0
+    And then
+        multipliers λ >= 0
+        Lagrangien(x, λ) = f(x) - λ' * c(x)
+        ∇_{x}[lag(x, λ)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * λ - (z_L - z_U)
 
-Another remark: If z_U is not given (empty), we treat in two different ways complementarity. We can check everything as a range bound constraint in this cae, and when z_L and z_U are given separately, 
+    Another remark: If z_U is not given (empty), we treat in two different ways complementarity. We can check everything as a range bound constraint in this cae, and when z_L and z_U are given separately, 
 """
 function KKT_check(nlp::AbstractNLPModel, x::Vector{<:Real}, λ::Vector{<:Real}, z_U::Vector{<:Real}, z_L::Vector{<:Real}, ω::Real, η::Real, ϵ::Real, print_level::Int64) ::Bool
     if print_level >= 1
@@ -280,23 +282,24 @@ end
 
 
 """
-NCL method implementation. See https://www.researchgate.net/publication/325480151_Stabilized_Optimization_Via_an_NCL_Algorithm for further explications on the method
-Arguments: 
-    - nlp: optimization problem described by the modelization NLPModels.jl (voir https://github.com/JuliaSmoothOptimizers/NLPModels.jl)
-      nlp is the generic problem you want to solve
-Returns:
-    a GenericExecutionStats, based on the NLPModelsIpopt/Knitro return :
-        SolverTools.status                              # of the last resolution
-        ncl                                             # the problem in argument,
-        solution = sol,                                 # solution found
-        iter = k,                                       # number of iteration of the ncl method (not iteration to solve subproblems)
-        objective=obj(ncl, sol),                        # objective value
-        elapsed_time=0,                                 # time of computation of the whole resolution
-        solver_specific=Dict(:multipliers_con => λ_k,   # lagrangian multipliers for : constraints
-                            :multipliers_L => z_k_L,    #                              upper bounds
-                            :multipliers_U => z_k_U     #                              lower bounds
-                            )
-        )
+NCLSolve Documentation
+    NCL method implementation. See https://www.researchgate.net/publication/325480151_Stabilized_Optimization_Via_an_NCL_Algorithm for further explications on the method
+    Arguments: 
+        - nlp: optimization problem described by the modelization NLPModels.jl (voir https://github.com/JuliaSmoothOptimizers/NLPModels.jl)
+        nlp is the generic problem you want to solve
+    Returns:
+        a GenericExecutionStats, based on the NLPModelsIpopt/Knitro return :
+            SolverTools.status                              # of the last resolution
+            ncl                                             # the problem in argument,
+            solution = sol,                                 # solution found
+            iter = k,                                       # number of iteration of the ncl method (not iteration to solve subproblems)
+            objective=obj(ncl, sol),                        # objective value
+            elapsed_time=0,                                 # time of computation of the whole resolution
+            solver_specific=Dict(:multipliers_con => λ_k,   # lagrangian multipliers for : constraints
+                                :multipliers_L => z_k_L,    #                              upper bounds
+                                :multipliers_U => z_k_U     #                              lower bounds
+                                )
+            )
 """
 function NCLSolve(ncl::NCLModel;                            # Problem to be solved by this method (see NCLModel.jl for further details)
                   tol::Real = 0.001,                        # Tolerance for the gradient lagrangian norm
@@ -516,7 +519,6 @@ end
 
 
 
-printing = false
 """
 Main function for the NCL method. 
     Takes an AbstractNLPModel as initial problem, 
