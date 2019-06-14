@@ -10,4 +10,6 @@ The objective is to solve an optimisation problem, using IPOPT/KNITRO as subprob
 
 ### NCLSolve
 
-Their are two implementation of this function, one taking an AbstractNLPModel in argument, the other a NCLModel (created by NCLModel())
+### KKT_Check
+
+### mult_format_check
