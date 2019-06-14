@@ -16,6 +16,9 @@ include("NCLModel.jl")
 #using NLPModelsKnitro
 
 
+#! TODO Fix closing file problem...
+
+
 
 ######### TODO #########
 ######### TODO #########
@@ -161,7 +164,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                      output_file_print::Bool = true,                 # Choose to print in an output file or stdout
                      output_file_name::String = "KKT_check.log",
                      output_file::IOStream = open("KKT_check.log", write = true)  # Path until file for printing details
-                    ) ::Bool                                       # true returned if the problem is solved at x, with tolerances specified. false instead.
+                   ) ::Bool                                       # true returned if the problem is solved at x, with tolerances specified. false instead.
 
     #** 0. Initial settings
         #** 0.1 Notations
@@ -226,7 +229,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                                 end
                             end
                             write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
-                            #close(file)
+
+                            if output_file_print & (output_file_name != "KKT_check.log")
+                                close(file)
+                            end
                         end
                         
                         return false
@@ -246,9 +252,11 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                                     @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
                                 end
                             end
-                            
                             write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
-                            #close(file)
+                            
+                            if output_file_print & (output_file_name != "KKT_check.log")
+                                close(file)
+                            end
                         end
 
                         return false
@@ -269,7 +277,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                                 end
                             end
                             write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
-                            #close(file)
+                            
+                            if output_file_print & (output_file_name != "KKT_check.log")
+                                close(file)
+                            end
                         end
 
                         return false
@@ -295,7 +306,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                             end
                         end
                         write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
-                        #close(file)
+                        
+                        if output_file_print & (output_file_name != "KKT_check.log")
+                            close(file)
+                        end
                     end
 
                     return false 
@@ -318,7 +332,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                         end
 
                         write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
-                        close(file)
+                        
+                        if output_file_print & (output_file_name != "KKT_check.log")
+                            close(file)
+                        end
                     end
 
                     return false
@@ -360,19 +377,23 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                     end
                 
                     write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
-                    #close(file)
+                    
+                    if output_file_print & (output_file_name != "KKT_check.log")
+                        close(file)
+                    end
                 end
                 
                 return false
             end
         
-        
-    
-        if print_level >= 1
+    #** IV Return if tests were passed
+            if print_level >= 1
             @printf(file, "    %s problem solved !\n", nlp.meta.name)
-            
         end
 
+        if output_file_print & (output_file_name != "KKT_check.log")
+            close(file)
+        end
         return true # all the tests were passed, x, λ respects feasability, complementarity respected, and ∇lag_x(x, λ) almost = 0
 end
 
@@ -449,7 +470,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                  ) ::GenericExecutionStats                                              # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
         
     if (nlp.meta.ncon == 0) | ((nlp.meta.nnln == 0) & linear_residuals)
-        #** I. Resolution with Ipopt
+        #** I. Resolution with solver
             if use_ipopt
                 if print_level_NCL >= 1
                     println("Résolution de " * nlp.meta.name * " par IPOPT (car 0 résidu ajouté)")
@@ -531,7 +552,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                             if output_file_name_NCL == "NCL.log"  #If the name is the default one, then we take the openned file (and won't close it at the end)
                                 file = output_file_NCL
                             else # if it is not the default one
-                                file = open(output_file_name_NCL, write = true) # then we open this file and then close it at the end.
+                                file = open(output_file_name_NCL, write = true) # then we open this file and then it at the end.
                             end
                         else
                             file = stdout # if not in a file, in the terminal
@@ -596,6 +617,19 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                     #** II.B.1 Get subproblem's solution
                         #** II.B.1.1 Solver
                             if use_ipopt
+                                if output_file_print_solver
+                                    resolution_k = NLPModelsIpopt.ipopt(ncl ;
+                                                                        tol = ω_k, 
+                                                                        constr_viol_tol = η_k, 
+                                                                        #compl_inf_tol = ϵ_end, 
+                                                                        print_level = print_level_solver,
+                                                                        output_file=output_file_name_solver,
+                                                                        ignore_time = true, 
+                                                                        warm_start_init_point = warm_start_init_point, 
+                                                                        mu_init = mu_init, 
+                                                                        dual_inf_tol=1e-6, 
+                                                                        max_iter = 1000)
+                                else
                                     resolution_k = NLPModelsIpopt.ipopt(ncl ;
                                                                         tol = ω_k, 
                                                                         constr_viol_tol = η_k, 
@@ -606,7 +640,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                                                         mu_init = mu_init, 
                                                                         dual_inf_tol=1e-6, 
                                                                         max_iter = 1000)
-                                    
+                                end
                                     # Get variables
                                     x_k = resolution_k.solution[1:ncl.nvar_x]
                                     r_k = resolution_k.solution[ncl.nvar_x+1 : ncl.nvar_x+ncl.nvar_r]
@@ -678,46 +712,50 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                             
                             #** II.B.2.2 Solution found ?
                                 if (norm_r_k_inf <= η_end) | (k == max_iter_NCL) # check if r_k is small enough, or if we've reached the end
-                                    if norm_r_k_inf > η_end
-                                        #* Residual test
-                                            converged = false
-                                    else
-                                        #* KKT test
-                                            if print_level_NCL >= 2
-                                                @printf(file, "--------\n   norm(r_k,Inf) = %7.2e  <= η_end = %7.2e. Calling KKT_check\n", norm_r_k_inf, η_end)
-                                            end
-
-                                            #! mettre converged = true pour tester par rapport à AMPL
-                                            if print_level_NCL >= 1
-                                                if output_file_print_NCL # Just to avoid type errors, not very important
-                                                    converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL, output_file_print = output_file_print_NCL, file = file)
+                                    #* Residual & KKT tests
+                                        if norm_r_k_inf > η_end
+                                                converged = false
+                                        else
+                                                if print_level_NCL >= 2
+                                                    @printf(file, "--------\n   norm(r_k,Inf) = %7.2e  <= η_end = %7.2e. Calling KKT_check\n", norm_r_k_inf, η_end)
                                                 end
-                                            else
-                                                converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
-                                            end
-                                    end
+
+                                                #! mettre converged = true pour tester par rapport à AMPL
+                                                if print_level_NCL >= 1
+                                                    if output_file_print_NCL # Just to avoid type errors, not very important
+                                                        converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL, output_file_print = true, output_file = file)
+                                                    end
+                                                else
+                                                    converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
+                                                end
+                                        end
                                     
-                                    status = resolution_k.status
+                                        status = resolution_k.status
 
                                     #* Print tests results
                                         if print_level_NCL >= 1
                                             if converged
                                                 write(file, "---------------\n",
                                                             "   EXIT: optimal solution found\n")
+                                                if print_level_NCL >= 6
+                                                    println("\nFinal point : x = ", resolution_k.solution)
+                                                end
                                             end
                                             if k == max_iter_NCL
                                                 write(file, "----------------\n",
                                                             "   EXIT: reached max_iter_NCL\n")
+
+                                                if print_level_NCL >= 6
+                                                    println("\nFinal point : x = ", resolution_k.solution)
+                                                end
                                             end
 
-                                            if print_level_NCL >= 6
-                                                println("   Final point : x = ", resolution_k.solution)
-                                            end
+                                            
                                         end
                                     
                             #** II.B.2.3 Return if end of the algorithm
                                     if converged | (k == max_iter_NCL)
-                                        if (print_level_NCL >= 1) & output_file_print_NCL & (output_file_name_NCL != "NCL.log")
+                                        if (print_level_NCL >= 1) & output_file_print_NCL # & (output_file_name_NCL != "NCL.log")
                                             close(file)
                                         end
                                         return GenericExecutionStats(status, ncl, 
