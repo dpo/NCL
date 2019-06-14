@@ -3,8 +3,13 @@ using Test
 
 include("../src/NCLModel.jl")
 
-# TODO tests for res_lin
 
+
+"""
+#################################
+# Unitary tests for NLCModel.jl #
+#################################
+"""
 function test_NLCModel(test::Bool) ::Test.DefaultTestSet
     # Test parameters
         ρ = 1.
@@ -22,10 +27,6 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
         jvals = Vector{Float64}(undef,10)
         Jv = Vector{Float64}(undef,4)
         
-        
-
-
-
     # Test problem
         f(x) = x[1] + x[2]
         x0 = [0.5, 0.5]
@@ -46,14 +47,14 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 x[1] * x[2]] # equality one
 
         name = "Unitary test problem"
-        nlp = ADNLPModel(f, x0 ; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])::ADNLPModel
-        nlc_nlin_res = NCLModel(nlp ; res_lin_cons = false)::NCLModel
+        nlp::ADNLPModel = ADNLPModel(f, x0 ; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])
+        nlc_nlin_res::NCLModel = NCLModel(nlp ; res_lin_cons = false)
 
         nlc_nlin_res.y = y
         nlc_nlin_res.ρ = ρ
 
 
-        nlc_cons_res = NCLModel(nlp, res_lin_cons = true)::NCLModel
+        nlc_cons_res::NCLModel = NCLModel(nlp, res_lin_cons = true)
         nlc_cons_res.ρ = ρ
 
     # Unitary tests
@@ -138,11 +139,11 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                     end
 
                     @testset "NCLModel hessian of the lagrangian hprod()" begin
-                        @test hprod(nlc_nlin_res, nlc_nlin_res.meta.x0, [1,2,3,4], y = [1.,1.,1.,1.]) == [4,1,3*ρ,4*ρ]
+                        @test hprod(nlc_nlin_res, nlc_nlin_res.meta.x0, [1.,2.,3.,4.], y = [1.,1.,1.,1.]) == [4,1,3*ρ,4*ρ]
                     end
 
                     @testset "NCLModel hessian of the lagrangian hprod!()" begin
-                        @test hprod!(nlc_nlin_res, nlc_nlin_res.meta.x0, [1,2,3,4], y = [1.,1.,1.,1.], Hv) == [4,1,3*ρ,4*ρ]
+                        @test hprod!(nlc_nlin_res, nlc_nlin_res.meta.x0, [1.,2.,3.,4.], y = [1.,1.,1.,1.], Hv) == [4,1,3*ρ,4*ρ]
                     end
                 end
 
@@ -254,11 +255,11 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 @testset "NCLModel hessian of the lagrangian" begin
                     @testset "NCLModel hessian of the lagrangian hess()" begin
                         @test hess(nlc_cons_res, [0., 0., 0., 0.], y=zeros(Float64,6)) == [0. 0. 0. 0. 0. 0. ; 
-                                                                                           0. 0. 0. 0. 0. 0. ;
-                                                                                           0. 0. ρ  0. 0. 0. ;
-                                                                                           0. 0. 0. ρ  0. 0. ;
-                                                                                           0. 0. 0. 0. ρ  0. ;
-                                                                                           0. 0. 0. 0. 0. ρ ]
+                                                                                        0. 0. 0. 0. 0. 0. ;
+                                                                                        0. 0. ρ  0. 0. 0. ;
+                                                                                        0. 0. 0. ρ  0. 0. ;
+                                                                                        0. 0. 0. 0. ρ  0. ;
+                                                                                        0. 0. 0. 0. 0. ρ ]
                         @test hess(nlc_cons_res, nlc_cons_res.meta.x0, y=[1.,1.,1.,1.]) == [2. 0. 0. 0. 0. 0. ; #not symetrical because only the lower triangle is returned by hess
                                                                                             1. 0. 0. 0. 0. 0. ;
                                                                                             0. 0. ρ  0. 0. 0. ;
@@ -296,11 +297,11 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                     end
 
                     @testset "NCLModel hessian of the lagrangian hprod()" begin
-                        @test hprod(nlc_cons_res, nlc_cons_res.meta.x0, [1,2,3,4,5,6], y = [1.,1.,1.,1.,1.,1.]) == [4,1,3*ρ,4*ρ,5*ρ,6*ρ]
+                        @test hprod(nlc_cons_res, nlc_cons_res.meta.x0, [1.,2.,3.,4.,5.,6.], y = [1.,1.,1.,1.,1.,1.]) == [4,1,3*ρ,4*ρ,5*ρ,6*ρ]
                     end
 
                     @testset "NCLModel hessian of the lagrangian hprod!()" begin
-                        @test hprod!(nlc_cons_res, nlc_cons_res.meta.x0, [1,2,3,4,5,6], y = [1.,1.,1.,1.,1.,1.], vcat(Hv, [0.,0.])) == [4,1,3*ρ,4*ρ,5*ρ,6*ρ]
+                        @test hprod!(nlc_cons_res, nlc_cons_res.meta.x0, [1.,2.,3.,4.,5.,6.], y = [1.,1.,1.,1.,1.,1.], vcat(Hv, [0.,0.])) == [4,1,3*ρ,4*ρ,5*ρ,6*ρ]
                     end
                 end
 
@@ -320,14 +321,14 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 @testset "NCLModel constraint jacobian" begin
                     @testset "NCLModel constraint jac()" begin
                         @test jac(nlc_cons_res, [1.,1.,0.,1.,1.,1.]) == [1 -1  1  0  0  0;
-                                                                         2  1  0  1  0  0;
-                                                                         1 -1  0  0  1  0;
-                                                                         1  1  0  0  0  1]
+                                                                        2  1  0  1  0  0;
+                                                                        1 -1  0  0  1  0;
+                                                                        1  1  0  0  0  1]
 
                         @test jac(nlc_cons_res, [1.,0.5,1.,1.,0.,-1.]) == [1  -1  1  0  0  0;
-                                                                           2   1  0  1  0  0;
-                                                                           1  -1  0  0  1  0;
-                                                                          0.5  1  0  0  0  1]
+                                                                        2   1  0  1  0  0;
+                                                                        1  -1  0  0  1  0;
+                                                                        0.5  1  0  0  0  1]
                     end
                     
                     @testset "NCLModel constraint jac_coord()" begin
@@ -370,8 +371,10 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 end
             end
         else
-            @testset "Avoid return type bug" begin
+            @testset "Empty test" begin
                 @test true
             end
         end
 end
+#############################
+#############################
