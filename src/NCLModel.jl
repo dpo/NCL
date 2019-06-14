@@ -119,7 +119,7 @@ using Test
 			increment!(ncl, :neval_obj)
 			obj_val = obj(ncl.nlp, X[1:ncl.nvar_x])
 			obj_res = (ncl.y[1:ncl.nvar_r])' * X[ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r] +
-					   0.5 * ncl.ρ * sum(X[i] * X[i] for i in ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r)
+					   0.5 * ncl.ρ * reduce(+, X[i] * X[i] for i in ncl.nvar_x + 1 : ncl.nvar_x + ncl.nvar_r ; init=0)
 					  
 			if ncl.minimize
 				return obj_val + obj_res
