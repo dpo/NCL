@@ -155,9 +155,9 @@ x0 = [-2.,-2.]
 
 
 
-#nlp = hs13()
+nlp = hs13()
 #nlp = ADNLPModel(f, x0 ; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name = "HS13")
-nlp = CUTEstModel("HS13")
+#nlp = CUTEstModel("HS13")
 #nlp = CUTEstModel("TAXR13322")
 
 ncl = NCLModel(nlp, res_lin_cons = false)
@@ -165,11 +165,15 @@ ncl = NCLModel(nlp, res_lin_cons = false)
 
 
 resolution = NCLSolve(nlp ;
-			    	  max_iter_NCL = 20,
+					  max_iter_NCL = 20,
+					  max_iter_solver = 500,
 					  print_level_NCL = 7,
-					  print_level_solver = 4,
-			    	  linear_residuals = true,
-			    	  warm_start_init_point = "yes")
+					  print_level_solver = 5,
+					  linear_residuals = true,
+					  output_file_print_NCL = true,
+					  output_file_print_solver = false,
+
+			    	  warm_start_init_point = "no")
 
 
 
