@@ -5,15 +5,21 @@ using NLPModelsIpopt
 
 include("../src/NCLSolve.jl")
 include("../src/NCLModel.jl")
-probs_KKT = ["HS" * string(i) for i in 1:57]
-probs_NCL = ["HS" * string(i) for i in 1:57]
 
-function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
-    
-    print_level = 0
-    ω = 0.001
-    η = 0.0001
-    ϵ = 0.0001
+
+"""
+#############################
+Unitary tests for NCLSolve.jl
+#############################
+"""
+function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 0, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 57) ::Test.DefaultTestSet
+    # Test parameters
+        print_level_NCL = 0
+        ω = 0.001
+        η = 0.0001
+        ϵ = 0.0001
+        probs_KKT = ["HS" * string(i) for i in HS_begin_KKT:HS_end_KKT]
+        probs_NCL = ["HS" * string(i) for i in HS_begin_NCL:HS_end_NCL] #[13,15,17,19,20]
 
     # Test problem
         ρ = 1.
@@ -51,14 +57,17 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
             for name in probs_KKT # several tests
                 hs = CUTEstModel(name)
                 test_name = name * " problem resolution"
+
                 @testset "$test_name optimality via ipopt" begin
+                    
                     resol = NLPModelsIpopt.ipopt(hs, max_iter = 5000, print_level= ((name == "HS49") | (name == "HS55")) ? 5 : 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ)
+                    
                     if (name == "HS13") | (name == "HS49") | (name == "HS55")
-                        println("\n\n   Broken Test " * test_name)
                         @test_broken KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , ω, η, ϵ, 7)
                     else
                         @test KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , ω, η, ϵ, 0)
                     end
+
                 end
                 finalize(hs)
             end
@@ -78,8 +87,8 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
                         z_U_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_U]
                         z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
 
-                    @test_broken KKT_check(nlp, [0.5, 1.0], [1., 0., 0., -2.0], [0, 1.], [0., 0.0], ω, η, ϵ, print_level) # solved by hand
-                    @test KKT_check(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, print_level)
+                    @test_broken KKT_check(nlp, [0.5, 1.0], [1., 0., 0., -2.0], [0, 1.], [0., 0.0], ω, η, ϵ, print_level_NCL, output_file_print=false) # solved by hand
+                    @test KKT_check(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt, ω, η, ϵ, print_level_NCL, output_file_print=false)
                 end
 
                 @testset "KKT_check(ncl_nlin_res) via ipopt" begin
@@ -92,7 +101,7 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
                         z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
                         z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
 
-                    @test KKT_check(ncl_nlin_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, print_level)
+                    @test KKT_check(ncl_nlin_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, print_level_NCL)
                 end
 
                 
@@ -100,14 +109,14 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
 
             @testset "KKT_check(nlp) via NCLSolve" begin
                 # Resolution of ncl_nlin_res with NCL method
-                    resol_ncl_ncl = NCLSolve(ncl_nlin_res, max_iter_NCL = 30, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, print_level = print_level)
+                    resol_ncl_ncl = NCLSolve(ncl_nlin_res, max_iter_NCL = 30, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, print_level_NCL = print_level_NCL)
                     x_ncl = resol_ncl_ncl.solution
 
                     λ_ncl = resol_ncl_ncl.solver_specific[:multipliers_con]
                     z_U_ncl = resol_ncl_ncl.solver_specific[:multipliers_U]
                     z_L_ncl = resol_ncl_ncl.solver_specific[:multipliers_L]    
                 
-                @test KKT_check(nlp, x_ncl[1:ncl_nlin_res.nvar_x], λ_ncl, z_U_ncl[1:ncl_nlin_res.nvar_x], z_L_ncl[1:ncl_nlin_res.nvar_x], ω, η, ϵ, print_level) 
+                @test KKT_check(nlp, x_ncl[1:ncl_nlin_res.nvar_x], λ_ncl, z_U_ncl[1:ncl_nlin_res.nvar_x], z_L_ncl[1:ncl_nlin_res.nvar_x], ω, η, ϵ, print_level_NCL) 
             end
         end
 
@@ -123,41 +132,28 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
                     z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
                     z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
 
-                @test KKT_check(nlc_cons_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, print_level)
+                @test KKT_check(nlc_cons_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, print_level_NCL)
             end
 
             @testset "KKT_check(nlp) via NCLSolve" begin
                 # Resolution of nlc_cons_res with NCL method
-                    resol_ncl_ncl = NCLSolve(nlc_cons_res, max_iter_NCL = 30, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, print_level = print_level)
+                    resol_ncl_ncl = NCLSolve(nlc_cons_res, max_iter_NCL = 30, use_ipopt = true, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, print_level_NCL = print_level_NCL)
                     x_ncl = resol_ncl_ncl.solution
             
                     λ_ncl = resol_ncl_ncl.solver_specific[:multipliers_con]
                     z_U_ncl = resol_ncl_ncl.solver_specific[:multipliers_U]
                     z_L_ncl = resol_ncl_ncl.solver_specific[:multipliers_L]
 
-                @test KKT_check(nlp, x_ncl[1:nlc_cons_res.nvar_x], λ_ncl, z_U_ncl[1:nlc_cons_res.nvar_x], z_L_ncl[1:nlc_cons_res.nvar_x], ω, η, ϵ, print_level) 
+                @test KKT_check(nlp, x_ncl[1:nlc_cons_res.nvar_x], λ_ncl, z_U_ncl[1:nlc_cons_res.nvar_x], z_L_ncl[1:nlc_cons_res.nvar_x], ω, η, ϵ, print_level_NCL) 
             end
         end
 
         @testset "NCLSolve HS (only linear residuals)" begin
             for name in probs_NCL # several tests
                 nlp = CUTEstModel(name)
-                #println(nlp)
                 test_name = name * " problem resolution"
                 @testset "$test_name" begin
-                    @test NCLSolve(nlp, max_iter_NCL = 20, print_level=0).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
-                end
-                finalize(nlp)
-            end
-        end
-
-        @testset "NCLSolve HS (only linear residuals)" begin
-            for name in probs_NCL # several tests
-                nlp = CUTEstModel(name)
-                #println(nlp)
-                test_name = name * " problem resolution"
-                @testset "$test_name" begin
-                    @test NCLSolve(nlp, max_iter_NCL = 20, print_level=0, linear_residuals=false).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+                    @test NCLSolve(nlp, max_iter_NCL = 20, print_level_NCL=0, linear_residuals=false, output_file = "$test_name.log").solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
                 end
                 finalize(nlp)
             end
@@ -166,18 +162,19 @@ function test_NCLSolve(test::Bool) ::Test.DefaultTestSet
         @testset "NCLSolve HS (all residuals)" begin
             for name in probs_NCL # several tests
                 nlp = CUTEstModel(name)
-                #println(nlp)
                 test_name = name * " problem resolution"
                 @testset "$test_name" begin
-                    @test NCLSolve(nlp, max_iter_NCL = 20, print_level=0, linear_residuals = true).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+                    @test NCLSolve(nlp, max_iter_NCL = 20, print_level_NCL=0, linear_residuals = true, output_file = "$test_name.log").solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
                 end
                 finalize(nlp)
             end
         end
 
     else
-        @testset "Avoid return type bug" begin
+        @testset "Empty test" begin
             @test true
         end
     end
 end
+#############################
+#############################
