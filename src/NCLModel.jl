@@ -8,11 +8,8 @@ using Printf
 ######### TODO #########
 ######### TODO #########
 ######### TODO #########
-	# TODO type de retour, NLP/NCL...
 	# TODO grad_check
-	# TODO (simple): sparse du triangle inf, pas matrice complète
-	# TODO (simple): return sparse, pas matrice complète
-	# TODO (simple): terminer la fonction print
+	# TODO (simple): terminer la fonction print et documentation
 ######### TODO #########
 ######### TODO #########
 ######### TODO #########
@@ -24,16 +21,21 @@ using Printf
 
 #** I. Model and constructor
 	"""
-	Subtype of AbstractNLPModel, adapted to the NCL method. 
-	Keeps some informations from the original AbstractNLPModel, 
-	and creates a new problem, modifying 
-		the objective function (sort of augmented lagrangian, with residuals instead of constraints) 
-		the constraints (with residuals)
-	The problem :
+	######################
+	NCLModel documentation
+		Subtype of AbstractNLPModel, adapted to the NCL method. 
+		Keeps some informations from the original AbstractNLPModel, 
+		and creates a new problem, modifying 
+			the objective function (sort of augmented lagrangian, with residuals instead of constraints) 
+			the constraints (with residuals)
 
-	(nlp) | min_{x} f(x)								         | min_{x,r} f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
-		  | subject to lvar <= x <= uvar		becomes: (ncl)   | subject to lvar <= x <= uvar, -Inf <= r <= Inf
-		  | 		   lcon <= c(x) <= ucon				         | 			lcon <= c(x) + r <= ucon
+		Process is as follows
+
+			(nlp) | min_{x} f(x)								         | min_{x,r} f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
+				  | subject to lvar <= x <= uvar		becomes: (ncl)   | subject to lvar <= x <= uvar, -Inf <= r <= Inf
+				  | 		   lcon <= c(x) <= ucon				         | 			lcon <= c(x) + r <= ucon
+
+	######################
 	"""
 	mutable struct NCLModel <: AbstractNLPModel
 		#* I. Information about the residuals
@@ -55,13 +57,19 @@ using Printf
 
 
 
-	function NCLModel(nlp::AbstractNLPModel ; 
-						print_level::Int64 = 0, 
-						res_val_init::Float64 = 0., 
-						res_lin_cons::Bool = false, 
-						ρ::Float64 = 1., 
-						y = res_lin_cons ? zeros(Float64, nlp.meta.ncon) : zeros(Float64, nlp.meta.nnln)
-					 ) ::AbstractNLPModel 
+	"""
+	######################
+	NCLModel documentation
+		Creates the NCL problem associated to the nlp in argument. 
+	######################
+	"""
+	function NCLModel(nlp::AbstractNLPModel ; 															# Initial model
+						print_level::Int64 = 0, 															# Little informationwarnings about the model created
+						res_val_init::Float64 = 0., 														# Initial value for residuals
+						res_lin_cons::Bool = false, 														# Choose if you want residuals upon linear constraints or not
+						ρ::Float64 = 1., 																	# Initial penalization
+						y = res_lin_cons ? zeros(Float64, nlp.meta.ncon) : zeros(Float64, nlp.meta.nnln)	# Initial multiplier, depending on the number of residuals considered
+					 ) ::AbstractNLPModel 																# Return an AbstractNLPModel, because if there is no residuals to add, it is better to return the original NLP problem. A warning is displayed in this case
 
 		#* 0. Printing
 			if print_level >= 1
@@ -467,6 +475,12 @@ using Printf
 
 
 #** External function
+	"""
+	###########################
+	Print function for NCLModel
+		# TODO
+	###########################
+	"""
 	function print(ncl::NCLModel ; 
 					print_level::Int64 = 0, 
 					output_file_print::Bool = false, 
