@@ -31,7 +31,7 @@ using Printf
 
 		Process is as follows
 
-			(nlp) | min_{x} f(x)								         | min_{x,r} f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
+			(nlp) | min_{x} f(x)								         | min_{X = (x,r)} F(X) = f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
 				  | subject to lvar <= x <= uvar		becomes: (ncl)   | subject to lvar <= x <= uvar, -Inf <= r <= Inf
 				  | 		   lcon <= c(x) <= ucon				         | 			lcon <= c(x) + r <= ucon
 
@@ -482,7 +482,8 @@ using Printf
 	###########################
 	"""
 	function print(ncl::NCLModel ; 
-					print_level::Int64 = 0, 
+					current_X::Vector{Float64} = ncl.meta.x0,
+					print_level::Int64 = 1, 
 					output_file_print::Bool = false, 
 					output_file_name::String = "NCLModel_display", 
 					output_file::IOStream = open("NCLModel_display", write=true)
@@ -492,15 +493,57 @@ using Printf
 			if output_file_print # if it is in an output file
 				if output_file_name == "NCLModel_display" # if not specified by name, may be by IOStream, so we use this one
 					file = output_file
-				else # Otherwise, we open the file with the requested name
+				else # Otherwise, we open the file with the requested name and we will close it at the end
 					file = open(output_file_name, write=true)
 				end
 			else # or we print in stdout, if not specified.
 				file = stdout
 			end
-			
-			@printf(file, "NCLModel %s, ", ncl.meta.name)
-			@printf(file, "    ")
+			@printf(file, "  ------------- NCLModel %s, -------------\n", ncl.meta.name)
+			@printf(file, "    Minimization problem, with %d constraints\n", ncl.meta.ncon)
+			@printf(file, "                               %d variables x and\n", ncl.nvar_x)
+			@printf(file, "                               %d residuals r (considered as variables)\n", ncl.nvar_r)
+
+			if print_level >= 2
+				@printf(file, "    Penalization ρ = %7.1e\n", ncl.ρ)
+				@printf(file, "    Multiplier norm ||y|| = %7.1e\n", norm(ncl.y, Inf))
+
+				if print_level >= 3
+					@printf(file, "    Position norm ||x|| = %7.1e\n", norm(current_X[1:ncl.nvar_x], Inf))
+					@printf(file, "    Residual norm ||r|| = %7.1e\n", norm(current_X[ncl.nvar_x+1:end], Inf))
+
+					if print_level >= 4
+						@printf(file, "    Objective at X: F(X) = %7.1e\n", obj(ncl, current_X))
+						cx = cons(ncl, current_X)
+
+						@printf(file, "\n    Initial Variables: \n")
+						for i in 1:ncl.nvar_x
+							@printf(file, "                       lvar[%d] = %7.1e  <=  X[%d] = %7.1e  <=  uvar[%d] = %7.1e \n", i, ncl.meta.lvar[i], i, current_X[i], i, ncl.meta.uvar[i])
+						end
+
+						@printf(file, "\n    Residuals: \n")
+						for i in ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r
+							@printf(file, "                       lvar[%d] = %7.1e  <=  r[%d] = %7.1e  <=  uvar[%d] = %7.1e \n", i, ncl.meta.lvar[i], i, current_X[i], i, ncl.meta.uvar[i])
+						end
+
+						if print_level >= 5
+
+							@printf(file, "\n    Constraint at X:\n")
+							for i in 1:ncl.meta.ncon
+								@printf(file, "                     lcon[%d] = %7.1e  <=?  c(X)[%d] = %7.1e  <=?  ucon[%d] = %7.1e \n", i, ncl.meta.lcon[i], i, cx[i], i, ncl.meta.ucon[i])
+							end
+						end
+						
+					end
+				end
+			end
+
+			@printf(file, "  -------- end of NCLModel print ----------\n\n")
+			if output_file_print & (output_file_name == "NCLModel_display")
+				close(file)
+			end
+
+
 		end
 
 	end
