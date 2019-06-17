@@ -48,13 +48,13 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
 
         name = "Unitary test problem"
         nlp::ADNLPModel = ADNLPModel(f, x0 ; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])
-        nlc_nlin_res::NCLModel = NCLModel(nlp ; res_lin_cons = false)
+        nlc_nlin_res::NCLModel = NCLModel(nlp ; res_val_init = 1., res_lin_cons = false, y = [1.,1.])
 
         nlc_nlin_res.y = y
         nlc_nlin_res.ρ = ρ
 
 
-        nlc_cons_res::NCLModel = NCLModel(nlp, res_lin_cons = true)
+        nlc_cons_res::NCLModel = NCLModel(nlp ; res_val_init = 1., res_lin_cons = true, y = [1.,1.,1.,1.])
         nlc_cons_res.ρ = ρ
 
     # Unitary tests
@@ -65,7 +65,6 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                         @test nlc_nlin_res.nvar_x == 2 
                         @test nlc_nlin_res.nvar_r == 2 # two non linear constraint, so two residues
                         @test nlc_nlin_res.minimize == true
-                        @test nlc_nlin_res.jres == [2,4]
                     end
 
                     @testset "NCLModel struct constant parameters" begin
@@ -213,13 +212,21 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 end
             end
 
+
+
+
+
+
+
+
+
+
             @testset "NCLModel. All residuals" begin
                 @testset "NCLModel struct" begin
                     @testset "NCLModel struct information about nlp" begin
                         @test nlc_cons_res.nvar_x == 2 
                         @test nlc_cons_res.nvar_r == 4 # two non linear constraint, so two residues
                         @test nlc_cons_res.minimize == true
-                        @test nlc_cons_res.jres == []
                     end
 
                     @testset "NCLModel struct constant parameters" begin

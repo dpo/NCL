@@ -3,22 +3,37 @@ using NLPModels
 using LinearAlgebra
 using SparseArrays
 using Test
+using Printf
 
-# TODO
-	# TODO add y, ac val par defaut, type de retour, NLP/NCL...
+######### TODO #########
+######### TODO #########
+######### TODO #########
+	# TODO type de retour, NLP/NCL...
 	# TODO grad_check
 	# TODO (simple): sparse du triangle inf, pas matrice complète
 	# TODO (simple): return sparse, pas matrice complète
-	# TODO (simple): Ajouter une fonction print
-	#sparse(row col val)
+	# TODO (simple): terminer la fonction print
+######### TODO #########
+######### TODO #########
+######### TODO #########
+
+
+
+
+
 
 #** I. Model and constructor
 	"""
 	Subtype of AbstractNLPModel, adapted to the NCL method. 
 	Keeps some informations from the original AbstractNLPModel, 
 	and creates a new problem, modifying 
-		the objective function (sort of augmented lagrangian, without considering linear constraints) 
+		the objective function (sort of augmented lagrangian, with residuals instead of constraints) 
 		the constraints (with residuals)
+	The problem :
+
+	(nlp) | min_{x} f(x)								         | min_{x,r} f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
+		  | subject to lvar <= x <= uvar		becomes: (ncl)   | subject to lvar <= x <= uvar, -Inf <= r <= Inf
+		  | 		   lcon <= c(x) <= ucon				         | 			lcon <= c(x) + r <= ucon
 	"""
 	mutable struct NCLModel <: AbstractNLPModel
 		#* I. Information about the residuals
@@ -26,8 +41,7 @@ using Test
 			nvar_x::Int64 # Number of variable of the nlp problem
 			nvar_r::Int64 # Number of residuals for the nlp problem (in fact nvar_r = length(nln), if there are no free/infeasible constraints)
 			minimize::Bool # true if the aim of the problem is to minimize, false otherwise
-			jres::Vector{Int64} # Vector of indices of the non linear constraints (implemented only if nlp.meta.lin is empty)
-			res_lin_cons::Bool # Boolean to chose i you put residuals upon linear constraints (true) or not
+			res_lin_cons::Bool # Boolean to chose if you put residuals upon linear constraints (true) or not
 
 		#* II. Constant parameters
 			meta::AbstractNLPModelMeta # Informations for this problem
@@ -39,7 +53,16 @@ using Test
 			ρ::Float64 # Penalization of the simili lagrangian
 	end
 
-	function NCLModel(nlp::AbstractNLPModel ; print_level::Int64 = 0, ρ::Float64 = 1., res_lin_cons::Bool = false)::NCLModel 
+
+
+	function NCLModel(nlp::AbstractNLPModel ; 
+						print_level::Int64 = 0, 
+						res_val_init::Float64 = 0., 
+						res_lin_cons::Bool = false, 
+						ρ::Float64 = 1., 
+						y = res_lin_cons ? zeros(Float64, nlp.meta.ncon) : zeros(Float64, nlp.meta.nnln)
+					 ) ::AbstractNLPModel 
+
 		#* 0. Printing
 			if print_level >= 1
 				println("\nNLCModel called on " * nlp.meta.name)
@@ -55,28 +78,35 @@ using Test
 			end
 		
 		
-		#* I. Information about the residuals
-			if res_lin_cons	
-				nvar_r = nlp.meta.ncon # linear constraints are not considered in this case. 
-				jres = [] # copy, useless, #! Simplify !
-			else		
-				nvar_r = nlp.meta.nnln # Both linear and non linear constraints are considered in this case. 
-				jres = nlp.meta.nln # copy, useless, #! Simplify !
-			end	
+		#* I. First tests
+			#* I.1 Need to create a NCLModel ?
+				if (nlp.meta.ncon == 0) # No need to create an NCLModel, because it is an unconstrained problem or it doesn't have non linear constraints
+					@warn("The nlp problem given was unconstrained, so it was returned without modification.")
+					return(nlp)
+				end
 
-			if print_level >= 2 
-				println("    NCLModel : added ", nvar_r, " residuals")
-			end
+				if ((nlp.meta.nnln == 0) & !res_lin_cons) # No need to create an NCLModel, because we don't put residuals upon linear constraints (and there are not  any non linear constraint)
+					@warn("The nlp problem given was linearly constrained, so it was returned without modification. \nConsider setting res_lin_cons to true if you want residuals upon linear constraints.")
+					return(nlp)
+				end
 
+
+			#* I.2 Residuals treatment
+				nvar_r = res_lin_cons ? nlp.meta.ncon : nlp.meta.nnln
+
+				if print_level >= 2 
+					println("    NCLModel : added ", nvar_r, " residuals")
+				end
+
+
+		#* II. Meta field
 			nvar_x = nlp.meta.nvar
 			minimize = nlp.meta.minimize
-			
-		#* II. Meta field
 			nvar = nvar_x + nvar_r
 			meta = NLPModelMeta(nvar ;
-								lvar = vcat(nlp.meta.lvar, -Inf * ones(nvar_r)), # No bounds upon residuals
-								uvar = vcat(nlp.meta.uvar, Inf * ones(nvar_r)),
-								x0   = vcat(nlp.meta.x0, ones(Float64, nvar_r)),
+								lvar = vcat(nlp.meta.lvar, fill!(Vector{Float64}(undef, nvar_r), -Inf)), # No bounds upon residuals
+								uvar = vcat(nlp.meta.uvar, fill!(Vector{Float64}(undef, nvar_r), Inf)),
+								x0   = vcat(nlp.meta.x0, fill!(Vector{Float64}(undef, nvar_r), res_val_init)),
 								y0   = nlp.meta.y0,
 								name = nlp.meta.name * " (NCL subproblem)",
 								nnzj = nlp.meta.nnzj + nvar_r, # we add nonzeros because of residuals
@@ -102,15 +132,18 @@ using Test
 			return NCLModel(nlp, 
 							nvar_x, 
 							nvar_r, 
-							minimize,	
-							jres,	
+							minimize,
 							res_lin_cons,	
 							meta, 
 							Counters(), 
 							nvar,
-							ones(typeof(nlp.meta.x0[1]), nvar_r), 
+							y, 
 							ρ)
 	end
+
+
+
+
 
 #** II. Methods
 
@@ -130,12 +163,15 @@ using Test
 		end
 
 
+
 	#** II.2 Gradient of the objective function
 		function NLPModels.grad(ncl::NCLModel, X::Vector{<:Float64}) ::Vector{<:Float64}
 			increment!(ncl, :neval_grad)
 			gx = vcat(grad(ncl.nlp, X[1:ncl.nvar_x]), ncl.ρ * X[ncl.nvar_x+1:end] + ncl.y)
 			return gx
 		end
+
+
 
 		function NLPModels.grad!(ncl::NCLModel, X::Vector{<:Float64}, gx::Vector{<:Float64}) ::Vector{<:Float64}
 			increment!(ncl, :neval_grad)
@@ -155,6 +191,8 @@ using Test
 		end
 
 
+
+
 	#** II.3 Hessian of the Lagrangian
 		function NLPModels.hess(ncl::NCLModel, X::Vector{<:Float64} ; obj_weight=1.0, y=zeros) ::SparseMatrixCSC{<:Float64, Int64}
 			increment!(ncl, :neval_hess)
@@ -163,6 +201,7 @@ using Test
 
 			return H
 		end
+
 
 		function NLPModels.hess_coord(ncl::NCLModel, X::Vector{<:Float64} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Float64}}
 			increment!(ncl, :neval_hess)
@@ -175,6 +214,7 @@ using Test
 				append!(hvals, fill!(Vector{typeof(hvals[1])}(undef, ncl.nvar_r), ncl.ρ)) # concatenate with a vector full of ncl.ρ
 			return (hrows, hcols, hvals)
 		end
+
 
 		function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Float64}, hrows::Vector{<:Int64}, hcols::Vector{<:Int64}, hvals::Vector{<:Float64} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Float64}}
 			increment!(ncl, :neval_hess)
@@ -191,6 +231,7 @@ using Test
 			return (hrows, hcols, hvals)
 		end
 
+
 		function NLPModels.hess_structure(ncl::NCLModel) ::Tuple{Vector{Int64},Vector{Int64}}
 			increment!(ncl, :neval_hess)
 			# Original information
@@ -201,6 +242,7 @@ using Test
 				append!(hcols, ncl.nvar_x+1:ncl.nvar)
 			return (hrows, hcols)
 		end
+
 
 		function NLPModels.hprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} ; obj_weight=1.0, y=zeros) ::Vector{<:Float64}
 			increment!(ncl, :neval_hprod)
@@ -219,6 +261,7 @@ using Test
 			return Hv
 		end
 
+
 		function NLPModels.hprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} , Hv::Vector{<:Float64} ; obj_weight::Float64=1.0, y=zeros) ::Vector{<:Float64}
 			increment!(ncl, :neval_hprod)
 			# Test feasability
@@ -236,6 +279,10 @@ using Test
 			return Hv
 		end
 
+
+
+
+
 	#** II.4 Constraints
 		function NLPModels.cons(ncl::NCLModel, X::Vector{<:Float64}) ::Vector{<:Float64}
 			increment!(ncl, :neval_cons)
@@ -246,11 +293,12 @@ using Test
 				if ncl.res_lin_cons
 					cx += X[ncl.nvar_x+1:end] # a constraint on every residual
 				else
-					cx[ncl.jres] += X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
+					cx[ncl.nlp.meta.nln] += X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
 				end
 			
 			return cx
 		end
+
 
 		function NLPModels.cons!(ncl::NCLModel, X::Vector{<:Float64}, cx::Vector{<:Float64}) ::Vector{<:Float64}
 			increment!(ncl, :neval_cons)
@@ -261,7 +309,7 @@ using Test
 				if ncl.res_lin_cons
 					cx .+= X[ncl.nvar_x+1:end]
 				else
-					cx[ncl.jres] .+= X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
+					cx[ncl.nlp.meta.nln] .+= X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
 				end
 
 			return cx
@@ -278,6 +326,7 @@ using Test
 			return J
 		end
 
+
 		function NLPModels.jac_coord(ncl::NCLModel, X::Vector{<:Float64}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Float64}}
 			increment!(ncl, :neval_jac)
 			# Original information
@@ -287,12 +336,13 @@ using Test
 				if ncl.res_lin_cons
 					append!(jrows, 1:ncl.meta.ncon)
 				else
-					append!(jrows, ncl.jres)
+					append!(jrows, ncl.nlp.meta.nln)
 				end
 				append!(jcols, ncl.nvar_x+1 : ncl.nvar)
 				append!(jvals, ones(typeof(jvals[1]), ncl.nvar_r))
 			return (jrows, jcols, jvals)
 		end
+
 
 		function NLPModels.jac_coord!(ncl::NCLModel, X::Vector{<:Float64}, jrows::Vector{<:Int64}, jcols::Vector{<:Int64}, jvals::Vector{<:Float64}) ::Tuple{Vector{Int64},Vector{Int64},Vector{<:Float64}}
 			increment!(ncl, :neval_jac)
@@ -315,6 +365,7 @@ using Test
 			return (jrows, jcols, jvals)
 		end
 
+
 		function NLPModels.jac_structure(ncl::NCLModel) ::Tuple{Vector{Int64},Vector{Int64}}
 			increment!(ncl, :neval_jac)
 			# Original information
@@ -324,11 +375,12 @@ using Test
 				if ncl.res_lin_cons
 					append!(jrows, 1:ncl.meta.ncon)
 				else
-					append!(jrows, ncl.jres)
+					append!(jrows, ncl.nlp.meta.nln)
 				end
 				append!(jcols, ncl.nvar_x+1 : ncl.nvar)
 			return jrows, jcols
 		end
+
 
 		function NLPModels.jprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}) ::Vector{<:Float64}
 			increment!(ncl, :neval_jprod)
@@ -345,11 +397,12 @@ using Test
 				if ncl.res_lin_cons
 					Resv += v[ncl.nvar_x+1:end]
 				else
-					Resv[ncl.jres] += v[ncl.nvar_x+1:end]
+					Resv[ncl.nlp.meta.nln] += v[ncl.nvar_x+1:end]
 				end
 
 			return Jv + Resv
 		end
+
 
 		function NLPModels.jprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jv::Vector{<:Float64}) ::Vector{<:Float64}
 			increment!(ncl, :neval_jprod)
@@ -366,12 +419,13 @@ using Test
 				if ncl.res_lin_cons
 					Resv = v[ncl.nvar_x+1:end]
 				else
-					Resv[ncl.jres] += v[ncl.nvar_x+1:end]
+					Resv[ncl.nlp.meta.nln] += v[ncl.nvar_x+1:end]
 				end
 				Jv .+= Resv
 				
 			return Jv
 		end
+
 
 		function NLPModels.jtprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}) ::Vector{<:Float64}
 			increment!(ncl, :neval_jtprod)
@@ -387,11 +441,12 @@ using Test
 				if ncl.res_lin_cons
 					append!(Jv, v)
 				else
-					append!(Jv, v[ncl.jres])
+					append!(Jv, v[ncl.nlp.meta.nln])
 				end
 			
 			return Jv
 		end
+
 
 		function NLPModels.jtprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jtv::Vector{<:Float64}) ::Vector{<:Float64}
 			increment!(ncl, :neval_jtprod)
@@ -403,11 +458,38 @@ using Test
 			if ncl.res_lin_cons
 				Jtv .= append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), v)
 			else
-				Jtv .= append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), v[ncl.jres])
+				Jtv .= append!(jtprod(ncl.nlp, X[1:ncl.nvar_x], v), v[ncl.nlp.meta.nln])
 			end
 			return Jtv
 		end
 
+
+
+
+#** External function
+	function print(ncl::NCLModel ; 
+					print_level::Int64 = 0, 
+					output_file_print::Bool = false, 
+					output_file_name::String = "NCLModel_display", 
+					output_file::IOStream = open("NCLModel_display", write=true)
+				  ) ::Nothing
+		
+		if print_level >= 1 # If we are supposed to print something
+			if output_file_print # if it is in an output file
+				if output_file_name == "NCLModel_display" # if not specified by name, may be by IOStream, so we use this one
+					file = output_file
+				else # Otherwise, we open the file with the requested name
+					file = open(output_file_name, write=true)
+				end
+			else # or we print in stdout, if not specified.
+				file = stdout
+			end
+			
+			@printf(file, "NCLModel %s, ", ncl.meta.name)
+			@printf(file, "    ")
+		end
+
+	end
 
 
 
