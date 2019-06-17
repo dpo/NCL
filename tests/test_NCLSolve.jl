@@ -15,7 +15,7 @@ include("../src/NCLModel.jl")
 Unitary tests for NCLSolve.jl
 #############################
 """
-function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 13, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 13) ::Test.DefaultTestSet
+function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 57, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 57) ::Test.DefaultTestSet
     # Test parameters
         print_level_NCL = 0
         ω = 0.001
@@ -65,7 +65,7 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                     
                     resol = NLPModelsIpopt.ipopt(hs, print_level=0)
                     
-                    if (name == "HS13") | (name == "HS49") | (name == "HS55")
+                    if (name == "HS13") | (name == "HS55")
                         @test_broken KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
                     else
                         @test KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
