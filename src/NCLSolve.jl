@@ -469,7 +469,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                      
                  ) ::GenericExecutionStats                                              # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
         
-    if (nlp.meta.ncon == 0) | ((nlp.meta.nnln == 0) & linear_residuals)
+    if (nlp.meta.ncon == 0) | ((nlp.meta.nnln == 0) & !linear_residuals)
         #** I. Resolution with solver
             if use_ipopt
                 if print_level_NCL >= 1

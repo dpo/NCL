@@ -135,7 +135,7 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                     z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
                     z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
 
-                @test KKT_check(nlc_cons_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt, ω, η, ϵ, print_level=print_level_NCL)
+                @test KKT_check(nlc_cons_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt)
             end
 
             @testset "KKT_check(nlp) via NCLSolve" begin
