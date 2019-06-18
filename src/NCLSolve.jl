@@ -413,6 +413,9 @@ end
 
 
 
+
+
+
 """
 #################################
 Main function for the NCL method.
@@ -448,6 +451,8 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                      linear_residuals::Bool = true,                                       # Boolean to choose if you want residuals onlinear constraints (true), or not (false)
      
                    #* Options for NCL
+                     max_penal::Float64 = 1e15,                                           # Maximal penalization authorized (ρ_max)
+                     min_infeas::Float64 = 1e-8,                                          # Minimal infeasability authorized (η_min)
                      max_iter_NCL::Int64 = 20,                                            # Maximum number of iterations for the NCL method
                      print_level_NCL::Int64 = 0,                                          # Options for printing iterations of the NCL method : 0, nothing; 
                                                                                                                                            # 1, calls to functions and conclusion; 
@@ -456,34 +461,92 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                                                                                                                            # 4, calls, KKT_check, iterations, little information from the solver; 
                                                                                                                                            # and so on until 7 (no further details)
                      output_file_print_NCL::Bool = false,                                 # Choose if you want NCL iterations in a separate file
-                     output_file_name_NCL::String = "NCL.log",                    # The name of the separate file
+                     output_file_name_NCL::String = "NCL.log",                            # The name of the separate file
                      output_file_NCL::IOStream = open("NCL.log", write=true),             # The file itself, openned, if you like. Only if you want to include it in another file. Won't be closed at the end
-     
+                     KKT_checking::Bool = true,                                           # To choose if you want to check KKT conditions in the loop, or just stop when residuals are small enough.
+
                    #* Options for solver 
                      use_ipopt::Bool = true,                                              # Boolean to chose the solver you want to use (true => IPOPT, false => KNITRO)
                      max_iter_solver::Int64 = 1000,                                       # Maximum number of iterations for the subproblem solver
                      print_level_solver::Int64 = 0,                                       # Options for printing iterations of the subproblem solver
                      output_file_print_solver::Bool = false,                              # Choose if you want subproblems iterations in a separate file
-                     output_file_name_solver::String = "subproblem_solver.log",   # The name of the separate file
-                     warm_start_init_point::String = "yes",                                # "yes" to choose warm start in the subproblem solving. "no" for normal solving.
+                     output_file_name_solver::String = "subproblem_solver.log",           # The name of the separate file
+                     warm_start_init_point::String = "yes",                               # "yes" to choose warm start in the subproblem solving. "no" for normal solving.
                      
                  ) ::GenericExecutionStats                                              # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
-        
+
+    #** 0. Printing and file choices
+        if print_level_NCL >= 1  # Translation : We will print smthg, 
+            if output_file_print_NCL # in a file
+                if output_file_name_NCL == "NCL.log"  #If the name is the default one, then we take the openned file (and won't close it at the end)
+                    file = output_file_NCL
+                else # if it is not the default one
+                    file = open(output_file_name_NCL, write = true) # then we open this file and then close it at the end.
+                end
+            else
+                file = stdout # if not in a file, in the terminal
+            end
+
+            @printf(file, "=== %s resolution ===\n", nlp.meta.name)
+
+            if print_level_NCL >= 2
+                @printf(file, "Optimization parameters")
+                    @printf(file, "\n    Global tolerance                 ω_end = %7.2e for gradient lagrangian norm", tol)
+                    @printf(file, "\n    Global infeasability             η_end = %7.2e for residuals norm and constraint violation", constr_viol_tol)
+                    @printf(file, "\n    Global complementarity tolerance ϵ_end = %7.2e for multipliers and constraints", compl_inf_tol)
+                    @printf(file, "\n    Maximal penalization accepted    ρ_max = %7.2e ", max_penal)
+                    @printf(file, "\n    Minimal infeasability accepted   η_min = %7.2e \n", min_infeas)
+            end
+
+        end
+
     if (nlp.meta.ncon == 0) | ((nlp.meta.nnln == 0) & !linear_residuals)
         #** I. Resolution with solver
             if use_ipopt
                 if print_level_NCL >= 1
-                    println("Résolution de " * nlp.meta.name * " par IPOPT (car 0 résidu ajouté)")
+                    @printf(file, "\n============= Resolution of %s with IPOPT (0 residual to add) =============\n", nlp.meta.name)
                 end
                 
                 if (print_level_solver >= 1) & output_file_print_solver
-                    return NLPModelsIpopt.ipopt(nlp ; print_level = print_level_solver, output_file=output_file_name_solver, max_iter=max_iter_solver, tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol)
+                    resol = NLPModelsIpopt.ipopt(nlp ; 
+                                                 print_level = print_level_solver, 
+                                                 output_file = output_file_name_solver, 
+                                                 max_iter = max_iter_solver, 
+                                                 tol = tol, 
+                                                 constr_viol_tol = constr_viol_tol, 
+                                                 compl_inf_tol = compl_inf_tol)
                 else
-                    return NLPModelsIpopt.ipopt(nlp ; print_level = print_level_solver, max_iter=max_iter_solver, tol=tol, constr_viol_tol=constr_viol_tol, compl_inf_tol=compl_inf_tol)
+                    resol = NLPModelsIpopt.ipopt(nlp ; 
+                                                 print_level = print_level_solver, 
+                                                 max_iter = max_iter_solver, 
+                                                 tol = tol, 
+                                                 constr_viol_tol = constr_viol_tol, 
+                                                 compl_inf_tol = compl_inf_tol)
                 end
+                
+                if print_level_NCL >= 1
+                    if print_level_NCL >= 2
+                        if nlp.meta.ncon != 0
+                            @printf(file, "    Initial lagrangian gradient : ||∇Lag(x, λ)|| = %7.2e (tolerance = %7.1e)\n", norm(grad(nlp, nlp.meta.x0) - jtprod(nlp, nlp.meta.x0, nlp.meta.y0), Inf), tol)
+                        else
+                            @printf(file, "    Initial lagrangian gradient : ||∇Lag(x, λ)|| = %7.2e (tolerance = %7.1e)\n", norm(grad(nlp, nlp.meta.x0), Inf), tol)
+                        end
+                    end
+
+                    @printf(file, "    Solver conclusion: %s\n", string(resol.solver_specific[:internal_msg]))
+                   
+                    if print_level_NCL >= 2
+                        @printf(file, "        Number of iteration: %d\n", resol.iter)
+                        println(file, "        Final point: x = ", resol.solution)
+                        @printf(file, "        Final lagrangian gradient: ||∇Lag(x, λ)|| = %7.2e (tolerance = %7.1e)\n", resol.dual_feas, tol)
+                    end
+                end
+
+                return resol
+
             else
                 if print_level_NCL >= 1
-                    println("Résolution de " * nlp.meta.name * " par KNITRO (car 0 résidu ajouté)")
+                    @printf(file, "Resolution of %s with KNITRO (because 0 residual to add)\n", nlp.meta.name)
                 end
                 
                 return _knitro(nlp)
@@ -499,7 +562,11 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                     ncl = NCLModel(nlp ; 
                                 print_level  = print_level_NCL,
                                 res_val_init = 0., 
-                                res_lin_cons = linear_residuals)
+                                res_lin_cons = linear_residuals,
+                                output_file_print = output_file_print_NCL,
+                                output_file_name = output_file_name_NCL,
+                                output_file = output_file_NCL
+                                )
                 end
 
             
@@ -522,7 +589,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
 
                 #** II.A.1 Parameters
                     ncl.ρ = 1f2 # step
-                    ρ_max::Float32 = 1f15 # biggest penalization authorized
+                    ρ_max = max_penal # biggest penalization authorized
 
                     ω_end::Float64 = tol #global tolerance, in argument
                     ω_k::Float64 = ω_end # sub problem initial tolerance
@@ -530,7 +597,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                     #! change eta_end
                     η_end::Float64 = 1f-6 #constr_viol_tol #global infeasability in argument
                     η_k::Float64 = 1e-2 # sub problem infeasability
-                    η_min::Float32 = 1f-10 # smallest infeasability authorized
+                    η_min = min_infeas # smallest infeasability authorized
 
                     ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
                 
@@ -548,46 +615,26 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                     
 
                 #** II.A.3 Initial print
-                    if print_level_NCL >= 1  # Translation : We will print smthg, 
-                        if output_file_print_NCL # in a file
-                            if output_file_name_NCL == "NCL.log"  #If the name is the default one, then we take the openned file (and won't close it at the end)
-                                file = output_file_NCL
-                            else # if it is not the default one
-                                file = open(output_file_name_NCL, write = true) # then we open this file and then close it at the end.
-                            end
-                        else
-                            file = stdout # if not in a file, in the terminal
-                        end
+                    if print_level_NCL >= 1 
+                        @printf(file, "\n============= Initial Model =============")
+                            print(ncl, print_level = print_level_NCL, output_file_print = output_file_print_NCL, output_file = file)
 
                         if print_level_NCL >= 2
-                            if print_level_NCL <= 5
-                                @info "If print_level_NCL >= 6, ncl.y, λ_k, x_k, r_k vectors will be printed in the NCL iteration print.
-                                    Above 7, you will get the details of the ∇lag_x computation (in case of non fitting KKT conditions)
-                                    Not advised if your problem has a big size\n\n"
-                            end
+                            @printf(file, "\n\n======================================\n============= Iterations =============")
+                                @printf(file, "\n%5s  %4s  %6s", "Iter", "||r_k||_{∞}", "η_k")
+                                
+                                if print_level_NCL >= 3
+                                    @printf(file, " %7s  %11s  %13s", "ρ", "mu_init", "obj(ncl, X_k)")
 
-                            @printf(file, "Optimization parameters")
-                            @printf(file, "\n    Global tolerance                 ω_end = %7.2e for gradient lagrangian norm", ω_end)
-                            @printf(file, "\n    Global infeasability             η_end = %7.2e for residuals norm and constraint violation", η_end)
-                            @printf(file, "\n    Global complementarity tolerance ϵ_end = %7.2e for multipliers and constraints", ϵ_end)
-                            @printf(file, "\n    Maximal penalization accepted    ρ_max = %7.2e "          , ρ_max)
-                            @printf(file, "\n    Minimal infeasability accepted   η_min = %7.2e \n", η_min)
+                                    if print_level_NCL >= 6
+                                        @printf(file, " %7s  %10s  %9s \n", "||y||", "||λ_k||", "||x_k||")
+                                    else
+                                        @printf(file, "\n")
+                                    end
 
-
-                            @printf(file, "\n%5s  %4s  %6s", "Iter", "||r_k||_{∞}", "η_k")
-                            
-                            if print_level_NCL >= 3
-                                @printf(file, " %7s  %11s  %13s", "ρ", "mu_init", "obj(ncl, X_k)")
-
-                                if print_level_NCL >= 6
-                                    @printf(file, " %7s  %10s  %9s \n", "||y||", "||λ_k||", "||x_k||")
                                 else
                                     @printf(file, "\n")
                                 end
-
-                            else
-                                @printf(file, "\n")
-                            end
                         end
                         
                     end
@@ -643,8 +690,9 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                                                         max_iter = 1000)
                                 end
                                     # Get variables
-                                    x_k = resolution_k.solution[1:ncl.nvar_x]
-                                    r_k = resolution_k.solution[ncl.nvar_x+1 : ncl.nvar_x+ncl.nvar_r]
+                                    X_k = resolution_k.solution #pre-access
+                                    x_k = X_k[1:ncl.nvar_x]
+                                    r_k = X_k[ncl.nvar_x+1 : ncl.nvar_x+ncl.nvar_r]
                                     norm_r_k_inf = norm(r_k,Inf) # update
 
                                     # Get multipliers
@@ -725,11 +773,15 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                         if norm_r_k_inf > η_end
                                                 converged = false
                                         else
-                                                if print_level_NCL >= 2
+                                            if print_level_NCL >= 2
+                                                if KKT_checking
                                                     @printf(file, "--------\n   norm(r_k,Inf) = %7.2e  <= η_end = %7.2e. Calling KKT_check\n", norm_r_k_inf, η_end)
+                                                else
+                                                    @printf(file, "--------\n   norm(r_k,Inf) = %7.2e  <= η_end = %7.2e. Residual small enough, over\n", norm_r_k_inf, η_end)
                                                 end
+                                            end
 
-
+                                            if KKT_checking
                                                 if print_level_NCL >= 1
                                                     if output_file_print_NCL # Just to avoid type errors, not very important
                                                         converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL, output_file_print = true, output_file = file)
@@ -737,31 +789,27 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                                 else
                                                     converged = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
                                                 end
-                                                #! a retirer ensuite (c'est juste pour les tests)
-                                                converged = true
+                                            else
+                                                converged = true #Chose not to pass into KKT_check
+                                            end
+
                                         end
                                     
                                         status = resolution_k.status
+                                        dual_feas::Float64 = (ncl.meta.ncon != 0) ? norm(grad(ncl.nlp, x_k) - jtprod(ncl.nlp, x_k, λ_k) - (z_k_U - z_k_L)[1:ncl.nvar_x], Inf) : norm(grad(ncl.nlp, x_k) - (z_k_U - z_k_L)[1:ncl.nvar_x], Inf)
 
-                                    #* Print tests results
+                                    #* Print results
                                         if print_level_NCL >= 1
                                             if converged
-                                                write(file, "---------------\n",
-                                                            "   EXIT: optimal solution found\n")
-                                                if print_level_NCL >= 6
-                                                    println("\nFinal point : x = ", resolution_k.solution)
-                                                end
-                                            end
-                                            if k == max_iter_NCL
-                                                write(file, "----------------\n",
-                                                            "   EXIT: reached max_iter_NCL\n")
-
-                                                if print_level_NCL >= 6
-                                                    println("\nFinal point : x = ", resolution_k.solution)
-                                                end
+                                                write(file, "\n==========================\n==========================\n",
+                                                            "   EXIT: optimal solution found\n\n")
+                                            elseif k == max_iter_NCL
+                                                write(file, "\n==========================\n==========================\n",
+                                                            "   EXIT: reached max_iter_NCL\n\n")
                                             end
 
-                                            
+                                            @printf(file, "============= Final Model =============")
+                                            print(ncl, current_X = X_k, current_λ = λ_k, current_z = z_k_U - z_k_L, print_level = print_level_NCL, output_file_print = output_file_print_NCL, output_file = file)
                                         end
                                     
                             #** II.B.2.3 Return if end of the algorithm
@@ -769,16 +817,18 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                         if (print_level_NCL >= 1) & output_file_print_NCL & (output_file_name_NCL != "NCL.log")
                                             close(file)
                                         end
-                                        return GenericExecutionStats(status, ncl, 
-                                                                    solution = resolution_k.solution,
+                                        return GenericExecutionStats(status, nlp, 
+                                                                    solution = x_k,
                                                                     iter = k,
-                                                                    objective=obj(ncl, resolution_k.solution), 
-                                                                    elapsed_time=0,
-                                                                    solver_specific=Dict(:multipliers_con => λ_k,
-                                                                                        :multipliers_L => z_k_L,
-                                                                                        :multipliers_U => z_k_U,
-                                                                                        :internal_msg => converged ? Symbol("Solve_Succeeded") : Symbol("Solve_Failed")
-                                                                                        )
+                                                                    dual_feas = dual_feas,
+                                                                    objective = obj(nlp, x_k), 
+                                                                    elapsed_time = 0,
+                                                                    solver_specific = Dict(:multipliers_con => λ_k,
+                                                                                           :multipliers_L => z_k_L[1:ncl.nvar_x],
+                                                                                           :multipliers_U => z_k_U[1:ncl.nvar_x],
+                                                                                           :internal_msg => converged ? Symbol("Solve_Succeeded") : Symbol("Solve_Failed"),
+                                                                                           :residuals => r_k
+                                                                                          )
                                                                     )
                                     end
                                 end
