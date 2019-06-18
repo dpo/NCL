@@ -66,7 +66,7 @@ using Printf
 	function NCLModel(nlp::AbstractNLPModel ; 															# Initial model
 						print_level::Int64 = 0, 															# Little informationwarnings about the model created
 						res_val_init::Float64 = 0., 														# Initial value for residuals
-						res_lin_cons::Bool = false, 														# Choose if you want residuals upon linear constraints or not
+						res_lin_cons::Bool = true, 														# Choose if you want residuals upon linear constraints or not
 						ρ::Float64 = 1., 																	# Initial penalization
 						y = res_lin_cons ? zeros(Float64, nlp.meta.ncon) : zeros(Float64, nlp.meta.nnln)	# Initial multiplier, depending on the number of residuals considered
 					 ) ::AbstractNLPModel 																# Return an AbstractNLPModel, because if there is no residuals to add, it is better to return the original NLP problem. A warning is displayed in this case
