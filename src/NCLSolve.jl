@@ -351,8 +351,8 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                 ∇lag_x = ∇f_x - jtprod(nlp, x, λ) - z
             else
                 ∇lag_x = ∇f_x - z
-            end
-        
+            end        
+            
         #** III.2 Test, print and return
             if norm(∇lag_x, Inf) > ω # Not a stationnary point for the lagrangian
                 if print_level >= 1
@@ -595,7 +595,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                     ω_k::Float64 = ω_end # sub problem initial tolerance
 
                     #! change eta_end
-                    η_end::Float64 = 1f-6 #constr_viol_tol #global infeasability in argument
+                    η_end::Float64 = constr_viol_tol #global infeasability in argument
                     η_k::Float64 = 1e-2 # sub problem infeasability
                     η_min = min_infeas # smallest infeasability authorized
 
@@ -740,9 +740,17 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                     if print_level_NCL >= 6
                                         @printf(file, " %12.1e  %9.1e  %9.1e \n", norm(ncl.y, Inf), norm(λ_k, Inf), norm(x_k))
 
+
                                         if print_level_NCL >= 7
-                                            print(ncl ; print_level = print_level_NCL, current_X = vcat(x_k, r_k), output_file = output_file_NCL)
+                                            print(nlp ; print_level = print_level_NCL, current_X = x_k, current_λ = λ_k, current_z = (z_k_L - z_k_U)[1:nlp.meta.nvar], output_file = output_file_NCL)
+
+                                            if print_level_NCL >= 8
+                                                print(ncl ; print_level = print_level_NCL, current_X = vcat(x_k, r_k), current_λ = λ_k, current_z = (z_k_L - z_k_U), output_file = output_file_NCL)
+                                            end
                                         end
+
+
+                                        
 
 
 
@@ -796,8 +804,8 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                         end
                                     
                                         status = resolution_k.status
-                                        dual_feas::Float64 = (ncl.meta.ncon != 0) ? norm(grad(ncl.nlp, x_k) - jtprod(ncl.nlp, x_k, λ_k) - (z_k_U - z_k_L)[1:ncl.nvar_x], Inf) : norm(grad(ncl.nlp, x_k) - (z_k_U - z_k_L)[1:ncl.nvar_x], Inf)
-
+                                        dual_feas::Float64 = (ncl.meta.ncon != 0) ? norm(grad(ncl.nlp, x_k) - jtprod(ncl.nlp, x_k, λ_k) - (z_k_L - z_k_U)[1:ncl.nvar_x], Inf) : norm(grad(ncl.nlp, x_k) - (z_k_U - z_k_L)[1:ncl.nvar_x], Inf)
+                                        
                                     #* Print results
                                         if print_level_NCL >= 1
                                             if converged
@@ -830,6 +838,8 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                                                                            :residuals => r_k
                                                                                           )
                                                                     )
+                                    #else
+                                    #    ncl.ρ = ncl.ρ * τ #! A voir !
                                     end
                                 end
 
