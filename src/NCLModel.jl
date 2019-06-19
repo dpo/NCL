@@ -80,16 +80,18 @@ using Printf
 						y = res_lin_cons ? zeros(Float64, nlp.meta.ncon) : zeros(Float64, nlp.meta.nnln),	# Initial multiplier, depending on the number of residuals considered
 						output_file_print::Bool = false,
 						output_file_name::String = "NCLModel.log",
-						output_file::IOStream = open("NCLModel.log")
+						output_file::IOStream = open("NCLModel.log", write=true)
 					 ) ::AbstractNLPModel 																# Return an AbstractNLPModel, because if there is no residuals to add, it is better to return the original NLP problem. A warning is displayed in this case
 
 		#* 0. Printing
+			file_to_close = false
 			if print_level >= 1
 				if output_file_print # if it is in an output file
 					if output_file_name == "NCLModel.log" # if not specified by name, may be by IOStream, so we use this one
 						file = output_file
 					else # Otherwise, we open the file with the requested name and we will close it at the end
 						file = open(output_file_name, write=true)
+						file_to_close = true
 					end
 				else # or we print in stdout, if not specified.
 					file = stdout
@@ -158,6 +160,10 @@ using Printf
 
 
 		#* III. NCLModel created:
+			if (print_level >= 1) & output_file_print & file_to_close
+				close(file)
+			end
+
 			return NCLModel(nlp, 
 							nvar_x, 
 							nvar_r, 
@@ -512,13 +518,15 @@ using Printf
 					output_file_name::String = "NCLModel_display", 
 					output_file::IOStream = open("NCLModel_display", write=true)
 				  ) ::Nothing
-		
+
+		file_to_close = false
 		if print_level >= 1 # If we are supposed to print something
 			if output_file_print # if it is in an output file
 				if output_file_name == "NCLModel_display" # if not specified by name, may be by IOStream, so we use this one
 					file = output_file
 				else # Otherwise, we open the file with the requested name and we will close it at the end
 					file = open(output_file_name, write=true)
+					file_to_close = true
 				end
 			else # or we print in stdout, if not specified.
 				file = stdout
@@ -579,7 +587,8 @@ using Printf
 			end
 
 			@printf(file, "  ============= end of NCLModel print =============\n")
-			if output_file_print & (output_file_name != "NCLModel_display")
+			
+			if output_file_print & file_to_close
 				close(file)
 			end
 
