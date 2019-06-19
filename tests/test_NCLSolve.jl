@@ -5,7 +5,7 @@ using NLPModelsIpopt
 
 include("../src/NCLSolve.jl")
 include("../src/NCLModel.jl")
-
+include("test_NCLModel.jl")
 
 
 
@@ -15,7 +15,7 @@ include("../src/NCLModel.jl")
 Unitary tests for NCLSolve.jl
 #############################
 """
-function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 57, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 57) ::Test.DefaultTestSet
+function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 8, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 8) ::Test.DefaultTestSet
     # Test parameters
         print_level_NCL = 0
         ω = 0.001
@@ -66,9 +66,13 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                     resol = NLPModelsIpopt.ipopt(hs, print_level=0)
                     
                     if (name == "HS13") | (name == "HS55")
-                        @test_broken KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
+                        D = KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
+                        @test_broken D["optimal"]
+                        @test_broken D["acceptable"]
                     else
-                        @test KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
+                        D = KKT_check(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
+                        @test D["optimal"]
+                        @test D["acceptable"]
                     end
 
                 end
@@ -90,8 +94,9 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                         z_U_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_U]
                         z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
 
-                    @test_broken KKT_check(nlp, [0.5, 1.0], [1., 0., 0., -2.0], [0, 1.], [0., 0.0]) # solved by hand
-                    @test KKT_check(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt)
+                    D = KKT_check(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt)
+                    @test D["optimal"]
+                    @test D["acceptable"]
                 end
 
                 @testset "KKT_check(ncl_nlin_res) via ipopt" begin
@@ -104,7 +109,9 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                         z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
                         z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
 
-                    @test KKT_check(ncl_nlin_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt)
+                    D = KKT_check(ncl_nlin_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt)
+                    @test D["optimal"]
+                    @test D["acceptable"]
                 end
 
                 
@@ -119,7 +126,9 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                     z_U_ncl = resol_ncl_ncl.solver_specific[:multipliers_U]
                     z_L_ncl = resol_ncl_ncl.solver_specific[:multipliers_L]    
                 
-                @test KKT_check(nlp, x_ncl[1:ncl_nlin_res.nvar_x], λ_ncl, z_U_ncl[1:ncl_nlin_res.nvar_x], z_L_ncl[1:ncl_nlin_res.nvar_x]) 
+                D = KKT_check(nlp, x_ncl[1:ncl_nlin_res.nvar_x], λ_ncl, z_U_ncl[1:ncl_nlin_res.nvar_x], z_L_ncl[1:ncl_nlin_res.nvar_x])
+                @test D["optimal"]
+                @test D["acceptable"]
             end
         end
 
@@ -135,7 +144,9 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                     z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
                     z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
 
-                @test KKT_check(nlc_cons_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt)
+                D = KKT_check(nlc_cons_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt)
+                @test D["optimal"]
+                @test D["acceptable"]
             end
 
             @testset "KKT_check(nlp) via NCLSolve" begin
@@ -147,7 +158,9 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                     z_U_ncl = resol_ncl_ncl.solver_specific[:multipliers_U]
                     z_L_ncl = resol_ncl_ncl.solver_specific[:multipliers_L]
 
-                @test KKT_check(nlp, x_ncl[1:nlc_cons_res.nvar_x], λ_ncl, z_U_ncl[1:nlc_cons_res.nvar_x], z_L_ncl[1:nlc_cons_res.nvar_x]) 
+                D = KKT_check(nlp, x_ncl[1:nlc_cons_res.nvar_x], λ_ncl, z_U_ncl[1:nlc_cons_res.nvar_x], z_L_ncl[1:nlc_cons_res.nvar_x])
+                @test D["optimal"]
+                @test D["acceptable"]
             end
         end
 
@@ -181,3 +194,6 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
 end
 #############################
 #############################
+
+test_NLCModel(true)
+test_NCLSolve(true)
