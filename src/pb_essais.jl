@@ -3,7 +3,6 @@ using CUTEst
 using NLPModelsIpopt
 using Printf
 include("NCLSolve.jl")
-include("results_latex.jl")
 
 #* hand made hs13 model
 	f(x) = (x[1] - 2.) ^ 2  +  x[2] ^ 2
@@ -209,7 +208,8 @@ function pb_set_resolution( ; #No arguments, only key-word arguments
 							tol::Float64 = 1e-8,
 							constr_viol_tol::Float64 = 1e-6,
 							compl_inf_tol::Float64 = 1e-4,
-							KKT_checking::Bool = false
+							KKT_checking::Bool = false,
+							linear_residuals = true
 						  )
 
 	
@@ -231,13 +231,13 @@ function pb_set_resolution( ; #No arguments, only key-word arguments
 			#** II.2 Resolution
 				resol = NCLSolve(nlp ;
 						max_iter_NCL = 20,
-						tol = tol,
-						constr_viol_tol = constr_viol_tol,
-						compl_inf_tol = compl_inf_tol,
+						tol = tol/10,
+						constr_viol_tol = constr_viol_tol/10,
+						compl_inf_tol = compl_inf_tol/10,
 						max_iter_solver = 1000,
 						print_level_NCL = 6,
 						print_level_solver = 0,
-						linear_residuals = true,
+						linear_residuals = linear_residuals,
 						KKT_checking = KKT_checking,
 						output_file_print_NCL = true,
 						output_file_print_solver = false,
@@ -246,30 +246,36 @@ function pb_set_resolution( ; #No arguments, only key-word arguments
 
 				@printf(file_cutest, "\n=================\n")
 
+				D = KKT_check(nlp, 
+							  resol.solution, 
+							  resol.solver_specific[:multipliers_con], 
+							  resol.solver_specific[:multipliers_U], 
+							  resol.solver_specific[:multipliers_L] ; 
+							  tol = tol/10,
+							  constr_viol_tol = constr_viol_tol/10,
+							  compl_inf_tol = compl_inf_tol/10,
+							  print_level = 3, 
+							  output_file_print = true,
+							  output_file = file_cutest
+							 )
+			
+			
 			#** II.3 Print summary
+
+
 				summary_path = path_res_folder * cutest_generic_pb_name * "/summary_" * cutest_generic_pb_name * "_" * nlp.meta.name * ".txt"
 				file_summary = open(summary_path, write=true)
 				@printf(file_summary, "name = \"%s\" \n", nlp.meta.name)
 				@printf(file_summary, "nvar = %d\n", nlp.meta.nvar)
 				@printf(file_summary, "ncon = %d\n", nlp.meta.ncon)
 				@printf(file_summary, "iter = %d\n", resol.iter)
-				@printf(file_summary, "obj_val = %7.2e\n", resol.objective)
-				@printf(file_summary, "norm_lag_grad = %7.2e\n", resol.dual_feas)
-				@printf(file_summary, "norm_r = %7.2e\n", haskey(resol.solver_specific, :residuals) ? norm(resol.solver_specific[:residuals]) : 0.)
+				@printf(file_summary, "obj_val = %9.2e\n", resol.objective)
+				@printf(file_summary, "norm_lag_grad = %9.2e\n", (nlp.meta.ncon != 0) ? norm(grad(nlp, resol.solution) - jtprod(nlp, resol.solution, resol.solver_specific[:multipliers_con]) - (resol.solver_specific[:multipliers_L]  - resol.solver_specific[:multipliers_U]), Inf) 
+																					  : norm(grad(nlp, resol.solution) - (resol.solver_specific[:multipliers_L] - resol.solver_specific[:multipliers_U])[1:nlp.meta.nvar], Inf))
+				@printf(file_summary, "norm_r = %9.2e\n", haskey(resol.solver_specific, :residuals) ? norm(resol.solver_specific[:residuals]) : 0.)
 				@printf(file_summary, "optimal_res = %s\n", haskey(resol.solver_specific, :residuals) ? (norm(resol.solver_specific[:residuals]) <= constr_viol_tol) : true)
-				@printf(file_summary, "optimal_kkt = %s\n", KKT_check(nlp, 
-																	resol.solution, 
-																	resol.solver_specific[:multipliers_con], 
-																	resol.solver_specific[:multipliers_U], 
-																	resol.solver_specific[:multipliers_L] ; 
-																	tol = tol,
-																	constr_viol_tol = constr_viol_tol,
-																	compl_inf_tol = compl_inf_tol,
-																	print_level = 3, 
-																	output_file_print = true,
-																	output_file = file_cutest
-																	)
-						)
+				@printf(file_summary, "optimal_kkt = %s\n", D["optimal"])
+				@printf(file_summary, "acceptable_kkt = %s\n", D["acceptable"])
 
 
 				close(file_summary)
@@ -306,7 +312,7 @@ function pb_set_resolution( ; #No arguments, only key-word arguments
 						compl_inf_tol = compl_inf_tol,
 						print_level_NCL = 6,
 						print_level_solver = 0,
-						linear_residuals = true,
+						linear_residuals = linear_residuals,
 						KKT_checking = KKT_checking,
 						output_file_print_NCL = true,
 						output_file_print_solver = false,
@@ -315,6 +321,20 @@ function pb_set_resolution( ; #No arguments, only key-word arguments
 
 				@printf(file_nlp, "\n=================\n")
 
+
+				D = KKT_check(nlp, 
+							  resol.solution, 
+							  resol.solver_specific[:multipliers_con], 
+							  resol.solver_specific[:multipliers_U], 
+							  resol.solver_specific[:multipliers_L] ; 
+							  tol = tol,
+							  constr_viol_tol = constr_viol_tol,
+							  compl_inf_tol = compl_inf_tol,
+							  
+							  print_level = 3, 
+							  output_file_print = true,
+							  output_file = file_nlp
+							 )
 			
 			#** II.3 Print summary
 				summary_path = path_res_folder * "$nlp_generic_pb_name/summary_" * nlp_generic_pb_name * "_" * nlp.meta.name * ".txt"
@@ -324,23 +344,12 @@ function pb_set_resolution( ; #No arguments, only key-word arguments
 				@printf(file_summary, "ncon = %d\n", nlp.meta.ncon)
 				@printf(file_summary, "iter = %d\n", resol.iter)
 				@printf(file_summary, "obj_val = %7.2e\n", resol.objective)
-				@printf(file_summary, "norm_lag_grad = %7.2e\n", resol.dual_feas)
+				@printf(file_summary, "norm_lag_grad = %7.2e\n", (nlp.meta.ncon != 0) ? norm(grad(nlp, resol.solution) - jtprod(nlp, resol.solution, resol.solver_specific[:multipliers_con]) - (resol.solver_specific[:multipliers_L]  - resol.solver_specific[:multipliers_U]), Inf) 
+																					  : norm(grad(nlp, resol.solution) - (resol.solver_specific[:multipliers_L] - resol.solver_specific[:multipliers_U])[1:nlp.meta.nvar], Inf))
 				@printf(file_summary, "norm_r = %7.2e\n", haskey(resol.solver_specific, :residuals) ? norm(resol.solver_specific[:residuals]) : 0.)
 				@printf(file_summary, "optimal_res = %s\n", haskey(resol.solver_specific, :residuals) ? (norm(resol.solver_specific[:residuals]) <= constr_viol_tol) : true)
-				@printf(file_summary, "optimal_kkt = %s\n", KKT_check(nlp, 
-																	resol.solution, 
-																	resol.solver_specific[:multipliers_con], 
-																	resol.solver_specific[:multipliers_U], 
-																	resol.solver_specific[:multipliers_L] ; 
-																	tol = tol,
-																	constr_viol_tol = constr_viol_tol,
-																	compl_inf_tol = compl_inf_tol,
-																	
-																	print_level = 3, 
-																	output_file_print = true,
-																	output_file = file_nlp
-																	)
-						)
+				@printf(file_summary, "optimal_kkt = %s\n", D["optimal"])
+				@printf(file_summary, "acceptable_kkt = %s\n", D["acceptable"])
 
 				close(file_summary)
 
@@ -356,4 +365,157 @@ function pb_set_resolution( ; #No arguments, only key-word arguments
 	end
 end
 
-pb_set_resolution(generate_latex = true)
+
+
+
+
+
+
+"""
+#################
+res_tabular function
+	Arguments
+	- outputFile: path of the output file
+
+	Prerequisites:
+	- Each subfolder must contain text files
+	- Each text file correspond to the resolution of one problem
+	- Each text file contains a variable  #TODO
+
+
+    This function creates a LaTeX file, with a table, showing some details of the resolution of problems in pb_set, in argument. 
+    At the beginning of each table, you have : The name of the problem considered
+                                               The number of variables, 
+                                                          of constraints (linear and non linear), 
+                                                          of iterations of NCL until termination,
+                                               the final objective value.
+                                               the final residual norm
+                                               the lagrangian gradient norm
+                                               the optimality check with residual norm
+                                               the optimality check with KKT conditions
+#################
+"""
+function res_tabular(outputFile::String ;
+                      resultFolder::String = "/home/perselie/Bureau/projet/ncl/res/"
+                    )
+    
+    if !isdir(resultFolder)
+        mkpath(resultFolder)
+    end
+
+    # Open the latex output file
+    fout = open(outputFile, "w")
+
+    # Print the latex file output
+    println(fout, raw"""\documentclass{article}
+
+    \usepackage[french]{babel}
+    \usepackage [utf8] {inputenc} % utf-8 / latin1 
+    \usepackage[T1]{fontenc}
+	\usepackage{multicol}
+	\usepackage[dvipsnames]{xcolor}
+	\usepackage{lscape}
+    \usepackage{tikz}
+    \def\checkmark{\tikz\fill[scale=0.4](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;}
+    
+    \setlength{\hoffset}{-18pt}
+    \setlength{\oddsidemargin}{0pt} % Marge gauche sur pages impaires
+    \setlength{\evensidemargin}{9pt} % Marge gauche sur pages paires
+    \setlength{\marginparwidth}{54pt} % Largeur de note dans la marge
+    \setlength{\textwidth}{481pt} % Largeur de la zone de texte (17cm)
+    \setlength{\voffset}{-18pt} % Bon pour DOS
+    \setlength{\marginparsep}{7pt} % Séparation de la marge
+    \setlength{\topmargin}{0pt} % Pas de marge en haut
+    \setlength{\headheight}{13pt} % Haut de page
+    \setlength{\headsep}{10pt} % Entre le haut de page et le texte
+    \setlength{\footskip}{27pt} % Bas de page + séparation
+    \setlength{\textheight}{668pt} % Hauteur de la zone de texte (25cm)
+
+    \begin{document}""")
+
+        header = raw"""
+    \begin{center}
+	\renewcommand{\arraystretch}{1.4} 
+	\begin{landscape}
+    \begin{tabular}{c"""
+
+    # List of all the instances solved by at least one resolution method
+    solvedProblems = Array{String, 1}()
+
+    # For each file in the result folder
+    for file in readdir(resultFolder)
+
+        path = resultFolder * file
+        
+        # If it is a subfolder
+        if isdir(path)
+            # Add all its files in the solvedProblems array
+            for subfile in filter(x->occursin(".txt", x), readdir(path))
+                solvedProblems = vcat(solvedProblems, "$path/$subfile")
+            end 
+        elseif occursin(".txt", path)
+            solvedProblems = vcat(solvedProblems, path)
+        end
+    end
+
+    # Only keep one string for each instance solved
+    unique(solvedProblems)
+
+    header *= "ccccccccc}\n\t\\hline\n" #seven columns
+
+    # column names
+    header *= "\\\\\n\\textbf{Problem}  & \\textbf{\$n_{var}\$} & \\textbf{\$n_{con}\$} & \\textbf{\$n_{iter}\$} & \\textbf{\$f\\left(x\\right)\$} & \\textbf{\$\\left\\Vert r \\right\\Vert_\\infty\$} & \\textbf{\$\\left\\Vert \\nabla_x L \\right\\Vert_\\infty\$} & \\textbf{\$\\left\\Vert r \\right\\Vert_\\infty \\leq \\eta\$ ?} & \\textbf{KKT\\checkmark ?} & \\textbf{Almost KKT\\checkmark ?} "
+
+    header *= "\\\\\\hline\n"
+
+    footer = raw"""\hline\end{tabular}\end{landscape}
+	\end{center}"""
+	
+    println(fout, header)
+
+    # On each page an array will contain at most maxInstancePerPage lines with results
+    maxInstancePerPage = 30
+    id = 1
+
+    # For each solved problems
+    for solvedProblem in solvedProblems
+
+        # If we do not start a new array on a new page
+        if rem(id, maxInstancePerPage) == 0
+            println(fout, footer, "\\newpage")
+            println(fout, header)
+        end 
+
+        # Replace the potential underscores '_' in file names
+        #print(fout, replace(solvedProblem, "_" => "\\_"))
+        replace(solvedProblem, "_" => "\\_")
+
+        #path = resultFolder * "/" * solvedProblem
+
+        include(solvedProblem)
+
+        println(fout, name * " & ", nvar, " & ", ncon, " & ", iter, " & ", obj_val, " & ", norm_r, " & ", norm_lag_grad, " & ", optimal_res ? "\\color{green} \\checkmark" : "\\color{red} \$\\times\$", " & ", optimal_kkt ? "\\color{green} \\checkmark" : "\\color{red} \$\\times\$", " & ", acceptable_kkt ? "\\color{green} \\checkmark" : "\\color{red} \$\\times\$")
+
+        println(fout, "\\\\")
+
+        id += 1
+    end
+
+    # Print the end of the latex file
+    println(fout, footer)
+
+    println(fout, "\\end{document}")
+
+    close(fout)
+    
+end 
+
+
+
+
+
+
+
+
+#pb_set_resolution(generate_latex = true)
+res_tabular("../res/latex.tex")
