@@ -231,9 +231,9 @@ function pb_set_resolution( ; #No arguments, only key-word arguments
 			#** II.2 Resolution
 				resol = NCLSolve(nlp ;
 						max_iter_NCL = 20,
-						tol = tol/10,
-						constr_viol_tol = constr_viol_tol/10,
-						compl_inf_tol = compl_inf_tol/10,
+						tol = tol,
+						constr_viol_tol = constr_viol_tol,
+						compl_inf_tol = compl_inf_tol,
 						max_iter_solver = 1000,
 						print_level_NCL = 6,
 						print_level_solver = 0,
@@ -251,9 +251,9 @@ function pb_set_resolution( ; #No arguments, only key-word arguments
 							  resol.solver_specific[:multipliers_con], 
 							  resol.solver_specific[:multipliers_U], 
 							  resol.solver_specific[:multipliers_L] ; 
-							  tol = tol/10,
-							  constr_viol_tol = constr_viol_tol/10,
-							  compl_inf_tol = compl_inf_tol/10,
+							  tol = tol,
+							  constr_viol_tol = constr_viol_tol,
+							  compl_inf_tol = compl_inf_tol,
 							  print_level = 3, 
 							  output_file_print = true,
 							  output_file = file_cutest
@@ -464,7 +464,7 @@ function res_tabular(outputFile::String ;
     header *= "ccccccccc}\n\t\\hline\n" #seven columns
 
     # column names
-    header *= "\\\\\n\\textbf{Problem}  & \\textbf{\$n_{var}\$} & \\textbf{\$n_{con}\$} & \\textbf{\$n_{iter}\$} & \\textbf{\$f\\left(x\\right)\$} & \\textbf{\$\\left\\Vert r \\right\\Vert_\\infty\$} & \\textbf{\$\\left\\Vert \\nabla_x L \\right\\Vert_\\infty\$} & \\textbf{\$\\left\\Vert r \\right\\Vert_\\infty \\leq \\eta\$ ?} & \\textbf{KKT\\checkmark ?} & \\textbf{Almost KKT\\checkmark ?} "
+    header *= "\\\\\n\\textbf{Problem}  & \\textbf{\$n_{var}\$} & \\textbf{\$n_{con}\$} & \\textbf{\$n_{iter}\$} & \\textbf{\$f\\left(x\\right)\$} & \\textbf{\$\\left\\Vert r \\right\\Vert_\\infty\$} & \\textbf{\$\\left\\Vert \\nabla_x L \\right\\Vert_\\infty\$} & \\textbf{\$\\left\\Vert r \\right\\Vert_\\infty \\leq \\eta\$ ?} & \\textbf{KKT} & \\textbf{\$\\simeq\$KKT} "
 
     header *= "\\\\\\hline\n"
 
@@ -474,7 +474,7 @@ function res_tabular(outputFile::String ;
     println(fout, header)
 
     # On each page an array will contain at most maxInstancePerPage lines with results
-    maxInstancePerPage = 30
+    maxInstancePerPage = 23
     id = 1
 
     # For each solved problems
@@ -517,5 +517,5 @@ end
 
 
 
-#pb_set_resolution(generate_latex = true)
+pb_set_resolution(generate_latex = true)
 res_tabular("../res/latex.tex")

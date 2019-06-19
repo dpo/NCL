@@ -107,7 +107,7 @@ end
 
 
 
-
+####### TODO Finir KKT print avec acceptable or not
 
 
 
@@ -148,12 +148,13 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                      z_L::Vector{<:Float64};                         # Lagrangian multiplier for lower bound constraint
   
                    #* Tolerances
-                     tol::Float64 = 0.001,                                     # Tolerance for lagrangien gradient norm
-                     constr_viol_tol::Float64 = 0.0001,                                     # Tolerance or constraint violation
-                     compl_inf_tol::Float64 = 0.0001,                                     # Tolerance for complementarity
-                     acceptable_tol::Float64 = 100. * tol,
-                     acceptable_constr_viol_tol::Float64 = 100. * constr_viol_tol,
-                     acceptable_compl_inf_tol::Float64 = 100. * compl_inf_tol,
+                     tol::Float64 = 1e-6,                                     # Tolerance for lagrangien gradient norm
+                     constr_viol_tol::Float64 = 1e-4,                                     # Tolerance or constraint violation
+                     compl_inf_tol::Float64 = 1e-4,                                     # Tolerance for complementarity
+                     acc_factor::Float64 = 100.,
+                     acceptable_tol::Float64 = acc_factor * tol,
+                     acceptable_constr_viol_tol::Float64 = acc_factor * constr_viol_tol,
+                     acceptable_compl_inf_tol::Float64 = acc_factor * compl_inf_tol,
   
                    #* Print options
                      print_level::Int64 = 0,                         # Verbosity of the function : 0 : nothing
@@ -242,18 +243,33 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                                         @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
                                     end
                                 end
-                                write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
+                                write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
+
+                                if output_file_print & file_to_close
+                                    close(file)
+                                end
+                            end
+                            acceptable = false
+                        else
+                            if print_level >= 1
+                                if print_level >= 2
+                                    @printf(file, "    Multiplier acceptable as zero for free variable %d, but suboptimal \n", i)
+                                    
+                                    if print_level >= 3
+                                        @printf(file, "      z[%d]             = %7.2e\n", i, z[i])
+                                        @printf(file, "      x[%d]             = %7.2e\n", i, x[i])
+                                        @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
+                                        @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
+                                    end
+                                end
+                                write(file, "\n  ------- Acceptable for KKT condition but suboptimal ----------\n")
 
                                 if output_file_print & (output_file_name != "KKT_check.log")
                                     close(file)
                                 end
                             end
-
-                            @show 1
-                            acceptable = false
                         end
 
-                        @show 1
                         optimal = false
                         
                         #return false
@@ -274,14 +290,31 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                                         @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
                                     end
                                 end
-                                write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
+                                write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
                                 
-                                if output_file_print & (output_file_name != "KKT_check.log")
+                                if output_file_print & file_to_close
                                     close(file)
                                 end
                             end
 
                             acceptable = false
+                        else
+                            if print_level >= 1
+                                if print_level >= 2
+                                    @printf(file, "    variable %d out of bounds + optimal tolerance\n", i) 
+                                    
+                                    if print_level >= 3
+                                        @printf(file, "      x[%d] = %7.2e\n", i, x[i])
+                                        @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
+                                        @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
+                                    end
+                                end
+                                write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
+                                
+                                if output_file_print & file_to_close
+                                    close(file)
+                                end
+                            end
                         end
 
                         optimal = false
@@ -302,9 +335,9 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                                         @printf(file, "      nlp.meta.uvar[%d] = %7.2e \n", i, nlp.meta.uvar[i])
                                     end
                                 end
-                                write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
+                                write(file, "\n  ------- Acceptable for KKT condition but suboptimal ----------\n")
                                 
-                                if output_file_print & (output_file_name != "KKT_check.log")
+                                if output_file_print & file_to_close
                                     close(file)
                                 end
                             end
@@ -337,7 +370,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                             end
                             write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
                             
-                            if output_file_print & (output_file_name != "KKT_check.log")
+                            if output_file_print & file_to_close
                                 close(file)
                             end
                         end
@@ -367,7 +400,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
 
                             write(file, "\n  ------- Not fitting with KKT conditions ----------\n")
                             
-                            if output_file_print & (output_file_name != "KKT_check.log")
+                            if output_file_print & file_to_close
                                 close(file)
                             end
                         end
