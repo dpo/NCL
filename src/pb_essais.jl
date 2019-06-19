@@ -1,11 +1,19 @@
 using NLPModels
 using CUTEst
 using NLPModelsIpopt
-using AmplNLReader
 using Printf
 include("NCLSolve.jl")
+include("results_latex.jl")
 
 #* hand made hs13 model
+	f(x) = (x[1] - 2.) ^ 2  +  x[2] ^ 2
+	c(x) = [(1-x[1]) ^ 3  -  x[2]]
+	lcon = [0.]
+	ucon = [Inf]
+	lvar = [0., 0.]
+	uvar = [Inf, Inf]
+	x0 = [-2.,-2.]
+
 	mutable struct hs13 <: AbstractNLPModel
 		meta :: NLPModelMeta
 		counters :: Counters
@@ -124,8 +132,6 @@ function pb_try()
 		uvar = [Inf, Inf]
 		x0 = [-2.,-2.]
 
-
-
 		#* Differentes resolutions
 			#   hand_made_hs13 = hs13()
 			#	println("First resolution hand_made_hs13")
@@ -160,10 +166,9 @@ function pb_try()
 
 
 
-		#nlp = hs13()
+		nlp = hs13()
 		#nlp = ADNLPModel(f, x0 ; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name = "HS13")
 		#nlp = CUTEstModel("HS13")
-		nlp = AmplModel("../../AMPL_tests/hs13.nl")
 
 
 
@@ -192,42 +197,163 @@ function pb_try()
 	return resolution.solver_specific[:internal_msg]
 end
 
+function pb_set_resolution( ; #No arguments, only key-word arguments
+							path_res_folder::String = "/home/perselie/Bureau/projet/ncl/res/", 
+							cutest_generic_pb_name::String = "CUTEst_HS", 
+							cutest_pb_set::Vector{String} = ["HS$i" for i in [1,2,3,4,13,15,19,20,21]], 
+							cutest_pb_index_set::Vector{Int64} = [i for i in 1:length(cutest_pb_set)], 
+							nlp_generic_pb_name::String = "NLP_HS", 
+							nlp_pb_set::Vector{<:AbstractNLPModel} = [hs13()],
+							nlp_pb_index_set::Vector{Int64} = [1], 
+							generate_latex::Bool = true,
+							tol::Float64 = 1e-8,
+							constr_viol_tol::Float64 = 1e-6,
+							compl_inf_tol::Float64 = 1e-4,
+							KKT_checking::Bool = false
+						  )
 
-function hs_resol(path_res_folder::String = "/home/perselie/Bureau/projet/ncl/res/")
-	file = open(path_res_folder * "HS/HS.log", write=true)
-	for pb in ["HS$i" for i in 1:57]
-		nlp = CUTEstModel(pb)
+	
+
+	#** I. CUTEst problem set
+		#** I.0 Directory check
+			if isdir(path_res_folder * cutest_generic_pb_name * "/")
+				file_cutest = open(path_res_folder * cutest_generic_pb_name * "/" * cutest_generic_pb_name * ".log", write=true)
+			else
+				mkdir(path_res_folder * cutest_generic_pb_name * "/")
+				file_cutest = open(path_res_folder * cutest_generic_pb_name * "/" * cutest_generic_pb_name * ".log", write=true)
+			end
+
+		for i in cutest_pb_index_set
+			#** II.1 Problem
+				pb = cutest_pb_set[i]
+				nlp = CUTEstModel(pb)
+
+			#** II.2 Resolution
+				resol = NCLSolve(nlp ;
+						max_iter_NCL = 20,
+						tol = tol,
+						constr_viol_tol = constr_viol_tol,
+						compl_inf_tol = compl_inf_tol,
+						max_iter_solver = 1000,
+						print_level_NCL = 6,
+						print_level_solver = 0,
+						linear_residuals = true,
+						KKT_checking = KKT_checking,
+						output_file_print_NCL = true,
+						output_file_print_solver = false,
+						output_file_NCL = file_cutest,
+						warm_start_init_point = "yes")
+
+				@printf(file_cutest, "\n=================\n")
+
+			#** II.3 Print summary
+				summary_path = path_res_folder * cutest_generic_pb_name * "/summary_" * cutest_generic_pb_name * "_" * nlp.meta.name * ".txt"
+				file_summary = open(summary_path, write=true)
+				@printf(file_summary, "name = \"%s\" \n", nlp.meta.name)
+				@printf(file_summary, "nvar = %d\n", nlp.meta.nvar)
+				@printf(file_summary, "ncon = %d\n", nlp.meta.ncon)
+				@printf(file_summary, "iter = %d\n", resol.iter)
+				@printf(file_summary, "obj_val = %7.2e\n", resol.objective)
+				@printf(file_summary, "norm_lag_grad = %7.2e\n", resol.dual_feas)
+				@printf(file_summary, "norm_r = %7.2e\n", haskey(resol.solver_specific, :residuals) ? norm(resol.solver_specific[:residuals]) : 0.)
+				@printf(file_summary, "optimal_res = %s\n", haskey(resol.solver_specific, :residuals) ? (norm(resol.solver_specific[:residuals]) <= constr_viol_tol) : true)
+				@printf(file_summary, "optimal_kkt = %s\n", KKT_check(nlp, 
+																	resol.solution, 
+																	resol.solver_specific[:multipliers_con], 
+																	resol.solver_specific[:multipliers_U], 
+																	resol.solver_specific[:multipliers_L] ; 
+																	tol = tol,
+																	constr_viol_tol = constr_viol_tol,
+																	compl_inf_tol = compl_inf_tol,
+																	print_level = 3, 
+																	output_file_print = true,
+																	output_file = file_cutest
+																	)
+						)
 
 
-		resol = NCLSolve(nlp ;
-				max_iter_NCL = 20,
-				max_iter_solver = 1000,
-				print_level_NCL = 6,
-				print_level_solver = 0,
-				linear_residuals = true,
-				KKT_checking = false,
-				output_file_print_NCL = true,
-				output_file_print_solver = false,
-				output_file_NCL = file,
-				warm_start_init_point = "yes")
+				close(file_summary)
+			
+			
+			@printf(file_cutest, "\n============= End of resolution =============\n\n\n\n\n")
+			finalize(nlp)
+		end
 
-		@printf(file, "\n============= End of resolution =============\n\n\n\n\n")
+		close(file_cutest)
 
+
+
+	#** II. NLP problem set
+		#** I.0 Directory check
+			if isdir(path_res_folder * nlp_generic_pb_name * "/")
+				file_nlp = open(path_res_folder *  nlp_generic_pb_name * "/" * nlp_generic_pb_name * ".log", write=true)
+			else
+				mkdir(path_res_folder * nlp_generic_pb_name * "/")
+				file_nlp = open(path_res_folder *  nlp_generic_pb_name * "/" * nlp_generic_pb_name * ".log", write=true)
+			end
+
+		for i in nlp_pb_index_set
+			#** II.1 Problem
+				pb = nlp_generic_pb_name * string(i)
+				nlp = nlp_pb_set[i]
+
+			#** II.2 Resolution
+				resol = NCLSolve(nlp ;
+						max_iter_NCL = 20,
+						max_iter_solver = 1000,
+						tol = tol,
+						constr_viol_tol = constr_viol_tol,
+						compl_inf_tol = compl_inf_tol,
+						print_level_NCL = 6,
+						print_level_solver = 0,
+						linear_residuals = true,
+						KKT_checking = KKT_checking,
+						output_file_print_NCL = true,
+						output_file_print_solver = false,
+						output_file_NCL = file_nlp,
+						warm_start_init_point = "yes")
+
+				@printf(file_nlp, "\n=================\n")
+
+			
+			#** II.3 Print summary
+				summary_path = path_res_folder * "$nlp_generic_pb_name/summary_" * nlp_generic_pb_name * "_" * nlp.meta.name * ".txt"
+				file_summary = open(summary_path, write=true)
+				@printf(file_summary, "name = \"%s\" \n", nlp.meta.name)
+				@printf(file_summary, "nvar = %d\n", nlp.meta.nvar)
+				@printf(file_summary, "ncon = %d\n", nlp.meta.ncon)
+				@printf(file_summary, "iter = %d\n", resol.iter)
+				@printf(file_summary, "obj_val = %7.2e\n", resol.objective)
+				@printf(file_summary, "norm_lag_grad = %7.2e\n", resol.dual_feas)
+				@printf(file_summary, "norm_r = %7.2e\n", haskey(resol.solver_specific, :residuals) ? norm(resol.solver_specific[:residuals]) : 0.)
+				@printf(file_summary, "optimal_res = %s\n", haskey(resol.solver_specific, :residuals) ? (norm(resol.solver_specific[:residuals]) <= constr_viol_tol) : true)
+				@printf(file_summary, "optimal_kkt = %s\n", KKT_check(nlp, 
+																	resol.solution, 
+																	resol.solver_specific[:multipliers_con], 
+																	resol.solver_specific[:multipliers_U], 
+																	resol.solver_specific[:multipliers_L] ; 
+																	tol = tol,
+																	constr_viol_tol = constr_viol_tol,
+																	compl_inf_tol = compl_inf_tol,
+																	
+																	print_level = 3, 
+																	output_file_print = true,
+																	output_file = file_nlp
+																	)
+						)
+
+				close(file_summary)
+
+
+			@printf(file_nlp, "\n============= End of resolution =============\n\n\n\n\n")
 		
-		file_summary = open(path_res_folder * "HS/summary_$pb.txt", write=true)
-		@printf(file_summary, "name = \"%s\" \n", nlp.meta.name)
-		@printf(file_summary, "nvar = %d\n", nlp.meta.nvar)
-		@printf(file_summary, "ncon = %d\n", nlp.meta.ncon)
-		@printf(file_summary, "iter = %d\n", resol.iter)
-		@printf(file_summary, "obj_val = %7.2e\n", resol.objective)
-		@printf(file_summary, "norm_lag_grad = %7.2e\n", resol.dual_feas)
-		@printf(file_summary, "norm_r = %7.2e\n", haskey(resol.solver_specific, :residuals) ? norm(resol.solver_specific[:residuals]) : 0.)
-		@printf(file_summary, "optimal = %s\n", string(resol.solver_specific[:internal_msg] == Symbol("Solve_Succeeded")))
+		end
 
-		close(file_summary)
-		
-		finalize(nlp)
+		close(file_nlp)
+
+	if generate_latex
+		res_tabular("../res/latex.tex")
 	end
-
-	close(file)
 end
+
+pb_set_resolution(generate_latex = true)

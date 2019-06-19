@@ -1,9 +1,16 @@
 """
 #################
 res_tabular function
-    This unction creates a LaTeX file, with a table, showing some details of the resolution of problems in pb_set, in argument. 
-    At the beginning of each table, you have : The number of variables, of constraints (linear and non linear), the initial lagrangian gradient, the desired one, and the final one, and the final objective value.
-
+    This function creates a LaTeX file, with a table, showing some details of the resolution of problems in pb_set, in argument. 
+    At the beginning of each table, you have : The name of the problem considered
+                                               The number of variables, 
+                                                          of constraints (linear and non linear), 
+                                                          of iterations of NCL until termination,
+                                               the final objective value.
+                                               the final residual norm
+                                               the lagrangian gradient norm
+                                               the optimality check with residual norm
+                                               the optimality check with KKT conditions
 #################
 """
 
@@ -21,9 +28,13 @@ Prerequisites:
 - Each text file correspond to the resolution of one instance
 - Each text file contains a variable "solveTime" and a variable "isOptimal"
 """
-function res_tabular(outputFile::String)
+function res_tabular(outputFile::String ;
+                      resultFolder::String = "/home/perselie/Bureau/projet/ncl/res/"
+                    )
     
-    resultFolder = "/home/perselie/Bureau/projet/ncl/res/HS/"
+    if !isdir(resultFolder)
+        mkpath(resultFolder)
+    end
 
     # Open the latex output file
     fout = open(outputFile, "w")
@@ -68,10 +79,8 @@ function res_tabular(outputFile::String)
         # If it is a subfolder
         if isdir(path)
             # Add all its files in the solvedProblems array
-            for file2 in filter(x->occursin(".txt", x), readdir(path))
-                solvedProblems = vcat(solvedProblems, file2)
-
-                @show 1
+            for subfile in filter(x->occursin(".txt", x), readdir(path))
+                solvedProblems = vcat(solvedProblems, "$path/$subfile")
             end 
         elseif occursin(".txt", path)
             solvedProblems = vcat(solvedProblems, path)
@@ -81,10 +90,10 @@ function res_tabular(outputFile::String)
     # Only keep one string for each instance solved
     unique(solvedProblems)
 
-    header *= "ccccccc}\n\t\\hline\n" #seven columns
+    header *= "cccccccc}\n\t\\hline\n" #seven columns
 
     # column names
-    header *= "\\\\\n\\textbf{Problem}  & \\textbf{\$n_{var}\$} & \\textbf{\$n_{con}\$} & \\textbf{\$n_{iter}\$} & \\textbf{\$f\\left(x\\right)\$} & \\textbf{\$\\left\\Vert r \\right\\Vert_\\infty\$} & \\textbf{\$\\left\\Vert \\nabla_x L \\right\\Vert_\\infty\$} & \\textbf{Optimal ?} "
+    header *= "\\\\\n\\textbf{Problem}  & \\textbf{\$n_{var}\$} & \\textbf{\$n_{con}\$} & \\textbf{\$n_{iter}\$} & \\textbf{\$f\\left(x\\right)\$} & \\textbf{\$\\left\\Vert r \\right\\Vert_\\infty\$} & \\textbf{\$\\left\\Vert \\nabla_x L \\right\\Vert_\\infty\$} & \\textbf{\$\\left\\Vert r \\right\\Vert_\\infty \\leq \\eta\$ ?} & \\textbf{Fits KKT ?} "
 
     header *= "\\\\\\hline\n"
 
@@ -117,12 +126,17 @@ function res_tabular(outputFile::String)
 
         println(fout, name * " & ", nvar, " & ", ncon, " & ", iter, " & ", obj_val, " & ", norm_r, " & ", norm_lag_grad, " & ")
 
-        if optimal
+        if optimal_res
+            println(fout, "\$\\checkmark\$", " & ")
+        else
+            println(fout, "\$\\times\$", " & ")
+        end
+            
+        if optimal_kkt
             println(fout, "\$\\checkmark\$")
         else
             println(fout, "\$\\times\$")
         end
-            
 
         println(fout, "\\\\")
 
