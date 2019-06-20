@@ -148,13 +148,22 @@ using Printf
 								)
 
 			if nlp.meta.jinf != Int64[]
+				if (print_level >= 1) & output_file_print & file_to_close
+					close(file)
+				end
 				error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jinf) * " infeasible")
 			end
 			if nlp.meta.jfree != Int64[]
+				if (print_level >= 1) & output_file_print & file_to_close
+					close(file)
+				end
 				error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jfree) * " free")
 			end
 
 			if nlp.meta.iinf != Int64[]
+				if (print_level >= 1) & output_file_print & file_to_close
+					close(file)
+				end
 				error("argument problem passed to NCLModel with bound constraint " * string(nlp.meta.iinf) * " infeasible")
 			end
 
