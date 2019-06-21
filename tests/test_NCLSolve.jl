@@ -50,6 +50,7 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
         nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])::ADNLPModel
         ncl_nlin_res = NCLModel(nlp ; res_lin_cons = false)::NCLModel
 
+        
         ncl_nlin_res.y = y
         ncl_nlin_res.ρ = ρ
 

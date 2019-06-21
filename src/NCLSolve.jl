@@ -107,7 +107,7 @@ end
 
 
 
-####### TODO Finir KKT print avec acceptable or not
+####### TODO KKT fast check
 
 
 
@@ -157,7 +157,6 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                      acceptable_compl_inf_tol::Float64 = acc_factor * compl_inf_tol,
   
                    #* Print options
-                     fast_check::Bool = false,
                      print_level::Int64 = 0,                         # Verbosity of the function : 0 : nothing
                                                                                               # 1 : Function call and result
                                                                                               # 2 : Further information in case of failure
@@ -183,9 +182,9 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
             optimal::Bool = true # default values, we will update them, accross the following tests
             acceptable::Bool = true
             norm_grad_lag::Float64 = -1.
-            norm_primal_feas::Float64 = Inf
-            norm_dual_feas::Float64 = Inf
-            norm_complementarity::Float64 = Inf
+            primal_feas::Float64 = Inf
+            dual_feas::Float64 = Inf
+            complementarity_feas::Float64 = Inf
 
             
 
@@ -237,309 +236,403 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                 error("Problem with infeasable bound constraints at indices " * string(nlp.meta.iinf) * " passed to KKT_check")
             end
     
-    if fast_check
-    else
-        
-        #** I. Bounds constraints
-            #** I.1 For free variables
-                for i in nlp.meta.ifree 
-                    #** I.1.1 Feasability USELESS (because variables are free)
-                    #** I.1.2 Complementarity for bounds 
-                        if !(-ϵ <= z[i] <= ϵ)
-                            if !(-acc_ϵ <= z[i] <= acc_ϵ)
-                                if print_level >= 1
-                                    if print_level >= 2
-                                        @printf(file, "    Multiplier not acceptable as zero for free variable %d \n", i)
-                                        
-                                        if print_level >= 3
-                                            @printf(file, "      z[%d]             = %7.2e\n", i, z[i])
-                                            @printf(file, "      x[%d]             = %7.2e\n", i, x[i])
-                                            @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
-                                            @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
-                                        end
-                                    end
-                                    write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
+    #** I. Fast check
+        if print_level <= 0
+            dual_feas = (nlp.meta.ncon != 0) ? norm(grad(nlp, x) - jtprod(nlp, x, λ) - z, Inf) : norm(grad(nlp, x) - z, Inf)
+            primal_feas = (nlp.meta.ncon != 0) ? minimum(vcat(cons(nlp, x) - nlp.meta.lcon, nlp.meta.ucon - cons(nlp, x))) : 0.
 
-                                end
-                                acceptable = false
+            compl_bound_low = vcat(setdiff(z .* (x - nlp.meta.lvar), [Inf, -Inf, NaN]), 0.) # Just to get rid of infinite values (due to free variables or constraints)
+            compl_bound_upp = vcat(setdiff(z .* (x - nlp.meta.uvar), [Inf, -Inf, NaN]), 0.) # zeros are added just to avoid empty vectors (easier for comparison after, but has no influence)
 
-                            else
-                                if print_level >= 1
-                                    if print_level >= 2
-                                        @printf(file, "    Multiplier acceptable as zero for free variable %d, but suboptimal \n", i)
-                                        
-                                        if print_level >= 3
-                                            @printf(file, "      z[%d]             = %7.2e\n", i, z[i])
-                                            @printf(file, "      x[%d]             = %7.2e\n", i, x[i])
-                                            @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
-                                            @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
-                                        end
-                                    end
-                                    write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
-                                end
-                            end
+            compl_var_low = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.lcon), [Inf, -Inf]), 0.) : [0.]
+            compl_var_upp = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.ucon), [Inf, -Inf]), 0.) : [0.]
 
-                            optimal = false
-                        end
+            complementarity_feas = norm(vcat(compl_bound_low, compl_bound_upp, compl_var_low, compl_var_upp), Inf)
+
+            if dual_feas >= ω
+                optimal = false
+                if dual_feas >= acc_ω
+                    acceptable = false
+
+                    KKT_res = Dict("optimal" => optimal, 
+                            "acceptable" => acceptable, 
+                            "primal_feas" => primal_feas,
+                            "norm_grad_lag" => dual_feas, 
+                            "complementarity_feas" => complementarity_feas)
+
+                    return KKT_res 
                 end
-            #** I.2 Bounded variables
-                for i in vcat(nlp.meta.iupp, nlp.meta.ilow, nlp.meta.ifix, nlp.meta.irng) # bounded = all non free
-                    #** I.2.1 Feasability
-                        if !(nlp.meta.lvar[i] - η <= x[i] <= nlp.meta.uvar[i] + η)
-                            if !(nlp.meta.lvar[i] - acc_η <= x[i] <= nlp.meta.uvar[i] + acc_η)
-                                if print_level >= 1
-                                    if print_level >= 2
-                                        @printf(file, "    variable %d out of bounds + acceptable tolerance\n", i) 
-                                        
-                                        if print_level >= 3
-                                            @printf(file, "      x[%d] = %7.2e\n", i, x[i])
-                                            @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
-                                            @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
-                                        end
-                                    end
-                                    write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
+            end
 
-                                end
-                                acceptable = false
+            if primal_feas <= - η
+                optimal = false
 
-                            else
-                                if print_level >= 1
-                                    if print_level >= 2
-                                        @printf(file, "    variable %d out of bounds + optimal tolerance\n", i) 
-                                        
-                                        if print_level >= 3
-                                            @printf(file, "      x[%d] = %7.2e\n", i, x[i])
-                                            @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
-                                            @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
+                if primal_feas <= - acc_η
+                    acceptable = false
+
+                    KKT_res = Dict("optimal" => optimal, 
+                            "acceptable" => acceptable,
+                            "primal_feas" => primal_feas, 
+                            "dual_feas" => dual_feas, 
+                            "complementarity_feas" => complementarity_feas)
+
+                    return KKT_res 
+                end
+            end
+
+            if any(.!(-ϵ .<= compl_bound_low .<= ϵ)  .&  .!(-ϵ .<= compl_bound_upp .<= ϵ))
+                optimal = false
+                
+                if any(.!(-acc_ϵ .<= compl_bound_low .<= acc_ϵ)  .&  .!(-acc_ϵ .<= compl_bound_upp .<= acc_ϵ))
+                    acceptable = false
+
+                    KKT_res = Dict("optimal" => optimal, 
+                            "acceptable" => acceptable,
+                            "primal_feas" => primal_feas, 
+                            "dual_feas" => dual_feas, 
+                            "complementarity_feas" => complementarity_feas)
+
+                    return KKT_res 
+                end
+            end
+
+            if any(.!(-ϵ .<= compl_var_low .<= ϵ)  .&  .!(-ϵ .<= compl_var_upp .<= ϵ))
+                optimal = false
+                
+                if any(.!(-acc_ϵ .<= compl_var_low .<= acc_ϵ)  .&  .!(-acc_ϵ .<= compl_var_upp .<= acc_ϵ))
+                    acceptable = false
+
+                    KKT_res = Dict("optimal" => optimal, 
+                            "acceptable" => acceptable,
+                            "primal_feas" => primal_feas, 
+                            "dual_feas" => dual_feas, 
+                            "complementarity_feas" => complementarity_feas)
+
+                    return KKT_res 
+                end
+            end
+
+
+            KKT_res = Dict("optimal" => optimal, 
+                            "acceptable" => acceptable,
+                            "primal_feas" => primal_feas, 
+                            "dual_feas" => dual_feas, 
+                            "complementarity_feas" => complementarity_feas)
+
+            return KKT_res 
+
+        else
+            #** II. Bounds constraints
+                #** II.1 For free variables
+                    for i in nlp.meta.ifree 
+                        #** II.1.1 Feasability USELESS (because variables are free)
+                        #** II.1.2 Complementarity for bounds 
+                            if !(-ϵ <= z[i] <= ϵ)
+                                if !(-acc_ϵ <= z[i] <= acc_ϵ)
+                                    if print_level >= 1
+                                        if print_level >= 2
+                                            @printf(file, "    Multiplier not acceptable as zero for free variable %d \n", i)
+                                            
+                                            if print_level >= 3
+                                                @printf(file, "      z[%d]             = %7.2e\n", i, z[i])
+                                                @printf(file, "      x[%d]             = %7.2e\n", i, x[i])
+                                                @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
+                                                @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
+                                            end
                                         end
+                                        write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
+
                                     end
-                                    write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
+                                    acceptable = false
+
+                                else
+                                    if print_level >= 1
+                                        if print_level >= 2
+                                            @printf(file, "    Multiplier acceptable as zero for free variable %d, but suboptimal \n", i)
+                                            
+                                            if print_level >= 3
+                                                @printf(file, "      z[%d]             = %7.2e\n", i, z[i])
+                                                @printf(file, "      x[%d]             = %7.2e\n", i, x[i])
+                                                @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
+                                                @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
+                                            end
+                                        end
+                                        write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
+                                    end
                                 end
+
+                                optimal = false
                             end
+                    end
+                #** II.2 Bounded variables
+                    for i in setdiff([i for i in 1:nlp.meta.nvar], nlp.meta.ifree) #free variables were treated brefore
+                        #** II.2.1 Feasability
+                            if !(nlp.meta.lvar[i] - η <= x[i] <= nlp.meta.uvar[i] + η)
+                                if !(nlp.meta.lvar[i] - acc_η <= x[i] <= nlp.meta.uvar[i] + acc_η)
+                                    if print_level >= 1
+                                        if print_level >= 2
+                                            @printf(file, "    variable %d out of bounds + acceptable tolerance\n", i) 
+                                            
+                                            if print_level >= 3
+                                                @printf(file, "      x[%d] = %7.2e\n", i, x[i])
+                                                @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
+                                                @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
+                                            end
+                                        end
+                                        write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
 
-                            optimal = false
-                        end
+                                    end
+                                    acceptable = false
+
+                                else
+                                    if print_level >= 1
+                                        if print_level >= 2
+                                            @printf(file, "    variable %d out of bounds + optimal tolerance\n", i) 
+                                            
+                                            if print_level >= 3
+                                                @printf(file, "      x[%d] = %7.2e\n", i, x[i])
+                                                @printf(file, "      nlp.meta.lvar[%d] = %7.2e\n", i, nlp.meta.lvar[i])
+                                                @printf(file, "      nlp.meta.uvar[%d] = %7.2e\n", i, nlp.meta.uvar[i])
+                                            end
+                                        end
+                                        write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
+                                    end
+                                end
+
+                                optimal = false
+                            end
+                        
+                        #** II.2.2 Complementarity for bounds
+                            if !( (-ϵ <= z[i] * (x[i] - nlp.meta.lvar[i]) <= ϵ)  |  (-ϵ <= z[i] * (x[i] - nlp.meta.uvar[i]) <= ϵ) ) # Complementarity condition
+                                if !( (-acc_ϵ <= z[i] * (x[i] - nlp.meta.lvar[i]) <= acc_ϵ)  |  (-acc_ϵ <= z[i] * (x[i] - nlp.meta.uvar[i]) <= acc_ϵ) ) # Complementarity acceptable condition
+                                    if print_level >= 1
+                                        if print_level >= 2
+                                            @printf(file, "    both complementarities = %7.2e or %7.2e are out of acceptable tolerance acc_ϵ = %7.2e. See bound var %d\n", z[i] * (x[i] - nlp.meta.lvar[i]), z[i] * (x[i] - nlp.meta.uvar[i]), acc_ϵ, i)
+
+                                            if print_level >= 3
+                                                @printf(file, "      z[%d]             = %7.2e \n", i, z[i])
+                                                @printf(file, "      x[%d]             = %7.2e \n", i, x[i])
+                                                @printf(file, "      nlp.meta.lvar[%d] = %7.2e \n", i, nlp.meta.lvar[i])
+                                                @printf(file, "      nlp.meta.uvar[%d] = %7.2e \n", i, nlp.meta.uvar[i])
+                                            end
+                                        end
+                                        write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
+                                        
+                                        
+                                    end
+
+                                    acceptable = false
+                                else
+                                    if print_level >= 1
+                                        if print_level >= 2
+                                            @printf(file, "    one of the complementarities = %7.2e or %7.2e is out of tolerance ϵ = %7.2e (but still acceptable). See bound var %d\n", z[i] * (x[i] - nlp.meta.lvar[i]), z[i] * (x[i] - nlp.meta.uvar[i]), ϵ, i)
+
+                                            if print_level >= 3
+                                                @printf(file, "      z[%d]             = %7.2e \n", i, z[i])
+                                                @printf(file, "      x[%d]             = %7.2e \n", i, x[i])
+                                                @printf(file, "      nlp.meta.lvar[%d] = %7.2e \n", i, nlp.meta.lvar[i])
+                                                @printf(file, "      nlp.meta.uvar[%d] = %7.2e \n", i, nlp.meta.uvar[i])
+                                            end
+                                        end
+                                        write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
+                                        
+                                        
+                                    end
+                                end
+
+                                optimal = false
+                                #return false
+                            end
+                    end
+            
+            #** III. Other constraints
+                #** III.0 Precomputation
+                    c_x = cons(nlp, x) # Precomputation
                     
-                    #** I.2.2 Complementarity for bounds
-                        if !( (-ϵ <= z[i] * (x[i] - nlp.meta.lvar[i]) <= ϵ)  |  (-ϵ <= z[i] * (x[i] - nlp.meta.uvar[i]) <= ϵ) ) # Complementarity condition
-                            if !( (-acc_ϵ <= z[i] * (x[i] - nlp.meta.lvar[i]) <= acc_ϵ)  |  (-acc_ϵ <= z[i] * (x[i] - nlp.meta.uvar[i]) <= acc_ϵ) ) # Complementarity acceptable condition
+                #** III.1 Feasability
+                    for i in 1:nlp.meta.ncon
+                        if !(nlp.meta.lcon[i] - η <= c_x[i] <= nlp.meta.ucon[i] + η)
+                            if !(nlp.meta.lcon[i] - acc_η <= c_x[i] <= nlp.meta.ucon[i] + acc_η)
                                 if print_level >= 1
                                     if print_level >= 2
-                                        @printf(file, "    one of the complementarities = %7.2e or %7.2e is out of acceptable tolerance acc_ϵ = %7.2e. See bound var %d\n", z[i] * (x[i] - nlp.meta.lvar[i]), z[i] * (x[i] - nlp.meta.uvar[i]), acc_ϵ, i)
+                                        @printf(file, "    constraint %d out of bounds + acceptable tolerance\n", i)
 
                                         if print_level >= 3
-                                            @printf(file, "      z[%d]             = %7.2e \n", i, z[i])
-                                            @printf(file, "      x[%d]             = %7.2e \n", i, x[i])
-                                            @printf(file, "      nlp.meta.lvar[%d] = %7.2e \n", i, nlp.meta.lvar[i])
-                                            @printf(file, "      nlp.meta.uvar[%d] = %7.2e \n", i, nlp.meta.uvar[i])
+                                            @printf(file, "      c_x[%d]               = %7.2e \n", i, c_x[i])
+                                            @printf(file, "      nlp.meta.ucon[%d] + acc_η = %7.2e \n", i, nlp.meta.ucon[i] + acc_η)
+                                            @printf(file, "      nlp.meta.lcon[%d] - acc_η = %7.2e \n", i, nlp.meta.lcon[i] - acc_η)
                                         end
                                     end
                                     write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
-                                    
-                                    
-                                end
 
+                                end
                                 acceptable = false
+                            
                             else
                                 if print_level >= 1
                                     if print_level >= 2
-                                        @printf(file, "    one of the complementarities = %7.2e or %7.2e is out of tolerance ϵ = %7.2e (but still acceptable). See bound var %d\n", z[i] * (x[i] - nlp.meta.lvar[i]), z[i] * (x[i] - nlp.meta.uvar[i]), ϵ, i)
+                                        @printf(file, "    constraint %d out of bounds + tolerance\n", i)
 
                                         if print_level >= 3
-                                            @printf(file, "      z[%d]             = %7.2e \n", i, z[i])
-                                            @printf(file, "      x[%d]             = %7.2e \n", i, x[i])
-                                            @printf(file, "      nlp.meta.lvar[%d] = %7.2e \n", i, nlp.meta.lvar[i])
-                                            @printf(file, "      nlp.meta.uvar[%d] = %7.2e \n", i, nlp.meta.uvar[i])
+                                            @printf(file, "      c_x[%d]               = %7.2e \n", i, c_x[i])
+                                            @printf(file, "      nlp.meta.ucon[%d] + η = %7.2e \n", i, nlp.meta.ucon[i] + η)
+                                            @printf(file, "      nlp.meta.lcon[%d] - η = %7.2e \n", i, nlp.meta.lcon[i] - η)
                                         end
                                     end
                                     write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
-                                    
-                                    
+
                                 end
                             end
 
                             optimal = false
                             #return false
                         end
-                end
-        
-        #** II. Other constraints
-            #** II.0 Precomputation
-                c_x = cons(nlp, x) # Precomputation
-                
-            #** II.1 Feasability
-                for i in 1:nlp.meta.ncon
-                    if !(nlp.meta.lcon[i] - η <= c_x[i] <= nlp.meta.ucon[i] + η)
-                        if !(nlp.meta.lcon[i] - acc_η <= c_x[i] <= nlp.meta.ucon[i] + acc_η)
-                            if print_level >= 1
-                                if print_level >= 2
-                                    @printf(file, "    constraint %d out of bounds + acceptable tolerance\n", i)
-
-                                    if print_level >= 3
-                                        @printf(file, "      c_x[%d]               = %7.2e \n", i, c_x[i])
-                                        @printf(file, "      nlp.meta.ucon[%d] + acc_η = %7.2e \n", i, nlp.meta.ucon[i] + acc_η)
-                                        @printf(file, "      nlp.meta.lcon[%d] - acc_η = %7.2e \n", i, nlp.meta.lcon[i] - acc_η)
-                                    end
-                                end
-                                write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
-
-                            end
-                            acceptable = false
-                        
-                        else
-                            if print_level >= 1
-                                if print_level >= 2
-                                    @printf(file, "    constraint %d out of bounds + tolerance\n", i)
-
-                                    if print_level >= 3
-                                        @printf(file, "      c_x[%d]               = %7.2e \n", i, c_x[i])
-                                        @printf(file, "      nlp.meta.ucon[%d] + η = %7.2e \n", i, nlp.meta.ucon[i] + η)
-                                        @printf(file, "      nlp.meta.lcon[%d] - η = %7.2e \n", i, nlp.meta.lcon[i] - η)
-                                    end
-                                end
-                                write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
-
-                            end
-                        end
-
-                        optimal = false
-                        #return false
                     end
-                end
 
-            #** II.2 Complementarity
-                for i in 1:nlp.meta.ncon # upper constraints
-                    if !( (-ϵ <= (λ[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  |  (-ϵ <= (λ[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [λ[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
-                        if !( (-acc_ϵ <= (λ[i] * (c_x[i] - nlp.meta.ucon[i])) <= acc_ϵ)  |  (-acc_ϵ <= (λ[i] * (c_x[i] - nlp.meta.lcon[i])) <= acc_ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [λ[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
-                            if print_level >= 1
-                                if print_level >= 2
-                                    @printf(file, "    one of the two complementarities %7.2e or %7.2e is out of acceptable tolerance acc_ϵ = %7.2e. See cons %d \n", λ[i] * (c_x[i] - nlp.meta.ucon[i]), (λ[i] * (c_x[i] - nlp.meta.lcon[i])), acc_ϵ, i)
+                #** III.2 Complementarity
+                    for i in 1:nlp.meta.ncon # upper constraints
+                        if !( (-ϵ <= (λ[i] * (c_x[i] - nlp.meta.ucon[i])) <= ϵ)  |  (-ϵ <= (λ[i] * (c_x[i] - nlp.meta.lcon[i])) <= ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [λ[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
+                            if !( (-acc_ϵ <= (λ[i] * (c_x[i] - nlp.meta.ucon[i])) <= acc_ϵ)  |  (-acc_ϵ <= (λ[i] * (c_x[i] - nlp.meta.lcon[i])) <= acc_ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [λ[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
+                                if print_level >= 1
+                                    if print_level >= 2
+                                        @printf(file, "    one of the two complementarities %7.2e or %7.2e is out of acceptable tolerance acc_ϵ = %7.2e. See cons %d \n", λ[i] * (c_x[i] - nlp.meta.ucon[i]), (λ[i] * (c_x[i] - nlp.meta.lcon[i])), acc_ϵ, i)
 
-                                    if print_level >= 3
-                                        @printf(file, "      λ[%d]             = %7.2e \n", i, λ[i])
-                                        @printf(file, "      c_x[%d]           = %7.2e \n", i, c_x[i])
-                                        @printf(file, "      nlp.meta.ucon[%d] = %7.2e \n", i, nlp.meta.ucon[i])
-                                        @printf(file, "      nlp.meta.lcon[%d] = %7.2e \n", i, nlp.meta.lcon[i])
+                                        if print_level >= 3
+                                            @printf(file, "      λ[%d]             = %7.2e \n", i, λ[i])
+                                            @printf(file, "      c_x[%d]           = %7.2e \n", i, c_x[i])
+                                            @printf(file, "      nlp.meta.ucon[%d] = %7.2e \n", i, nlp.meta.ucon[i])
+                                            @printf(file, "      nlp.meta.lcon[%d] = %7.2e \n", i, nlp.meta.lcon[i])
+                                        end
                                     end
+
+                                    write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
                                 end
+                                acceptable = false
 
-                                write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
-                            end
-                            acceptable = false
+                            else
+                                if print_level >= 1
+                                    if print_level >= 2
+                                        @printf(file, "    one of the two complementarities %7.2e or %7.2e is out of tolerance ϵ = %7.2e. See cons %d \n", λ[i] * (c_x[i] - nlp.meta.ucon[i]), (λ[i] * (c_x[i] - nlp.meta.lcon[i])), ϵ, i)
 
-                        else
-                            if print_level >= 1
-                                if print_level >= 2
-                                    @printf(file, "    one of the two complementarities %7.2e or %7.2e is out of tolerance ϵ = %7.2e. See cons %d \n", λ[i] * (c_x[i] - nlp.meta.ucon[i]), (λ[i] * (c_x[i] - nlp.meta.lcon[i])), ϵ, i)
-
-                                    if print_level >= 3
-                                        @printf(file, "      λ[%d]             = %7.2e \n", i, λ[i])
-                                        @printf(file, "      c_x[%d]           = %7.2e \n", i, c_x[i])
-                                        @printf(file, "      nlp.meta.ucon[%d] = %7.2e \n", i, nlp.meta.ucon[i])
-                                        @printf(file, "      nlp.meta.lcon[%d] = %7.2e \n", i, nlp.meta.lcon[i])
+                                        if print_level >= 3
+                                            @printf(file, "      λ[%d]             = %7.2e \n", i, λ[i])
+                                            @printf(file, "      c_x[%d]           = %7.2e \n", i, c_x[i])
+                                            @printf(file, "      nlp.meta.ucon[%d] = %7.2e \n", i, nlp.meta.ucon[i])
+                                            @printf(file, "      nlp.meta.lcon[%d] = %7.2e \n", i, nlp.meta.lcon[i])
+                                        end
                                     end
-                                end
 
-                                write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
+                                    write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
+                                end
                             end
+
+                            optimal = false
+                            #return false
                         end
-
-                        optimal = false
-                        #return false
                     end
-                end
 
 
-        #** III. Lagrangian
-            #** III.1 Computation
-                ∇f_x = grad(nlp, x)      
-                if nlp.meta.ncon != 0 # just to avoid DimensionMismatch with ∇f_x - [].
-                    ∇lag_x = ∇f_x - jtprod(nlp, x, λ) - z
-                else
-                    ∇lag_x = ∇f_x - z
-                end        
-                norm_grad_lag = norm(∇lag_x, Inf)
-            #** III.2 Test & print
-                if norm_grad_lag > ω # Not a stationnary point for the lagrangian
-                    if norm_grad_lag > acc_ω # Not an acceptable stationnary point for the lagrangian
-                        if print_level >= 1
-                            if print_level >= 2
-                                @printf(file, "    Lagrangian gradient norm = %7.2e is greater acceptable than tolerance acc_ω = %7.2e \n", norm_grad_lag, acc_ω)
-                                
-                                if print_level >= 4
-                                    if nlp.meta.ncon != 0
-                                        @printf(file, "      ||∇f_x||                = %7.2e \n", norm(∇f_x, Inf))
-                                        @printf(file, "      ||∇f_x - t(Jac_x) * λ|| = %7.2e \n", norm(∇f_x - jtprod(nlp, x, λ), Inf))
-                                        @printf(file, "      ||z||                   = %7.2e \n", norm(z, Inf))
-                                        @printf(file, "      ||∇lag_x||              = %7.2e \n", norm_grad_lag)
-                                    else
-                                        @printf(file, "      ||∇f_x||   = %7.2e \n", norm(∇f_x, Inf))
-                                        @printf(file, "      ||- z||    = %7.2e \n", norm(z, Inf))
-                                        @printf(file, "      ||∇lag_x|| = %7.2e \n", norm_grad_lag)
-                                    end
-                                end
-                            end
-                        
-                            write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
-                        end  
-
-                        acceptable = false  
+            #** IV. Lagrangian
+                #** IV.1 Computation
+                    ∇f_x = grad(nlp, x)      
+                    if nlp.meta.ncon != 0 # just to avoid DimensionMismatch with ∇f_x - [].
+                        ∇lag_x = ∇f_x - jtprod(nlp, x, λ) - z
                     else
-                        if print_level >= 1
-                            if print_level >= 2
-                                @printf(file, "    Lagrangian gradient norm = %7.2e is greater than tolerance ω = %7.2e \n", norm_grad_lag, ω)
-                                
-                                if print_level >= 7
-                                    if nlp.meta.ncon != 0
-                                        @printf(file, "      ||∇f_x||                = %7.2e \n", norm(∇f_x, Inf))
-                                        @printf(file, "      ||∇f_x - t(Jac_x) * λ|| = %7.2e \n", norm(∇f_x - jtprod(nlp, x, λ), Inf))
-                                        @printf(file, "      ||z||                   = %7.2e \n", norm(z, Inf))
-                                        @printf(file, "      ||∇lag_x||              = %7.2e \n", norm_grad_lag)
-                                    else
-                                        @printf(file, "      ||∇f_x||   = %7.2e \n", norm(∇f_x, Inf))
-                                        @printf(file, "      ||- z||    = %7.2e \n", norm(z, Inf))
-                                        @printf(file, "      ||∇lag_x|| = %7.2e \n", norm_grad_lag)
+                        ∇lag_x = ∇f_x - z
+                    end        
+                    norm_grad_lag = norm(∇lag_x, Inf)
+                #** IV.2 Test & print
+                    if norm_grad_lag > ω # Not a stationnary point for the lagrangian
+                        if norm_grad_lag > acc_ω # Not an acceptable stationnary point for the lagrangian
+                            if print_level >= 1
+                                if print_level >= 2
+                                    @printf(file, "    Lagrangian gradient norm = %7.2e is greater acceptable than tolerance acc_ω = %7.2e \n", norm_grad_lag, acc_ω)
+                                    
+                                    if print_level >= 4
+                                        if nlp.meta.ncon != 0
+                                            @printf(file, "      ||∇f_x||                = %7.2e \n", norm(∇f_x, Inf))
+                                            @printf(file, "      ||∇f_x - t(Jac_x) * λ|| = %7.2e \n", norm(∇f_x - jtprod(nlp, x, λ), Inf))
+                                            @printf(file, "      ||z||                   = %7.2e \n", norm(z, Inf))
+                                            @printf(file, "      ||∇lag_x||              = %7.2e \n", norm_grad_lag)
+                                        else
+                                            @printf(file, "      ||∇f_x||   = %7.2e \n", norm(∇f_x, Inf))
+                                            @printf(file, "      ||- z||    = %7.2e \n", norm(z, Inf))
+                                            @printf(file, "      ||∇lag_x|| = %7.2e \n", norm_grad_lag)
+                                        end
                                     end
                                 end
-                            end
-                        
-                            write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
-                        end  
+                            
+                                write(file, "\n  ------- Not solved to acceptable level for KKT conditions ----------\n")
+                            end  
+
+                            acceptable = false  
+                        else
+                            if print_level >= 1
+                                if print_level >= 2
+                                    @printf(file, "    Lagrangian gradient norm = %7.2e is greater than tolerance ω = %7.2e \n", norm_grad_lag, ω)
+                                    
+                                    if print_level >= 7
+                                        if nlp.meta.ncon != 0
+                                            @printf(file, "      ||∇f_x||                = %7.2e \n", norm(∇f_x, Inf))
+                                            @printf(file, "      ||∇f_x - t(Jac_x) * λ|| = %7.2e \n", norm(∇f_x - jtprod(nlp, x, λ), Inf))
+                                            @printf(file, "      ||z||                   = %7.2e \n", norm(z, Inf))
+                                            @printf(file, "      ||∇lag_x||              = %7.2e \n", norm_grad_lag)
+                                        else
+                                            @printf(file, "      ||∇f_x||   = %7.2e \n", norm(∇f_x, Inf))
+                                            @printf(file, "      ||- z||    = %7.2e \n", norm(z, Inf))
+                                            @printf(file, "      ||∇lag_x|| = %7.2e \n", norm_grad_lag)
+                                        end
+                                    end
+                                end
+                            
+                                write(file, "\n  ------- Not optimally fitting with KKT conditions (but acceptable) ----------\n")
+                            end  
+                        end
+
+                        optimal = false
                     end
-
-                    optimal = false
+                
+            #** V Returns dictionnary
+                if print_level >= 1
+                    if optimal
+                        @printf(file, "\n    %s problem solved to optimal level !\n", nlp.meta.name)
+                    elseif acceptable
+                        @printf(file, "\n    %s problem solved to acceptable level\n", nlp.meta.name)
+                    end
+                
+                    if output_file_print & file_to_close
+                        close(file)
+                    end
                 end
-            
-        #** IV Returns dictionnary
-            if print_level >= 1
-                if optimal
-                    @printf(file, "\n    %s problem solved to optimal level !\n", nlp.meta.name)
-                elseif acceptable
-                    @printf(file, "\n    %s problem solved to acceptable level\n", nlp.meta.name)
-                end
-            
-                if output_file_print & file_to_close
-                    close(file)
-                end
-            end
 
-            KKT_res = Dict("optimal" => optimal, 
-                        "acceptable" => acceptable, 
-                        "norm_grad_lag" => norm_grad_lag, 
-                        "norm_primal_feas" => norm_primal_feas, 
-                        "norm_dual_feas" => norm_dual_feas, 
-                        "norm_complementarity" => norm_complementarity)
+                KKT_res = Dict("optimal" => optimal, 
+                            "acceptable" => acceptable, 
+                            "primal_feas" => primal_feas, 
+                            "dual_feas" => dual_feas, 
+                            "complementarity_feas" => complementarity_feas)
 
 
-            return KKT_res #true # all the tests were passed, x, λ respects feasability, complementarity respected, and ∇lag_x(x, λ) almost = 0
-    end
+                return KKT_res 
+        end
 end
 
 #######################
 
 
 
+function KKT_check(resol::GenericExecutionStats ; 
+                    kwargs...,
+                   ) ::Dict{String, Any}
+    
+    return KKT_check(resol.nlp, 
+                     resol.solution, 
+                     resol.solver_specific[:multipliers_con], 
+                     resol.solver_specific[:multipliers_U], 
+                     resol.solver_specific[:multipliers_L] ;
+                     kwargs...)
+end
 
+#######################
 
 
 
@@ -619,6 +712,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
 
     #** 0. Printing and file choices
         file_to_close = false
+
         if print_level_NCL >= 1  # Translation : We will print smthg, 
             if output_file_print_NCL # in a file
                 if output_file_name_NCL == "NCL.log"  #If the name is the default one, then we take the openned file (and won't close it at the end)
@@ -842,17 +936,18 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                                                         dual_inf_tol=1e-6, 
                                                                         max_iter = 1000)
                                 end
-                                    # Get variables
-                                    X_k = resolution_k.solution #pre-access
-                                    x_k = X_k[1:ncl.nvar_x]
-                                    r_k = X_k[ncl.nvar_x+1 : ncl.nvar_x+ncl.nvar_r]
-                                    norm_r_k_inf = norm(r_k,Inf) # update
 
-                                    # Get multipliers
-                                    #! Warning, ipopt doesn't use our convention in KKT_check for constraint multipliers, so we took the opposite. For bound multiplier it seems to work though.
-                                    λ_k = - resolution_k.solver_specific[:multipliers_con] 
-                                    z_k_U = resolution_k.solver_specific[:multipliers_U]
-                                    z_k_L = resolution_k.solver_specific[:multipliers_L]
+                                # Get variables
+                                X_k = resolution_k.solution #pre-access
+                                x_k = X_k[1:ncl.nvar_x]
+                                r_k = X_k[ncl.nvar_x+1 : ncl.nvar_x+ncl.nvar_r]
+                                norm_r_k_inf = norm(r_k,Inf) # update
+
+                                # Get multipliers
+                                #! Warning, ipopt doesn't use our convention in KKT_check for constraint multipliers, so we took the opposite. For bound multiplier it seems to work though.
+                                λ_k = - resolution_k.solver_specific[:multipliers_con] 
+                                z_k_U = resolution_k.solver_specific[:multipliers_U]
+                                z_k_L = resolution_k.solver_specific[:multipliers_L]
 
                             else # Knitro
                                 resolution_k = _knitro(ncl)::GenericExecutionStats
@@ -972,6 +1067,8 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                     
                                         status = resolution_k.status
                                         dual_feas::Float64 = (ncl.meta.ncon != 0) ? norm(grad(ncl.nlp, x_k) - jtprod(ncl.nlp, x_k, λ_k) - (z_k_L - z_k_U)[1:ncl.nvar_x], Inf) : norm(grad(ncl.nlp, x_k) - (z_k_L - z_k_U)[1:ncl.nvar_x], Inf)
+                                        #! it is important to let ncl.nlp here, to be sure you consider the nlp original problem (because of the fact that nlp in argument could already be a NCLModel.)
+                                        primal_feas = minimum(vcat(cons(ncl.nlp, x_k) - nlp.meta.lcon, nlp.meta.ucon - cons(ncl.nlp, x_k)))
                                         
                                     #* Print results
                                         if print_level_NCL >= 1
@@ -987,7 +1084,6 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                             end
 
                                             @printf(file, "============= Final Model =============")
-                                            print(ncl, current_X = X_k, current_λ = λ_k, current_z = z_k_U - z_k_L, print_level = print_level_NCL, output_file_print = output_file_print_NCL, output_file = file)
                                         end
                                     
                             #** II.B.2.3 Return if end of the algorithm
@@ -998,6 +1094,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                         return GenericExecutionStats(status, nlp, 
                                                                     solution = x_k,
                                                                     iter = k,
+                                                                    primal_feas = primal_feas,
                                                                     dual_feas = dual_feas,
                                                                     objective = obj(ncl.nlp, x_k), 
                                                                     elapsed_time = 0,
