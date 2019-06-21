@@ -211,7 +211,7 @@ using Printf
 	#** II.2 Gradient of the objective function
 		function NLPModels.grad(ncl::NCLModel, X::Vector{<:Float64}) ::Vector{<:Float64}
 			increment!(ncl, :neval_grad)
-			gx = vcat(grad(ncl.nlp, X[1:ncl.nvar_x]), ncl.ρ * X[ncl.nvar_x+1:end] + ncl.y)
+			gx = vcat(grad(ncl.nlp, X[1:ncl.nvar_x]), ncl.ρ * X[ncl.nvar_x+1:ncl.nvar_x + ncl.nvar_r] + ncl.y)
 			return gx
 		end
 
@@ -300,7 +300,7 @@ using Printf
 				Hv = hprod(ncl.nlp, X[1:ncl.nvar_x], v[1:ncl.nvar_x], obj_weight=obj_weight, y=y)
 			
 			# New information (due to residuals)
-				append!(Hv, ncl.ρ * v[ncl.nvar_x+1:end])
+				append!(Hv, ncl.ρ * v[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r])
 			
 			return Hv
 		end
@@ -318,7 +318,7 @@ using Printf
 				Hv[1:ncl.nvar_x] .= hprod!(ncl.nlp, X[1:ncl.nvar_x], v[1:ncl.nvar_x], Hv[1:ncl.nvar_x], obj_weight=obj_weight, y=y)
 			
 			# New information (due to residuals)
-			Hv[ncl.nvar_x+1:end] .= ncl.ρ * v[ncl.nvar_x+1:end]
+			Hv[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r] .= ncl.ρ * v[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r]
 			
 			return Hv
 		end
@@ -335,9 +335,9 @@ using Printf
 
 			# New information (due to residuals)
 				if ncl.res_lin_cons
-					cx += X[ncl.nvar_x+1:end] # a constraint on every residual
+					cx .+= X[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r] # a constraint on every residual
 				else
-					cx[ncl.nlp.meta.nln] += X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
+					cx[ncl.nlp.meta.nln] .+= X[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
 				end
 			
 			return cx
@@ -351,9 +351,9 @@ using Printf
 
 			# New information (due to residuals)
 				if ncl.res_lin_cons
-					cx .+= X[ncl.nvar_x+1:end]
+					cx .+= X[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r]
 				else
-					cx[ncl.nlp.meta.nln] .+= X[ncl.nvar_x+1:end] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
+					cx[ncl.nlp.meta.nln] .+= X[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
 				end
 
 			return cx
@@ -439,9 +439,9 @@ using Printf
 			# New information (due to residuals)
 				Resv = zeros(typeof(Jv[1,1]), ncl.meta.ncon)
 				if ncl.res_lin_cons
-					Resv += v[ncl.nvar_x+1:end]
+					Resv += v[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r]
 				else
-					Resv[ncl.nlp.meta.nln] += v[ncl.nvar_x+1:end]
+					Resv[ncl.nlp.meta.nln] += v[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r]
 				end
 
 			return Jv + Resv
@@ -461,9 +461,9 @@ using Printf
 			# New information (due to residuals)
 				Resv = zeros(typeof(Jv[1,1]), ncl.meta.ncon)
 				if ncl.res_lin_cons
-					Resv = v[ncl.nvar_x+1:end]
+					Resv = v[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r]
 				else
-					Resv[ncl.nlp.meta.nln] += v[ncl.nvar_x+1:end]
+					Resv[ncl.nlp.meta.nln] += v[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r]
 				end
 				Jv .+= Resv
 				
@@ -553,7 +553,7 @@ using Printf
 				if print_level >= 3
 					@printf(file, "\n    Variables\n")
 						@printf(file, "        ||x|| = %7.1e\n", norm(current_X[1:ncl.nvar_x], Inf))
-						@printf(file, "        ||r|| = %7.1e\n", norm(current_X[ncl.nvar_x+1:end], Inf))
+						@printf(file, "        ||r|| = %7.1e\n", norm(current_X[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r], Inf))
 
 					if print_level >= 4
 						@printf(file, "\n    Functions\n")
@@ -597,7 +597,7 @@ using Printf
 
 			@printf(file, "  ============= end of NCLModel print =============\n")
 			
-			if output_file_print & file_to_close
+			if file_to_close
 				close(file)
 			end
 
@@ -606,5 +606,34 @@ using Printf
 
 	end
 
+	import Base.println
 
+	function println(ncl::NCLModel ; 
+					 output_file_print::Bool = false, 
+					 output_file_name::String = "NCLModel_display", 
+					 output_file::IOStream = open("NCLModel_display", write=true),
+					 kwargs...
+					) ::Nothing
+		
+		file_to_close = false
 
+		if output_file_print # if it is in an output file
+			if output_file_name == "NCLModel_display" # if not specified by name, may be by IOStream, so we use this one
+				file = output_file
+			else # Otherwise, we open the file with the requested name and we will close it at the end
+				file = open(output_file_name, write=true)
+				file_to_close = true
+			end
+		else # or we print in stdout, if not specified.
+			file = stdout
+		end
+
+		print(ncl ; output_file_print=output_file_print, output_file_name=output_file_name, output_file=output_file, kwargs...)
+		print(file, "\n")
+
+		if file_to_close
+			close(file)
+		end
+	  
+	
+	end
