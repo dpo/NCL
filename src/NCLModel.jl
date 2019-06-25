@@ -96,7 +96,7 @@ using Printf
 				else # or we print in stdout, if not specified.
 					file = stdout
 				end
-				write(file, "\nNLCModel called on " * nlp.meta.name * "\n")
+				write(file, "\nNCLModel called on " * nlp.meta.name * "\n")
 
 				
 				if print_level >= 2 
@@ -318,7 +318,7 @@ using Printf
 				Hv[1:ncl.nvar_x] .= hprod!(ncl.nlp, X[1:ncl.nvar_x], v[1:ncl.nvar_x], Hv[1:ncl.nvar_x], obj_weight=obj_weight, y=y)
 			
 			# New information (due to residuals)
-			Hv[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r] .= ncl.ρ * v[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r]
+				Hv[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r] .= ncl.ρ * v[ncl.nvar_x+1:ncl.nvar_x+ncl.nvar_r]
 			
 			return Hv
 		end
