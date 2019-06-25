@@ -151,6 +151,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                      tol::Float64 = 1e-6,                                     # Tolerance for lagrangien gradient norm
                      constr_viol_tol::Float64 = 1e-4,                                     # Tolerance or constraint violation
                      compl_inf_tol::Float64 = 1e-4,                                     # Tolerance for complementarity
+                     
                      acc_factor::Float64 = 100.,
                      acceptable_tol::Float64 = acc_factor * tol,
                      acceptable_constr_viol_tol::Float64 = acc_factor * constr_viol_tol,
@@ -237,18 +238,18 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
             end
     
     #** I. Fast check
+        dual_feas = (nlp.meta.ncon != 0) ? norm(grad(nlp, x) - jtprod(nlp, x, λ) - z, Inf) : norm(grad(nlp, x) - z, Inf)
+        primal_feas = (nlp.meta.ncon != 0) ? minimum(vcat(cons(nlp, x) - nlp.meta.lcon, nlp.meta.ucon - cons(nlp, x))) : 0.
+
+        compl_bound_low = vcat(setdiff(z .* (x - nlp.meta.lvar), [Inf, -Inf, NaN]), 0.) # Just to get rid of infinite values (due to free variables or constraints)
+        compl_bound_upp = vcat(setdiff(z .* (x - nlp.meta.uvar), [Inf, -Inf, NaN]), 0.) # zeros are added just to avoid empty vectors (easier for comparison after, but has no influence)
+
+        compl_var_low = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.lcon), [Inf, -Inf]), 0.) : [0.]
+        compl_var_upp = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.ucon), [Inf, -Inf]), 0.) : [0.]
+
+        complementarity_feas = norm(vcat(compl_bound_low, compl_bound_upp, compl_var_low, compl_var_upp), Inf)
+
         if print_level <= 0
-            dual_feas = (nlp.meta.ncon != 0) ? norm(grad(nlp, x) - jtprod(nlp, x, λ) - z, Inf) : norm(grad(nlp, x) - z, Inf)
-            primal_feas = (nlp.meta.ncon != 0) ? minimum(vcat(cons(nlp, x) - nlp.meta.lcon, nlp.meta.ucon - cons(nlp, x))) : 0.
-
-            compl_bound_low = vcat(setdiff(z .* (x - nlp.meta.lvar), [Inf, -Inf, NaN]), 0.) # Just to get rid of infinite values (due to free variables or constraints)
-            compl_bound_upp = vcat(setdiff(z .* (x - nlp.meta.uvar), [Inf, -Inf, NaN]), 0.) # zeros are added just to avoid empty vectors (easier for comparison after, but has no influence)
-
-            compl_var_low = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.lcon), [Inf, -Inf]), 0.) : [0.]
-            compl_var_upp = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.ucon), [Inf, -Inf]), 0.) : [0.]
-
-            complementarity_feas = norm(vcat(compl_bound_low, compl_bound_upp, compl_var_low, compl_var_upp), Inf)
-
             if dual_feas >= ω
                 optimal = false
                 if dual_feas >= acc_ω
@@ -618,21 +619,6 @@ end
 
 #######################
 
-
-
-function KKT_check(resol::GenericExecutionStats ; 
-                    kwargs...,
-                   ) ::Dict{String, Any}
-    
-    return KKT_check(resol.nlp, 
-                     resol.solution, 
-                     resol.solver_specific[:multipliers_con], 
-                     resol.solver_specific[:multipliers_U], 
-                     resol.solver_specific[:multipliers_L] ;
-                     kwargs...)
-end
-
-#######################
 
 
 
@@ -1098,6 +1084,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                                                     dual_feas = dual_feas,
                                                                     objective = obj(ncl.nlp, x_k), 
                                                                     elapsed_time = 0,
+                                                                    #! doesn't work... counters = nlp.counters,
                                                                     solver_specific = Dict(:multipliers_con => λ_k,
                                                                                            :multipliers_L => z_k_L[1:ncl.nvar_x],
                                                                                            :multipliers_U => z_k_U[1:ncl.nvar_x],
