@@ -511,6 +511,8 @@ using Printf
 
 
 #** External function
+	import Base.print
+
 	"""
 	###########################
 	Print function for NCLModel
