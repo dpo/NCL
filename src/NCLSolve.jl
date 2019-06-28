@@ -684,7 +684,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
      
                    #* Options for NCL
                      max_penal::Float64 = 1e15,                                           # Maximal penalization authorized (ρ_max)
-                     min_infeas::Float64 = 1e-8,                                          # Minimal infeasability authorized (η_min)
+                     min_infeas::Float64 = 1e-10,                                          # Minimal infeasability authorized (η_min)
                      max_iter_NCL::Int64 = 20,                                            # Maximum number of iterations for the NCL method
                      print_level_NCL::Int64 = 0,                                          # Options for printing iterations of the NCL method : 0, nothing; 
                                                                                                                                            # 1, calls to functions and conclusion; 
