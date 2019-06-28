@@ -708,41 +708,34 @@ function pb_set_resolution_data( ; #No arguments, only key-word arguments
 							cutest_pb_index_set::Vector{Int64} = [i for i in 1:length(cutest_pb_set)],
 
 						#* Solver arguments
-							solver::String = "ipopt",
-							print_level_solver::Int64 = 0,
+							solver::Vector{String} = ["ipopt", "nclres", "nclkkt"], #can contain ipopt
+																			# knitro
+																			# nclres (stops when norm(r) is small enough, not checking kkt conditions during iterations)
+																			# nclkkt (stops when fitting KKT conditions, or fitting to acceptable level)
 							max_iter_solver::Int64 = 1000,
 						
 						#* NLP Arguments
 							nlp_generic_pb_name::String = "NLP_HS", 
 							nlp_pb_set::Vector{<:AbstractNLPModel} = [hs13()],
 							nlp_pb_index_set::Vector{Int64} = [1], 
-						
-						#* Latex ?
-							generate_latex::Bool = true
 						)
-	cutest_info::Array{Int64, 2} = Array{Int64, 2}(undef, length(cutest_pb_index_set), 2)
-	cutest_names::Vector{String} = Vector{String}(undef, length(cutest_pb_index_set))
 
-	cutest_calls_ncl::Array{Int64, 2} = Array{Int64, 2}(undef, length(cutest_pb_index_set), 2)
-	cutest_calls_solver::Array{Int64, 2} = Array{Int64, 2}(undef, length(cutest_pb_index_set), 2)
+	n_solver = length(solver)
+	n_cutest = length(cutest_pb_index_set)
+	n_nlp = length(nlp_pb_index_set)
 
-	resol_cutest_ncl::Vector{GenericExecutionStats} = Vector{GenericExecutionStats}(undef, length(cutest_pb_index_set))
-	kkt_cutest_ncl::Vector{Dict{String,Any}} = Vector{Dict{String,Any}}(undef, length(cutest_pb_index_set))
 
-	resol_cutest_solver::Vector{GenericExecutionStats} = Vector{GenericExecutionStats}(undef, length(cutest_pb_index_set))
-	kkt_cutest_solver::Vector{Dict{String,Any}} = Vector{Dict{String,Any}}(undef, length(cutest_pb_index_set))
+	info_cutest::Array{Int64, 2} = Array{Int64, 2}(undef, n_cutest, 2) # 1: nvar, 2: ncon
+	names_cutest::Vector{String} = Vector{String}(undef, n_cutest) 
+	time_cutest::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_cutest, 5) # (n_solver rows, n_cutest cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
+	resol_cutest::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_cutest)
+	kkt_cutest::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_cutest)
 
-	
-	nlp_info::Array{Int64, 2} = Array{Int64, 2}(undef, length(nlp_pb_index_set), 2)
-	nlp_names::Vector{String} = Vector{String}(undef, length(nlp_pb_index_set))
-	nlp_calls_ncl::Array{Int64, 2} = Array{Int64, 2}(undef, length(nlp_pb_index_set), 2)
-	nlp_calls_solver::Array{Int64, 2} = Array{Int64, 2}(undef, length(nlp_pb_index_set), 2)
-
-	resol_nlp_ncl::Vector{GenericExecutionStats} = Vector{GenericExecutionStats}(undef, length(nlp_pb_index_set))
-	kkt_nlp_ncl::Vector{Dict{String,Any}} = Vector{Dict{String,Any}}(undef, length(nlp_pb_index_set))
-
-	resol_nlp_solver::Vector{GenericExecutionStats} = Vector{GenericExecutionStats}(undef, length(nlp_pb_index_set))
-	kkt_nlp_solver::Vector{Dict{String,Any}} = Vector{Dict{String,Any}}(undef, length(nlp_pb_index_set))
+	info_nlp::Array{Int64, 2} = Array{Int64, 2}(undef, n_nlp, 2) # 1: nvar, 2: ncon
+	names_nlp::Vector{String} = Vector{String}(undef, n_nlp) 
+	time_nlp::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_nlp, 5) # (n_solver rows, n_nlp cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
+	resol_nlp::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_nlp)
+	kkt_nlp::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_nlp)
 
 	#** I. CUTEst problem set
 		#** I.0 Directory check
@@ -758,82 +751,102 @@ function pb_set_resolution_data( ; #No arguments, only key-word arguments
 			#** I.1 Problem
 				nlp = CUTEstModel(cutest_pb_set[i])
 
-				cutest_info[k, 1] = nlp.meta.nvar
-				cutest_info[k, 2] = nlp.meta.ncon
+				info_cutest[k, 1] = nlp.meta.nvar
+				info_cutest[k, 2] = nlp.meta.ncon
 
-				cutest_names[k] = nlp.meta.name
+				names_cutest[k] = nlp.meta.name
 
 			#** I.2 Resolution
-				#* I.2.1 NCL resolution
-					reset!(nlp.counters)
-					resol_ncl = NCLSolve(nlp ;
+				for i in 1:n_solver
+					if solver[i] == "nclres"
+						reset!(nlp.counters)
+						resol_nclres, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCLSolve(nlp ;
 							max_iter_NCL = 20,
 							tol = tol,
 							constr_viol_tol = constr_viol_tol,
 							compl_inf_tol = compl_inf_tol,
 							acc_factor = acc_factor,
 							max_iter_solver = 1000,
-							print_level_NCL = 6,
-							print_level_solver = 0,
 							linear_residuals = linear_residuals,
-							KKT_checking = KKT_checking,
-							output_file_print_NCL = true,
-							output_file_print_solver = false,
-							output_file_NCL = file_cutest,
+							KKT_checking = false,
 							warm_start_init_point = "yes")
+						
+						
 
-					@printf(file_cutest, "\n=================\n")
-					cutest_calls_ncl[k, 1] = nlp.counters.neval_obj
-					cutest_calls_ncl[k, 2] = nlp.counters.neval_cons
+						time_cutest[i, k, 1] = nlp.counters.neval_obj
+						time_cutest[i, k, 2] = nlp.counters.neval_cons
 
-					kkt_cutest_ncl[k] = KKT_check(nlp, 
-								resol_ncl.solution, 
-								resol_ncl.solver_specific[:multipliers_con], 
-								resol_ncl.solver_specific[:multipliers_U], 
-								resol_ncl.solver_specific[:multipliers_L] ; 
-								tol = tol,
-								constr_viol_tol = constr_viol_tol,
-								compl_inf_tol = compl_inf_tol,
-								print_level = 3, 
-								output_file_print = true,
-								output_file = file_cutest
-								)
+						kkt_cutest[i, k] = KKT_check(nlp, 
+									resol_nclres.solution, 
+									resol_nclres.solver_specific[:multipliers_con], 
+									resol_nclres.solver_specific[:multipliers_U], 
+									resol_nclres.solver_specific[:multipliers_L] ; 
+									tol = tol,
+									constr_viol_tol = constr_viol_tol,
+									compl_inf_tol = compl_inf_tol,
+									)
+	
+						resol_cutest[i, k] = resol_nclres
+					end
 
-					resol_cutest_ncl[k] = resol_ncl
+					if solver[i] == "nclkkt"
+						reset!(nlp.counters)
+						resol_nclkkt, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCLSolve(nlp ;
+							max_iter_NCL = 20,
+							tol = tol,
+							constr_viol_tol = constr_viol_tol,
+							compl_inf_tol = compl_inf_tol,
+							acc_factor = acc_factor,
+							max_iter_solver = 1000,
+							linear_residuals = linear_residuals,
 
-				#* I.2.1 Solver resolution
+							KKT_checking = true,
 
-					#if solver == "ipopt" 
-					reset!(nlp.counters)
-					resol_solver = NLPModelsIpopt.ipopt(nlp ; max_iter = max_iter_solver,
+							warm_start_init_point = "yes")
+						
+						
+					
+						time_cutest[i, k, 1] = nlp.counters.neval_obj
+						time_cutest[i, k, 2] = nlp.counters.neval_cons
+
+						kkt_cutest[i, k] = KKT_check(nlp, 
+									resol_nclkkt.solution, 
+									resol_nclkkt.solver_specific[:multipliers_con], 
+									resol_nclkkt.solver_specific[:multipliers_U], 
+									resol_nclkkt.solver_specific[:multipliers_L] ; 
+									tol = tol,
+									constr_viol_tol = constr_viol_tol,
+									compl_inf_tol = compl_inf_tol,
+									)
+	
+						resol_cutest[i, k] = resol_nclkkt
+					end
+
+					if solver[i] == "ipopt"
+						reset!(nlp.counters)
+						resol_solver, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(nlp ; max_iter = max_iter_solver,
 													tol = tol,
 													constr_viol_tol = constr_viol_tol,
 													compl_inf_tol = compl_inf_tol,
-													print_level = print_level_solver)
+													print_level = 0,
+													ignore_time = true)
 
 					
-					@printf(file_cutest, "\n\n=== Checking solver resolution ===\n")
-					
-					cutest_calls_solver[k, 1] = nlp.counters.neval_obj
-					cutest_calls_solver[k, 2] = nlp.counters.neval_cons
+						time_cutest[i, k, 1] = nlp.counters.neval_obj
+						time_cutest[i, k, 2] = nlp.counters.neval_cons
 
-					kkt_cutest_solver[k] = KKT_check(nlp, 
-										resol_solver.solution, 
-										resol_solver.solver_specific[:multipliers_con], 
-										resol_solver.solver_specific[:multipliers_U], 
-										resol_solver.solver_specific[:multipliers_L] ;   
-										
-										tol = tol,
-										constr_viol_tol = constr_viol_tol,
-										compl_inf_tol = compl_inf_tol,
-										
-										print_level = 3, 
-										output_file_print = true,
-										output_file = file_cutest
-										)
-			
-					resol_cutest_solver[k] = resol_solver
-			
+						kkt_cutest[i, k] = KKT_check(nlp, 
+									resol_solver.solution, 
+									resol_solver.solver_specific[:multipliers_con], 
+									resol_solver.solver_specific[:multipliers_U], 
+									resol_solver.solver_specific[:multipliers_L] ; 
+									tol = tol,
+									constr_viol_tol = constr_viol_tol,
+									compl_inf_tol = compl_inf_tol)
+	
+						resol_cutest[i, k] = resol_solver
+					end
+				end
 			finalize(nlp)
 		end
 
@@ -853,157 +866,179 @@ function pb_set_resolution_data( ; #No arguments, only key-word arguments
 			#** II.1 Problem
 				nlp = nlp_pb_set[i]
 
-				nlp_info[k, 1] = nlp.meta.nvar
-				nlp_info[k, 2] = nlp.meta.ncon
+				info_nlp[k, 1] = nlp.meta.nvar
+				info_nlp[k, 2] = nlp.meta.ncon
 
-				nlp_names[k] = nlp.meta.name
+				names_nlp[k] = nlp.meta.name
 
 			#** II.2 Resolution
-				#** II.2.1 NCL resolution
-					reset!(nlp.counters)
-					resol_ncl = NCLSolve(nlp ;
-									max_iter_NCL = 20,
-									max_iter_solver = 1000,
+				for i in 1:n_solver
+					if solver[i] == "nclres"
+						reset!(nlp.counters)
+						resol_nclres, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCLSolve(nlp ;
+																																max_iter_NCL = 20,
+																																tol = tol,
+																																constr_viol_tol = constr_viol_tol,
+																																compl_inf_tol = compl_inf_tol,
+																																acc_factor = acc_factor,
+																																max_iter_solver = 1000,
+																																linear_residuals = linear_residuals,
+
+							KKT_checking = false,
+							warm_start_init_point = "yes")
+						
+						time_nlp[i, k, 1] = nlp.counters.neval_obj
+						time_nlp[i, k, 2] = nlp.counters.neval_cons
+
+						kkt_nlp[i, k] = KKT_check(nlp, 
+									resol_nclres.solution, 
+									resol_nclres.solver_specific[:multipliers_con], 
+									resol_nclres.solver_specific[:multipliers_U], 
+									resol_nclres.solver_specific[:multipliers_L] ; 
 									tol = tol,
 									constr_viol_tol = constr_viol_tol,
-									compl_inf_tol = compl_inf_tol,
-									acc_factor = acc_factor,
-									print_level_NCL = 6,
-									print_level_solver = 0,
-									linear_residuals = linear_residuals,
-									KKT_checking = KKT_checking,
-									output_file_print_NCL = true,
-									output_file_NCL = file_nlp,
-									warm_start_init_point = "yes")
-					
-					nlp_calls_ncl[k, 1] = nlp.counters.neval_obj
-					nlp_calls_ncl[k, 2] = nlp.counters.neval_cons
-					
-					kkt_nlp_ncl[k] = KKT_check(nlp, 
-											resol_ncl.solution, 
-											resol_ncl.solver_specific[:multipliers_con], 
-											resol_ncl.solver_specific[:multipliers_U], 
-											resol_ncl.solver_specific[:multipliers_L] ; 
-											tol = tol,
-											constr_viol_tol = constr_viol_tol,
-											compl_inf_tol = compl_inf_tol,
-											
-											print_level = 3, 
-											output_file_print = true,
-											output_file = file_nlp)
-					  
-					resol_nlp_ncl[k] = resol_ncl
+									compl_inf_tol = compl_inf_tol)
 
-				#** II.2.2 Solver resolution
-					#if solver == "ipopt" 
-					reset!(nlp.counters)
+						resol_nlp[i, k] = resol_nclres
+					end
 
-					resol_solver = NLPModelsIpopt.ipopt(nlp ; max_iter = max_iter_solver,
+					if solver[i] == "nclkkt"
+						reset!(nlp.counters)
+						resol_nclkkt, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCLSolve(nlp ;
+							max_iter_NCL = 20,
+							tol = tol,
+							constr_viol_tol = constr_viol_tol,
+							compl_inf_tol = compl_inf_tol,
+							acc_factor = acc_factor,
+							max_iter_solver = 1000,
+							linear_residuals = linear_residuals,
+
+							KKT_checking = true,
+							warm_start_init_point = "yes")
+						
+						
+					
+						
+						time_nlp[i, k, 1] = nlp.counters.neval_obj
+						time_nlp[i, k, 2] = nlp.counters.neval_cons
+
+						kkt_nlp[i, k] = KKT_check(nlp, 
+									resol_nclkkt.solution, 
+									resol_nclkkt.solver_specific[:multipliers_con], 
+									resol_nclkkt.solver_specific[:multipliers_U], 
+									resol_nclkkt.solver_specific[:multipliers_L] ; 
+									tol = tol,
+									constr_viol_tol = constr_viol_tol,
+									compl_inf_tol = compl_inf_tol)
+
+						resol_nlp[i, k] = resol_nclkkt
+					end
+
+					if solver[i] == "ipopt"
+						reset!(nlp.counters)
+						resol_solver, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(nlp ; max_iter = max_iter_solver,
 													tol = tol,
 													constr_viol_tol = constr_viol_tol,
 													compl_inf_tol = compl_inf_tol,
-													print_level = print_level_solver)
-					
-					
+													print_level = 0,
+													ignore_time = true)
 
-					@printf(file_nlp, "\n\n=== Checking solver resolution ===\n")
-					
-					nlp_calls_solver[k, 1] = nlp.counters.neval_obj
-					nlp_calls_solver[k, 2] = nlp.counters.neval_cons
+						time_nlp[i, k, 1] = nlp.counters.neval_obj
+						time_nlp[i, k, 2] = nlp.counters.neval_cons
 
-					kkt_nlp_solver[k] = KKT_check(nlp, 
-										resol_solver.solution, 
-										resol_solver.solver_specific[:multipliers_con], 
-										resol_solver.solver_specific[:multipliers_U], 
-										resol_solver.solver_specific[:multipliers_L] ;   
-										
-										tol = tol,
-										constr_viol_tol = constr_viol_tol,
-										compl_inf_tol = compl_inf_tol,
-										
-										print_level = 3, 
-										output_file_print = true,
-										output_file = file_nlp
-										)
-					
-					resol_nlp_solver[k] = resol_solver
+						kkt_nlp[i, k] = KKT_check(nlp, 
+									resol_solver.solution, 
+									resol_solver.solver_specific[:multipliers_con], 
+									resol_solver.solver_specific[:multipliers_U], 
+									resol_solver.solver_specific[:multipliers_L] ; 
+									tol = tol,
+									constr_viol_tol = constr_viol_tol,
+									compl_inf_tol = compl_inf_tol)
 
-			@printf(file_nlp, "\n============= End of resolution =============\n\n\n\n\n")
+						resol_nlp[i, k] = resol_solver
+					end
+				end
 		
 		end
 
 		close(file_nlp)
 
 	#** III. Data frames
-		info = vcat(cutest_info, nlp_info)
-		names = vcat(cutest_names, nlp_names)
+		info = vcat(info_cutest, info_nlp)
+		names = vcat(names_cutest, names_nlp)
 
-		resol_ncl = vcat(resol_cutest_ncl, resol_nlp_ncl)
-		kkt_ncl = vcat(kkt_cutest_ncl, kkt_nlp_ncl)
-		calls_ncl = vcat(cutest_calls_ncl, nlp_calls_ncl)
-		
-		resol_solver = vcat(resol_cutest_solver, resol_nlp_solver)
-		kkt_solver = vcat(kkt_cutest_solver, kkt_nlp_solver)
-		calls_solver = vcat(cutest_calls_solver, nlp_calls_solver)
+		resol = hcat(resol_cutest, resol_nlp)
+		kkt = hcat(kkt_cutest, kkt_nlp)
+		time = hcat(time_cutest, time_nlp)
 
-		n_pb = length(cutest_pb_index_set) + length(nlp_pb_index_set)
+		n_pb = n_cutest + n_nlp
 		
 
-		stats = Dict(
-					"NCL" => DataFrame(
-						:name => [names[k] for k in 1:n_pb],
+		stats = Dict(solver[i] => (solver[i] == "ipopt") ? 
+									DataFrame(Symbol("\\textbf{Problem}") => [names[k] for k in 1:n_pb],
+											Symbol("\$n_{var}\$") 													=> [info[k, 1] for k in 1:n_pb],
+											Symbol("\$n_{con}\$") 													=> [info[k, 2] for k in 1:n_pb],
 
-						:n_var => [info[k, 1] for k in 1:n_pb],
-						:n_con => [info[k, 2] for k in 1:n_pb],
+											Symbol("\$n_{iter}^{$(solver[i])}\$") 									=> [resolution.iter for resolution in resol[i, :]],
 
-						:n_iter_ncl => [resol.iter for resol in resol_ncl],
+											Symbol("\$f^{$(solver[i])}\\left(x \\right)\$") 						=> [resolution.objective for resolution in resol[i, :]],
 
-						:obj_val_ncl => [resol.objective for resol in resol_ncl],
+											Symbol("\$f_{eval}^{$(solver[i])}\$") 									=> [Float64(time[i, k, 1]) for k in 1:n_pb],
+											Symbol("\$c_{eval}^{$(solver[i])}\$") 									=> [Float64(time[i, k, 2]) for k in 1:n_pb],
+											Symbol("\$time^{$(solver[i])}\$")										=> [time[i, k, 3] for k in 1:n_pb],
+											Symbol("\$bytes^{$(solver[i])}\$")										=> [Float64(time[i, k, 4]) for k in 1:n_pb],
+											Symbol("\$gctime^{$(solver[i])}\$")										=> [Float64(time[i, k, 5]) for k in 1:n_pb],
 
-						:obj_call_ncl => [calls_ncl[k, 1] for k in 1:n_pb],
-						:cons_call_ncl => [calls_ncl[k, 2] for k in 1:n_pb],
+											Symbol("\$ \\left\\Vert \\lambda^{$(solver[i])} \\right\\Vert\$") 		=> [norm(vcat(resolution.solver_specific[:multipliers_con], (resolution.solver_specific[:multipliers_L] - resolution.solver_specific[:multipliers_U])), Inf) for resolution in resol[i, :]],
+											Symbol("\$feas^{$(solver[i])}\$") 						    			=> [kkt_res["primal_feas"] for kkt_res in kkt[i, :]],
+											Symbol("\$compl^{$(solver[i])}\$") 						    			=> [kkt_res["complementarity_feas"] for kkt_res in kkt[i, :]],
+											Symbol("\$ \\left\\Vert \\nabla_{x} L^{$(solver[i])} \\right\\Vert\$") 	=> [kkt_res["dual_feas"] for kkt_res in kkt[i, :]],
+											
+											Symbol("{$(solver[i])} succeeded ?") 									=> [Symbol(resolution.solver_specific[:internal_msg]) for resolution in resol[i, :]],
+											Symbol("\$KKT^{$(solver[i])}\$") 										=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
+											Symbol("\$KKT_{acc}^{$(solver[i])}\$") 									=> [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]]) 
+									:
+									DataFrame(Symbol("\\textbf{Problem}") => [names[k] for k in 1:n_pb],
 
-						:norm_mult_ncl => [norm(vcat(resol.solver_specific[:multipliers_con], (resol.solver_specific[:multipliers_L] - resol.solver_specific[:multipliers_U])), Inf) for resol in resol_ncl],
-						:norm_grad_lag_ncl => [resol.dual_feas for resol in resol_ncl],
-						:complementarity_ncl => [kkt["complementarity_feas"] for kkt in kkt_ncl],
-						:feasability_ncl => [kkt["primal_feas"] for kkt in kkt_ncl],
-						:norm_r_ncl => [haskey(resol.solver_specific, :residuals) ? norm(resol.solver_specific[:residuals], Inf) : 0. for resol in resol_ncl],
+											Symbol("\$n_{var}\$") 													=> [info[k, 1] for k in 1:n_pb],
+											Symbol("\$n_{con}\$") 													=> [info[k, 2] for k in 1:n_pb],
 
-						:optimal_res => [Symbol(haskey(resol.solver_specific, :residuals) ? (norm(resol.solver_specific[:residuals], Inf) <= tol) : true) for resol in resol_ncl],
-						:acceptable_res => [Symbol(haskey(resol.solver_specific, :residuals) ? (norm(resol.solver_specific[:residuals], Inf) <= acc_factor * tol) : true) for resol in resol_ncl],
-						:optimal_kkt_ncl => [Symbol(kkt["optimal"]) for kkt in kkt_ncl],
-						:acceptable_kkt_ncl => [Symbol(kkt["acceptable"]) for kkt in kkt_ncl]
-						),
+											Symbol("\$n_{iter}^{$(solver[i])}\$") 									=> [resolution.iter for resolution in resol[i, :]],
 
-					"Solver" => DataFrame(
-						:name => [names[k] for k in 1:n_pb],
+											Symbol("\$f^{$(solver[i])}\\left(x \\right)\$") 						=> [resolution.objective for resolution in resol[i, :]],
 
-						:n_var => [info[k, 1] for k in 1:n_pb],
-						:n_con => [info[k, 2] for k in 1:n_pb],
-						:n_iter_solver => [resol.iter for resol in resol_solver],
+											Symbol("\$f_{eval}^{$(solver[i])}\$") 									=> [Float64(time[i, k, 1]) for k in 1:n_pb],
+											Symbol("\$c_{eval}^{$(solver[i])}\$") 									=> [Float64(time[i, k, 2]) for k in 1:n_pb],
+											Symbol("\$time^{$(solver[i])}\$")										=> [time[i, k, 3] for k in 1:n_pb],
+											Symbol("\$bytes^{$(solver[i])}\$")										=> [Float64(time[i, k, 4]) for k in 1:n_pb],
+											Symbol("\$gctime^{$(solver[i])}\$")										=> [Float64(time[i, k, 5]) for k in 1:n_pb],
 
-						:obj_val_solver => [resol.objective for resol in resol_solver],
+											Symbol("\$feas^{$(solver[i])}\$") 										=> [kkt_res["primal_feas"] for kkt_res in kkt[i, :]],
+											Symbol("\$compl^{$(solver[i])}\$") 										=> [kkt_res["complementarity_feas"] for kkt_res in kkt[i, :]],
+											Symbol("\$ \\left\\Vert \\lambda^{$(solver[i])} \\right\\Vert\$") 		=> [norm(vcat(resolution.solver_specific[:multipliers_con], (resolution.solver_specific[:multipliers_L] - resolution.solver_specific[:multipliers_U])), Inf) for resolution in resol[i, :]],
+											Symbol("\$ \\left\\Vert \\nabla_{x} L^{$(solver[i])} \\right\\Vert\$") 	=> [kkt_res["dual_feas"] for kkt_res in kkt[i, :]],
+											Symbol("\$ \\left\\Vert r^{$(solver[i])} \\right\\Vert\$") 				=> [haskey(resolution.solver_specific, :residuals) ? norm(resolution.solver_specific[:residuals], Inf) : 0. for resolution in resol[i, :]],
 
-						:obj_call_solver => [calls_solver[k, 1] for k in 1:n_pb],
-						:cons_call_solver => [calls_solver[k, 2] for k in 1:n_pb],
+											Symbol("\$ \\left\\Vert r^{$(solver[i])} \\right\\Vert \\,\\leq ?\\, \\eta_\\infty\$") 	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= tol) : true) for resolution in resol[i, :]],
+											Symbol("\$ \\left\\Vert r^{$(solver[i])} \\right\\Vert \\,\\leq ?\\, \\eta_{acc}\$") 	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= acc_factor * tol) : true) for resolution in resol[i, :]],
+											Symbol("\$KKT^{$(solver[i])}\$") 										=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
+											Symbol("\$KKT_{acc}^{$(solver[i])}\$") 									=> [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]]) 
+									for i in 1:n_solver)
+									
 
-						:norm_mult_solver => [norm(vcat(resol.solver_specific[:multipliers_con], (resol.solver_specific[:multipliers_L] - resol.solver_specific[:multipliers_U])), Inf) for resol in resol_solver],
-						:complementarity_solver => [kkt["complementarity_feas"] for kkt in kkt_solver],
-						:feasability_solver => [kkt["primal_feas"] for kkt in kkt_solver],
-						:norm_grad_lag_solver => [resol.dual_feas for resol in resol_solver],
 
-						:solver_terminated => [resol.solver_specific[:internal_msg] for resol in resol_solver],
-						:optimal_kkt_solver => [Symbol(kkt["optimal"]) for kkt in kkt_solver],
-						:acceptable_kkt_solver => [Symbol(kkt["acceptable"]) for kkt in kkt_solver]
-						)
-					)
 
 	md_file = open("../res/md_table", write = true)
-	markdown_table(md_file, join(stats["NCL"], stats["Solver"] ; on = [Symbol(:name), Symbol(:n_var), Symbol(:n_con)]))
+	df_res = stats[solver[1]]
+
+	for i in 2:n_solver
+		df_res = join(df_res, stats[solver[i]] ; on = [Symbol("\\textbf{Problem}"), Symbol("\$n_{var}\$"), Symbol("\$n_{con}\$")], makeunique = true)
+	end
+	markdown_table(md_file, df_res)
 	close(md_file)
 
 	ltx_file = open("../res/ltx_table.tex", write = true)
-	latex_table(ltx_file, join(stats["NCL"], stats["Solver"]  ; on = [Symbol(:name), Symbol(:n_var), Symbol(:n_con)]))
+	latex_table(ltx_file, df_res)
 	close(ltx_file)
 end
 
@@ -1014,4 +1049,4 @@ end
 
 
 
-pb_set_resolution_data(generate_latex = false, cutest_pb_index_set = [i for i in 1:57])
+pb_set_resolution_data(cutest_pb_set = ["TAX53322"], cutest_pb_index_set = [1])
