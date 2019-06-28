@@ -35,8 +35,6 @@ include("NCLModel.jl")
     # TODO (recherche) : ajuster eta_end
 
     # TODO (Plus tard) : Pierric pour choix de alpha, beta, tau...
-    # TODO (Plus tard) : print de tableau LaTeX aussi
-
 ########## TODO ########
 ########## TODO ########
 ########## TODO ########
@@ -238,89 +236,105 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
             end
     
     #** I. Fast check
-        dual_feas = (nlp.meta.ncon != 0) ? norm(grad(nlp, x) - jtprod(nlp, x, λ) - z, Inf) : norm(grad(nlp, x) - z, Inf)
-        primal_feas = (nlp.meta.ncon != 0) ? minimum(vcat(cons(nlp, x) - nlp.meta.lcon, nlp.meta.ucon - cons(nlp, x))) : 0.
+        #** I.1 Computation
+            dual_feas = (nlp.meta.ncon != 0) ? norm(grad(nlp, x) - jtprod(nlp, x, λ) - z, Inf) : norm(grad(nlp, x) - z, Inf)
+            primal_feas = (nlp.meta.ncon != 0) ? minimum(vcat(cons(nlp, x) - nlp.meta.lcon, nlp.meta.ucon - cons(nlp, x))) : 0.
 
-        compl_bound_low = vcat(setdiff(z .* (x - nlp.meta.lvar), [Inf, -Inf, NaN]), 0.) # Just to get rid of infinite values (due to free variables or constraints)
-        compl_bound_upp = vcat(setdiff(z .* (x - nlp.meta.uvar), [Inf, -Inf, NaN]), 0.) # zeros are added just to avoid empty vectors (easier for comparison after, but has no influence)
+            compl_bound_low = vcat(setdiff(z .* (x - nlp.meta.lvar), [Inf, -Inf, NaN]), 0.) # Just to get rid of infinite values (due to free variables or constraints)
+            compl_bound_upp = vcat(setdiff(z .* (x - nlp.meta.uvar), [Inf, -Inf, NaN]), 0.) # zeros are added just to avoid empty vectors (easier for comparison after, but has no influence)
+            
+            if length(compl_bound_low) < length(compl_bound_upp)
+                append!(compl_bound_low, zeros(Float64, length(compl_bound_upp) - length(compl_bound_low)))
+            else
+                append!(compl_bound_upp, zeros(Float64, length(compl_bound_low) - length(compl_bound_upp)))
+            end
 
-        compl_var_low = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.lcon), [Inf, -Inf]), 0.) : [0.]
-        compl_var_upp = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.ucon), [Inf, -Inf]), 0.) : [0.]
 
-        complementarity_feas = norm(vcat(compl_bound_low, compl_bound_upp, compl_var_low, compl_var_upp), Inf)
+            compl_var_low = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.lcon), [Inf, -Inf]), 0.) : [0.]
+            compl_var_upp = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.ucon), [Inf, -Inf]), 0.) : [0.]
+
+            if length(compl_var_low) < length(compl_var_upp)
+                append!(compl_var_low, zeros(Float64, length(compl_var_upp) - length(compl_var_low)))
+            else
+                append!(compl_var_upp, zeros(Float64, length(compl_var_low) - length(compl_var_upp)))
+            end
+
+
+            complementarity_feas = norm(vcat(compl_bound_low, compl_bound_upp, compl_var_low, compl_var_upp), Inf)
 
         if print_level <= 0
-            if dual_feas >= ω
-                optimal = false
-                if dual_feas >= acc_ω
-                    acceptable = false
+            #** I.2 Tests
+                if dual_feas >= ω
+                    optimal = false
+                    if dual_feas >= acc_ω
+                        acceptable = false
 
-                    KKT_res = Dict("optimal" => optimal, 
-                            "acceptable" => acceptable, 
-                            "primal_feas" => primal_feas,
-                            "norm_grad_lag" => dual_feas, 
-                            "complementarity_feas" => complementarity_feas)
+                        KKT_res = Dict("optimal" => optimal, 
+                                "acceptable" => acceptable, 
+                                "primal_feas" => primal_feas,
+                                "dual_feas" => dual_feas,
+                                "complementarity_feas" => complementarity_feas)
 
-                    return KKT_res 
+                        return KKT_res 
+                    end
                 end
-            end
 
-            if primal_feas <= - η
-                optimal = false
+                if primal_feas <= - η
+                    optimal = false
 
-                if primal_feas <= - acc_η
-                    acceptable = false
+                    if primal_feas <= - acc_η
+                        acceptable = false
 
-                    KKT_res = Dict("optimal" => optimal, 
+                        KKT_res = Dict("optimal" => optimal, 
+                                "acceptable" => acceptable,
+                                "primal_feas" => primal_feas, 
+                                "dual_feas" => dual_feas, 
+                                "complementarity_feas" => complementarity_feas)
+
+                        return KKT_res 
+                    end
+                end
+
+                if any(.!(-ϵ .<= compl_bound_low .<= ϵ)  .&  .!(-ϵ .<= compl_bound_upp .<= ϵ))
+                    optimal = false
+                    
+                    if any(.!(-acc_ϵ .<= compl_bound_low .<= acc_ϵ)  .&  .!(-acc_ϵ .<= compl_bound_upp .<= acc_ϵ))
+                        acceptable = false
+
+                        KKT_res = Dict("optimal" => optimal, 
+                                "acceptable" => acceptable,
+                                "primal_feas" => primal_feas, 
+                                "dual_feas" => dual_feas, 
+                                "complementarity_feas" => complementarity_feas)
+
+                        return KKT_res 
+                    end
+                end
+
+                if any(.!(-ϵ .<= compl_var_low .<= ϵ)  .&  .!(-ϵ .<= compl_var_upp .<= ϵ))
+                    optimal = false
+                    
+                    if any(.!(-acc_ϵ .<= compl_var_low .<= acc_ϵ)  .&  .!(-acc_ϵ .<= compl_var_upp .<= acc_ϵ))
+                        acceptable = false
+
+                        KKT_res = Dict("optimal" => optimal, 
+                                "acceptable" => acceptable,
+                                "primal_feas" => primal_feas, 
+                                "dual_feas" => dual_feas, 
+                                "complementarity_feas" => complementarity_feas)
+
+                        return KKT_res 
+                    end
+                end
+
+
+                KKT_res = Dict("optimal" => optimal, 
                             "acceptable" => acceptable,
                             "primal_feas" => primal_feas, 
                             "dual_feas" => dual_feas, 
                             "complementarity_feas" => complementarity_feas)
 
-                    return KKT_res 
-                end
-            end
-
-            if any(.!(-ϵ .<= compl_bound_low .<= ϵ)  .&  .!(-ϵ .<= compl_bound_upp .<= ϵ))
-                optimal = false
-                
-                if any(.!(-acc_ϵ .<= compl_bound_low .<= acc_ϵ)  .&  .!(-acc_ϵ .<= compl_bound_upp .<= acc_ϵ))
-                    acceptable = false
-
-                    KKT_res = Dict("optimal" => optimal, 
-                            "acceptable" => acceptable,
-                            "primal_feas" => primal_feas, 
-                            "dual_feas" => dual_feas, 
-                            "complementarity_feas" => complementarity_feas)
-
-                    return KKT_res 
-                end
-            end
-
-            if any(.!(-ϵ .<= compl_var_low .<= ϵ)  .&  .!(-ϵ .<= compl_var_upp .<= ϵ))
-                optimal = false
-                
-                if any(.!(-acc_ϵ .<= compl_var_low .<= acc_ϵ)  .&  .!(-acc_ϵ .<= compl_var_upp .<= acc_ϵ))
-                    acceptable = false
-
-                    KKT_res = Dict("optimal" => optimal, 
-                            "acceptable" => acceptable,
-                            "primal_feas" => primal_feas, 
-                            "dual_feas" => dual_feas, 
-                            "complementarity_feas" => complementarity_feas)
-
-                    return KKT_res 
-                end
-            end
-
-
-            KKT_res = Dict("optimal" => optimal, 
-                            "acceptable" => acceptable,
-                            "primal_feas" => primal_feas, 
-                            "dual_feas" => dual_feas, 
-                            "complementarity_feas" => complementarity_feas)
-
-            return KKT_res 
+                return KKT_res 
 
         else
             #** II. Bounds constraints
@@ -442,7 +456,6 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                                 end
 
                                 optimal = false
-                                #return false
                             end
                     end
             
@@ -486,7 +499,6 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                             end
 
                             optimal = false
-                            #return false
                         end
                     end
 
@@ -528,7 +540,6 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                             end
 
                             optimal = false
-                            #return false
                         end
                     end
 
@@ -1026,7 +1037,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                                             if KKT_checking
                                                 if print_level_NCL >= 1
                                                     if output_file_print_NCL # Just to avoid type errors, not very important
-                                                        D_solved = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL, output_file_print = true, output_file = file)["optimal"]
+                                                        D_solved = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:ncl.nvar_x], z_k_L[1:ncl.nvar_x], tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL, output_file_print = true, output_file = file)
                                                         converged = D_solved["optimal"]
 
                                                         if D_solved["acceptable"]
