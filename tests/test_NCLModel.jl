@@ -252,7 +252,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                                                                                     0. 0. 0. ρ  0. 0. ;
                                                                                     0. 0. 0. 0. ρ  0. ;
                                                                                     0. 0. 0. 0. 0. ρ ]
-                    @test hess(nlc_cons_res, nlc_cons_res.meta.x0, y=[1.,1.,1.,1.]) == [2. 0. 0. 0. 0. 0. ; #not symetrical because only the lower triangle is returned by hess
+                    @test hess(nlc_cons_res, nlc_cons_res.meta.x0, y=[1.,1.,1.,1.]) == [2. 0. 0. 0. 0. 0. ; # not symmetric because only the lower triangle is returned by hess
                                                                                         1. 0. 0. 0. 0. 0. ;
                                                                                         0. 0. ρ  0. 0. 0. ;
                                                                                         0. 0. 0. ρ  0. 0. ;
