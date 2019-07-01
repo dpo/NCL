@@ -7,9 +7,6 @@
 using LinearAlgebra
 using Printf
 
-using Ipopt
-
-using CUTEst
 using NLPModels
 using SolverTools
 using NLPModelsIpopt
