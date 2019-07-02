@@ -43,10 +43,10 @@ mult_format_check documentation
 
     !!! Important note !!! The convention is :
     (P) min f(x)
-        s.t. c(x) >= 0
+        s.t. c(x) ≥ 0
 
     And then
-        multipliers λ >= 0
+        multipliers λ ≥ 0
         Lagrangien(x, λ) = f(x) - λ' * c(x)
         ∇_{x}[lag(x, λ)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * λ - (z_L - z_U)
 
@@ -57,7 +57,7 @@ function mult_format_check(z_U::Vector{<:Float64}, z_L::Vector{<:Float64}, ϵ::F
         println("    z_U = ", z_U)
 
         error("sign problem of z_U passed in argument to KKT_check (detected by mult_format_check function).
-               Multipliers are supposed to be >= 0.
+               Multipliers are supposed to be ≥ 0.
                Here, some components are negatives")
     end
 
@@ -65,17 +65,17 @@ function mult_format_check(z_U::Vector{<:Float64}, z_L::Vector{<:Float64}, ϵ::F
         println("    z_L = ", z_L)
 
         error("sign problem of z_L passed in argument to KKT_check (detected by mult_format_check function).
-               Multipliers are supposed to be >= 0.
+               Multipliers are supposed to be ≥ 0.
                Here, some components are negatives")
     end
 
     if all(z_U .< ϵ) & any(z_U .< - ϵ)
-        @warn "z_U was <= ϵ (complementarity tolerance) and non zero so it was changed to its opposite. Multipliers are supposed to be all >= 0"
+        @warn "z_U was ≤ ϵ (complementarity tolerance) and non zero so it was changed to its opposite. Multipliers are supposed to be all ≥ 0"
         z_U = - z_U
     end
 
     if all(z_L .< ϵ) & any(z_L .< - ϵ)
-        @warn "z_L was <= ϵ (complementarity tolerance) and non zero so it was changed to its opposite. Multipliers are supposed to be all >= 0"
+        @warn "z_L was ≤ ϵ (complementarity tolerance) and non zero so it was changed to its opposite. Multipliers are supposed to be all ≥ 0"
         z_L = - z_L
     end
 
@@ -99,10 +99,10 @@ KKT_check Documentation
 
     !!! Important note !!! the lagrangian is considered as :
         l(x, λ) = f(x) - λ' * c(x)
-        with c(x) >= 0
-                λ >= 0
+        with c(x) ≥ 0
+                λ ≥ 0
     And then
-        multipliers λ >= 0
+        multipliers λ ≥ 0
         Lagrangien(x, λ) = f(x) - λ' * c(x)
         ∇_{x}[lag(x, λ)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * λ - (z_L - z_U)
 
@@ -229,11 +229,11 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
 
     complementarity_feas = norm(vcat(compl_bound_low, compl_bound_upp, compl_var_low, compl_var_upp), Inf)
 
-    if print_level <= 0
+    if print_level ≤ 0
         #** I.2 Tests
-        if dual_feas >= ω
+        if dual_feas ≥ ω
             optimal = false
-            if dual_feas >= acc_ω
+            if dual_feas ≥ acc_ω
                 acceptable = false
 
                 KKT_res = Dict("optimal" => optimal,
@@ -246,10 +246,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
             end
         end
 
-        if primal_feas <= - η
+        if primal_feas ≤ - η
             optimal = false
 
-            if primal_feas <= - acc_η
+            if primal_feas ≤ - acc_η
                 acceptable = false
 
                 KKT_res = Dict("optimal" => optimal,
@@ -262,10 +262,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
             end
         end
 
-        if any(.!(-ϵ .<= compl_bound_low .<= ϵ)  .&  .!(-ϵ .<= compl_bound_upp .<= ϵ))
+        if any(.!(-ϵ .≤ compl_bound_low .≤ ϵ)  .&  .!(-ϵ .≤ compl_bound_upp .≤ ϵ))
             optimal = false
 
-            if any(.!(-acc_ϵ .<= compl_bound_low .<= acc_ϵ)  .&  .!(-acc_ϵ .<= compl_bound_upp .<= acc_ϵ))
+            if any(.!(-acc_ϵ .≤ compl_bound_low .≤ acc_ϵ)  .&  .!(-acc_ϵ .≤ compl_bound_upp .≤ acc_ϵ))
                 acceptable = false
 
                 KKT_res = Dict("optimal" => optimal,
@@ -278,10 +278,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
             end
         end
 
-        if any(.!(-ϵ .<= compl_var_low .<= ϵ)  .&  .!(-ϵ .<= compl_var_upp .<= ϵ))
+        if any(.!(-ϵ .≤ compl_var_low .≤ ϵ)  .&  .!(-ϵ .≤ compl_var_upp .≤ ϵ))
             optimal = false
 
-            if any(.!(-acc_ϵ .<= compl_var_low .<= acc_ϵ)  .&  .!(-acc_ϵ .<= compl_var_upp .<= acc_ϵ))
+            if any(.!(-acc_ϵ .≤ compl_var_low .≤ acc_ϵ)  .&  .!(-acc_ϵ .≤ compl_var_upp .≤ acc_ϵ))
                 acceptable = false
 
                 KKT_res = Dict("optimal" => optimal,
