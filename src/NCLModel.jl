@@ -33,6 +33,7 @@ mutable struct NCLModel <: AbstractNLPModel
 	nlp::AbstractNLPModel # The original problem
 	nx::Int # Number of variable of the nlp problem
 	nr::Int # Number of residuals for the nlp problem (in fact nr = length(nln), if there are no free/infeasible constraints)
+	nvar::Int64
 	minimize::Bool # true if the aim of the problem is to minimize, false otherwise
 	res_lin_cons::Bool # Boolean to chose if you put residuals upon linear constraints (true) or not
 
@@ -54,46 +55,18 @@ NCLModel documentation
 			  | 		   lcon <= c(x) <= ucon
 
 	we create and return :
-		(ncl)  | min_{X = (x,r)} F(X) = f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
-			| subject to lvar <= x <= uvar, -Inf <= r <= Inf
-			| 			lcon <= c(x) + r <= ucon
+		(ncl) | min_{X = (x,r)} F(X) = f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
+			  | subject to lvar <= x <= uvar, -Inf <= r <= Inf
+			  | 			lcon <= c(x) + r <= ucon
 
 ######################
 """
-function NCLModel(nlp::AbstractNLPModel;  													# Initial model
-				         	print_level::Int = 0, 													# Information/warnings about the model created
-				         	res_val_init::Float64 = 0., 											# Initial value for residuals
-				         	res_lin_cons::Bool = true, 												# Choose if you want residuals for linear constraints or not
+function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
+				         	res_val_init::Float64 = 0., 														# Initial value for residuals
+				         	res_lin_cons::Bool = true, 															# Choose if you want residuals for linear constraints or not
 				         	ρ::Float64 = 1., 																	# Initial penalty
 				         	y = res_lin_cons ? zeros(Float64, nlp.meta.ncon) : zeros(Float64, nlp.meta.nnln),	# Initial multiplier, depending on the number of residuals considered
-				         	output_file_print::Bool = false,
-				         	output_file_name::String = "NCLModel.log",
-				         	output_file::IOStream = open("NCLModel.log", write=true)
-				         ) ::AbstractNLPModel 																# Return an AbstractNLPModel, because if there is no residuals to add, it is better to return the original NLP problem. A warning is displayed in this case
-
-	#* 0. Printing
-	file_to_close = false
-	if print_level >= 1
-		if output_file_print # if it is in an output file
-			if output_file_name == "NCLModel.log" # if not specified by name, may be by IOStream, so we use this one
-				file = output_file
-			else # Otherwise, we open the file with the requested name and we will close it at the end
-				file = open(output_file_name, write=true)
-				file_to_close = true
-			end
-		else # or we print in stdout, if not specified.
-			file = stdout
-		end
-		write(file, "\nNCLModel called on " * nlp.meta.name * "\n")
-
-		if print_level >= 2
-			if res_lin_cons
-				write(file, "    Residuals on linear constraints, (set res_lin_cons to false, if you want to consider only non linear constraints)\n")
-			else
-				write(file, "    No residuals on linear constraints, only non linear are considered (set res_lin_cons to true, if you want to consider linear constraints as well)\n")
-			end
-		end
-	end
+				         ) ::AbstractNLPModel 		
 
 	#* I. First tests
 	#* I.1 Need to create a NCLModel ?
@@ -109,10 +82,6 @@ function NCLModel(nlp::AbstractNLPModel;  													# Initial model
 
 	#* I.2 Residuals treatment
 	nr = res_lin_cons ? nlp.meta.ncon : nlp.meta.nnln
-
-	if print_level >= 2
-		@printf(file, "    NCLModel : added  %d residuals", nr)
-	end
 
 	#* II. Meta field
 	nx = nlp.meta.nvar
@@ -132,39 +101,27 @@ function NCLModel(nlp::AbstractNLPModel;  													# Initial model
 						         )
 
 	if nlp.meta.jinf != Int[]
-		if (print_level >= 1) & output_file_print & file_to_close
-			close(file)
-		end
 		error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jinf) * " infeasible")
 	end
 	if nlp.meta.jfree != Int[]
-		if (print_level >= 1) & output_file_print & file_to_close
-			close(file)
-		end
 		error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jfree) * " free")
 	end
 
 	if nlp.meta.iinf != Int[]
-		if (print_level >= 1) & output_file_print & file_to_close
-			close(file)
-		end
 		error("argument problem passed to NCLModel with bound constraint " * string(nlp.meta.iinf) * " infeasible")
 	end
 
 	#* III. NCLModel created:
-	if (print_level >= 1) & output_file_print & file_to_close
-		close(file)
-	end
-
 	return NCLModel(nlp,
-					        nx,
-					        nr,
-					        minimize,
-					        res_lin_cons,
-					        meta,
-					        Counters(),
-					        y,
-					        ρ)
+					nx,
+					nr,
+					nvar,
+					minimize,
+					res_lin_cons,
+					meta,
+					Counters(),
+					y,
+					ρ)
 end
 
 #** II. Methods
@@ -465,6 +422,11 @@ function NLPModels.jtprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Floa
 	return Jtv
 end
 
+
+
+
+
+
 #** External function
 import Base.print
 
@@ -557,6 +519,10 @@ function print(ncl::NCLModel;
 		end
 	end
 end
+
+
+
+
 
 import Base.println
 

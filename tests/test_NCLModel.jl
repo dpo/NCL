@@ -56,8 +56,8 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
         @testset "NCLModel. No linear residuals" begin
             @testset "NCLModel struct" begin
                 @testset "NCLModel struct information about nlp" begin
-                    @test nlc_nlin_res.nvar_x == 2
-                    @test nlc_nlin_res.nvar_r == 2 # two non linear constraint, so two residues
+                    @test nlc_nlin_res.nx == 2
+                    @test nlc_nlin_res.nr == 2 # two non linear constraint, so two residues
                     @test nlc_nlin_res.minimize == true
                 end
 
@@ -68,7 +68,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                     @test nlc_nlin_res.meta.x0 == [0.5, 0.5, 1., 1.]
                     @test nlc_nlin_res.meta.y0 == [0., 0., 0., 0.]
                     @test nlc_nlin_res.y == y
-                    @test length(nlc_nlin_res.y) == nlc_nlin_res.nvar_r
+                    @test length(nlc_nlin_res.y) == nlc_nlin_res.nr
                     @test nlc_nlin_res.meta.nnzj == nlp.meta.nnzj + 2 # 2 residues, one for each non linear constraint
                     @test nlc_nlin_res.meta.nnzh == nlp.meta.nnzh + 2 # add a digonal of ρ
                 end
@@ -209,8 +209,8 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
         @testset "NCLModel. All residuals" begin
             @testset "NCLModel struct" begin
                 @testset "NCLModel struct information about nlp" begin
-                    @test nlc_cons_res.nvar_x == 2
-                    @test nlc_cons_res.nvar_r == 4 # two non linear constraint, so two residues
+                    @test nlc_cons_res.nx == 2
+                    @test nlc_cons_res.nr == 4 # two non linear constraint, so two residues
                     @test nlc_cons_res.minimize == true
                 end
 
@@ -221,7 +221,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                     @test nlc_cons_res.meta.x0 == [0.5, 0.5, 1., 1., 1., 1.]
                     @test nlc_cons_res.meta.y0 == [0., 0., 0., 0.]
                     @test nlc_cons_res.y == [1., 1., 1., 1.]
-                    @test length(nlc_cons_res.y) == nlc_cons_res.nvar_r
+                    @test length(nlc_cons_res.y) == nlc_cons_res.nr
                     @test nlc_cons_res.meta.nnzj == nlp.meta.nnzj + 4 # 2 residues, one for each constraint
                     @test nlc_cons_res.meta.nnzh == nlp.meta.nnzh + 4 # add a digonal of ρ
                 end
@@ -261,14 +261,14 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 end
 
                 @testset "NCLModel hessian of the lagrangian hess_coord()" begin
-                    @test hess_coord(nlc_cons_res, [0., 0., 0., 0., 0., 0.], y = zeros(Float64,6))[1][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nvar_r] == [3, 4, 5, 6]
-                    @test hess_coord(nlc_cons_res, nlc_cons_res.meta.x0, y = [1.,1.,1.,1.,1.,1.])[1][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nvar_r] == [3, 4, 5, 6]
+                    @test hess_coord(nlc_cons_res, [0., 0., 0., 0., 0., 0.], y = zeros(Float64,6))[1][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nr] == [3, 4, 5, 6]
+                    @test hess_coord(nlc_cons_res, nlc_cons_res.meta.x0, y = [1.,1.,1.,1.,1.,1.])[1][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nr] == [3, 4, 5, 6]
 
-                    @test hess_coord(nlc_cons_res, [0., 0., 0., 0., 0., 0.], y = zeros(Float64,6))[2][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nvar_r] == [3, 4, 5, 6]
-                    @test hess_coord(nlc_cons_res, nlc_cons_res.meta.x0, y = [1.,1.,1.,1.,1.,1.])[2][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nvar_r] == [3, 4, 5, 6]
+                    @test hess_coord(nlc_cons_res, [0., 0., 0., 0., 0., 0.], y = zeros(Float64,6))[2][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nr] == [3, 4, 5, 6]
+                    @test hess_coord(nlc_cons_res, nlc_cons_res.meta.x0, y = [1.,1.,1.,1.,1.,1.])[2][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nr] == [3, 4, 5, 6]
 
-                    @test hess_coord(nlc_cons_res, [0., 0., 0., 0., 0., 0.], y = zeros(Float64,6))[3][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nvar_r] == [ρ, ρ, ρ, ρ]
-                    @test hess_coord(nlc_cons_res, nlc_cons_res.meta.x0, y = [1.,1.,1.,1.,1.,1.])[3][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nvar_r] == [ρ, ρ, ρ, ρ]
+                    @test hess_coord(nlc_cons_res, [0., 0., 0., 0., 0., 0.], y = zeros(Float64,6))[3][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nr] == [ρ, ρ, ρ, ρ]
+                    @test hess_coord(nlc_cons_res, nlc_cons_res.meta.x0, y = [1.,1.,1.,1.,1.,1.])[3][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nr] == [ρ, ρ, ρ, ρ]
                 end
 
                 @testset "NCLModel hessian of the lagrangian hess_coord!()" begin
@@ -278,8 +278,8 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                     @test hess_coord!(nlc_cons_res, [0., 0., 0., 0., 0., 0.], vcat(hrows, [5, 6]), vcat(hcols, [5, 6]), vcat(hvals, [5, 6]), y = zeros(Float64,6))[2] == vcat(hcols, [5, 6])
                     @test hess_coord!(nlc_cons_res, nlc_cons_res.meta.x0, vcat(hrows, [5, 6]), vcat(hcols, [5, 6]), vcat(hvals, [5, 6]), y = [1.,1.,1.,1.,1.,1.])[2] == vcat(hcols, [5, 6])
 
-                    @test hess_coord!(nlc_cons_res, [0., 0., 0., 0., 0., 0.], vcat(hrows, [5, 6]), vcat(hcols, [5, 6]), vcat(hvals, [5, 6]), y = zeros(Float64,6))[3][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nvar_r] == [ρ, ρ, ρ, ρ]
-                    @test hess_coord!(nlc_cons_res, nlc_cons_res.meta.x0, vcat(hrows, [5, 6]), vcat(hcols, [5, 6]), vcat(hvals, [5, 6]), y = [1.,1.,1.,1.,1.,1.])[3][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nvar_r] == [ρ, ρ, ρ, ρ]
+                    @test hess_coord!(nlc_cons_res, [0., 0., 0., 0., 0., 0.], vcat(hrows, [5, 6]), vcat(hcols, [5, 6]), vcat(hvals, [5, 6]), y = zeros(Float64,6))[3][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nr] == [ρ, ρ, ρ, ρ]
+                    @test hess_coord!(nlc_cons_res, nlc_cons_res.meta.x0, vcat(hrows, [5, 6]), vcat(hcols, [5, 6]), vcat(hvals, [5, 6]), y = [1.,1.,1.,1.,1.,1.])[3][nlp.meta.nnzh+1 : nlp.meta.nnzh+nlc_cons_res.nr] == [ρ, ρ, ρ, ρ]
                 end
 
 
