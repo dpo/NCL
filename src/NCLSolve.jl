@@ -96,7 +96,7 @@ end
 KKT_check Documentation
     KKT_check tests if (x, λ, z_U, z_L) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism, it is suposed to be an AbstractNLPModel), within
         ω as a tolerance for the lagrangian gradient norm
-        η as a tolerance for constraint infeasability
+        η as a tolerance for constraint infeasibility
         ϵ as a tolerance for complementarity checking
     the print_level parameter control the verbosity of the function : 0 : nothing
                                                                     # 1 : Function call and result
@@ -117,6 +117,7 @@ KKT_check Documentation
 #######################
 """
 function KKT_check(nlp::AbstractNLPModel,                          # Problem considered
+
                    #* Position and multipliers
                    x::Vector{<:Float64},                           # Potential solution
                    λ::Vector{<:Float64},                           # Lagrangian multiplier for constraint
@@ -132,7 +133,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                    acc_factor::Float64 = 100.,
 
                    #* Print options
-                   print_level::Int64 = 0,                         # Verbosity level : 0 : nothing
+                   print_level::Int = 0,                         # Verbosity level : 0 : nothing
                                                                                      # 1 : Function call and result
                                                                                      # 2 : Further information in case of failure
                                                                                      # 3... : Same, increasing information
@@ -200,7 +201,6 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
         append!(compl_bound_upp, zeros(Float64, length(compl_bound_low) - length(compl_bound_upp)))
     end
 
-
     compl_var_low = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.lcon), [Inf, -Inf]), 0.) : [0.]
     compl_var_upp = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.ucon), [Inf, -Inf]), 0.) : [0.]
 
@@ -209,7 +209,6 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
     else
         append!(compl_var_upp, zeros(Float64, length(compl_var_low) - length(compl_var_upp)))
     end
-
 
     complementarity_feas = norm(vcat(compl_bound_low, compl_bound_upp, compl_var_low, compl_var_upp), Inf)
 
@@ -221,10 +220,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                 acceptable = false
 
                 KKT_res = Dict("optimal" => optimal,
-                        "acceptable" => acceptable,
-                        "primal_feas" => primal_feas,
-                        "dual_feas" => dual_feas,
-                        "complementarity_feas" => complementarity_feas)
+                               "acceptable" => acceptable,
+                               "primal_feas" => primal_feas,
+                               "dual_feas" => dual_feas,
+                               "complementarity_feas" => complementarity_feas)
 
                 return KKT_res
             end
@@ -585,12 +584,12 @@ Main function for the NCL method.
             nlp is the generic problem you want to solve
         Returns:
             a GenericExecutionStats, based on the NLPModelsIpopt/Knitro return :
-                SolverTools.status                              # of the last resolution
+                SolverTools.status                              # of the last solve
                 ncl                                             # the problem in argument,
                 solution = sol,                                 # solution found
                 iter = k,                                       # number of iteration of the ncl method (not iteration to solve subproblems)
                 objective=obj(ncl, sol),                        # objective value
-                elapsed_time=0,                                 # time of computation of the whole resolution
+                elapsed_time=0,                                 # time of computation of the whole solve
                 solver_specific=Dict(:multipliers_con => λ_k,   # lagrangian multipliers for : constraints
                                     :multipliers_L => z_k_L,    #                              upper bounds
                                     :multipliers_U => z_k_U     #                              lower bounds
@@ -603,7 +602,7 @@ function NCLSolve(nlp::AbstractNLPModel;                                        
                   #* Many key-word arguments
                   #* Optimization parameters
                   tol::Float64 = 1e-6,                                                # Tolerance for the gradient lagrangian norm
-                  constr_viol_tol::Float64 = 1e-6,                                     # Tolerance for the infeasability accepted for ncl
+                  constr_viol_tol::Float64 = 1e-6,                                     # Tolerance for the infeasibility accepted for ncl
                   compl_inf_tol::Float64 = 0.0001,                                     # Tolerance for the complementarity accepted for ncl
                   acc_factor::Float64 = 100.,
                   acceptable_tol::Float64 = acc_factor * tol,
