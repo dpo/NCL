@@ -741,8 +741,8 @@ function NCLSolve(ncl::NCLModel,                                                
 
         if print_level_NCL ≥ 2
             @printf(io, "============= NCL Begin =============\n")
-            @printf(io, "%5s  %4s  %6s  %7s  %7s  %9s  %7s  %7s  %7s",
-                        "Iter", "‖rₖ‖∞", "ηₖ", "ρ", "μ init", "NCL obj", "‖y‖", "‖λₖ‖", "‖xₖ‖")
+            @printf(io, "%4s  %7s  %7s  %7s  %7s  %7s  %9s  %7s  %7s  %7s",
+                        "Iter", "‖rₖ‖∞", "ηₖ", "ωₖ", "ρ", "μ init", "NCL obj", "‖y‖", "‖λₖ‖", "‖xₖ‖")
         end
     end
 
@@ -800,8 +800,8 @@ function NCLSolve(ncl::NCLModel,                                                
 
         #** II.B.1.2 Output print
         if print_level_NCL ≥ 2
-            @printf(io, "%4d  %7.1e  %7.1e  %7.1e  %7.1e  %9.2e  %7.1e  %7.1e  %7.1e",
-                        k, norm_r_k_inf, η_k, ncl.ρ, mu_init, obj(ncl, vcat(x_k, r_k)), norm(ncl.y, Inf), norm(λ_k, Inf), norm(x_k))
+            @printf(io, "%4d  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %9.2e  %7.1e  %7.1e  %7.1e",
+                        k, norm_r_k_inf, η_k, ω_k, ncl.ρ, mu_init, obj(ncl, vcat(x_k, r_k)), norm(ncl.y, Inf), norm(λ_k, Inf), norm(x_k))
         end
 
         print_level_solver > 0 && @printf(io, "\n")
@@ -846,6 +846,7 @@ function NCLSolve(ncl::NCLModel,                                                
 
                 #* Print results
                 if print_level_NCL ≥ 1
+                    @printf(io, "\n")
                     if converged
                         write(io, "EXIT: optimal solution found\n")
                     elseif acc_count ≥ 3
