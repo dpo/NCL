@@ -130,9 +130,6 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                    constr_viol_tol::Float64 = 1e-4,                # Tolerance or constraint violation
                    compl_inf_tol::Float64 = 1e-4,                  # Tolerance for complementarity
                    acc_factor::Float64 = 100.,
-                   acceptable_tol::Float64 = acc_factor * tol,
-                   acceptable_constr_viol_tol::Float64 = acc_factor * constr_viol_tol,
-                   acceptable_compl_inf_tol::Float64 = acc_factor * compl_inf_tol,
 
                    #* Print options
                    print_level::Int64 = 0,                         # Verbosity level : 0 : nothing
@@ -141,6 +138,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                                                                                      # 3... : Same, increasing information
                                                                                      # 6 & 7 : Shows full vectors, not advised if your problem has a big size
                   ) ::Dict{String, Any}                                       # true returned if the problem is solved at x, with tolerances specified. false instead.
+
+    acceptable_tol::Float64 = acc_factor * tol
+    acceptable_constr_viol_tol::Float64 = acc_factor * constr_viol_tol
+    acceptable_compl_inf_tol::Float64 = acc_factor * compl_inf_tol
 
     #** 0. Initial settings
     #** 0.1 Notations
