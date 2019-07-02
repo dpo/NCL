@@ -663,44 +663,6 @@ function NCLSolve(ncl::NCLModel,                                                
         end
     end
 
-    # if (nlp.meta.ncon == 0) | ((nlp.meta.nnln == 0)
-    #     #** I. Solution with solver
-    #     if print_level_NCL ≥ 1
-    #         @printf(io, "\n============= Solution of %s with IPOPT (0 residual to add) =============\n", nlp.meta.name)
-    #     end
-    #
-    #     resol = ipopt(nlp;
-    #                   print_level = print_level_solver,
-    #                   output_file = output_file_name_solver,
-    #                   max_iter = max_iter_solver,
-    #                   tol = tol,
-    #                   constr_viol_tol = constr_viol_tol,
-    #                   compl_inf_tol = compl_inf_tol)
-    #
-    #     resol.solver_specific[:multipliers_con] .= - resol.solver_specific[:multipliers_con] # just to be consistent with our convention
-    #
-    #     if print_level_NCL ≥ 1
-    #         if print_level_NCL ≥ 2
-    #             if nlp.meta.ncon != 0
-    #                 @printf(io, "    Initial lagrangian gradient : ‖∇Lag(x, λ)‖ = %7.2e (tolerance = %7.1e)\n", norm(grad(nlp, nlp.meta.x0) - jtprod(nlp, nlp.meta.x0, nlp.meta.y0), Inf), tol)
-    #             else
-    #                 @printf(io, "    Initial lagrangian gradient : ‖∇Lag(x, λ)‖ = %7.2e (tolerance = %7.1e)\n", norm(grad(nlp, nlp.meta.x0), Inf), tol)
-    #             end
-    #         end
-    #
-    #         @printf(io, "    Solver conclusion: %s\n", string(resol.solver_specific[:internal_msg]))
-    #
-    #         if print_level_NCL ≥ 2
-    #             @printf(io, "        Number of iterations: %d\n", resol.iter)
-    #             println(io, "        Final solution: x = ", resol.solution)
-    #             @printf(io, "        Final lagrangian gradient: ‖∇Lag(x, λ)‖ = %7.2e (tolerance = %7.1e)\n", resol.dual_feas, tol)
-    #         end
-    #     end
-    #
-    #     return resol
-    #
-    # else
-
     #** II. Solution with NCL
     #** II.A. Names and variables
     #** II.A.0 Constants & scale parameters
@@ -723,6 +685,8 @@ function NCLSolve(ncl::NCLModel,                                                
     η_min = min_infeas # smallest infeasibility authorized
 
     ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
+
+    # TODO: if ncl has no residual variables, adjust tolerances so we solve only one problem
 
     acc_count = 0
 
