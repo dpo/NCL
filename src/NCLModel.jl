@@ -5,6 +5,8 @@ using SparseArrays
 using Test
 using Printf
 
+#!!!!! ncl.minimze dans le gradient, à voir...
+
 ######### TODO #########
 ######### TODO #########
 ######### TODO #########
@@ -65,18 +67,16 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 				         	res_lin_cons::Bool = true, 															# Choose if you want residuals for linear constraints or not
 				         	ρ::Float64 = 1., 																	# Initial penalty
 				         	y = res_lin_cons ? zeros(Float64, nlp.meta.ncon) : zeros(Float64, nlp.meta.nnln),	# Initial multiplier, depending on the number of residuals considered
-				         ) ::AbstractNLPModel 		
+				         ) ::NCLModel 		
 
 	#* I. First tests
 	#* I.1 Need to create a NCLModel ?
 	if (nlp.meta.ncon == 0) # No need to create an NCLModel, because it is an unconstrained problem or it doesn't have non linear constraints
-		@warn("in NCLModel($(nlp.meta.name)): the nlp problem $(nlp.meta.name) given was unconstrained, so it was returned without modification.")
-		return(nlp)
+		@warn("in NCLModel($(nlp.meta.name)): the nlp problem $(nlp.meta.name) given was unconstrained, so it was returned with 0 residuals")
 	end
 
 	if ((nlp.meta.nnln == 0) & !res_lin_cons) # No need to create an NCLModel, because we don't put residuals upon linear constraints (and there are not  any non linear constraint)
-		@warn("in NCLModel($(nlp.meta.name)): the nlp problem $(nlp.meta.name) given was linearly constrained, so it was returned without modification. \nConsider setting res_lin_cons to true if you want residuals upon linear constraints.")
-		return(nlp)
+		@warn("in NCLModel($(nlp.meta.name)): the nlp problem $(nlp.meta.name) given was linearly constrained, so it was returned with 0 residuals. \nConsider setting res_lin_cons to true if you want residuals upon linear constraints.")
 	end
 
 	#* I.2 Residuals treatment
@@ -87,17 +87,17 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 	minimize = nlp.meta.minimize
 	nvar = nx + nr
 	meta = NLPModelMeta(nvar;
-						          lvar = vcat(nlp.meta.lvar, fill!(Vector{Float64}(undef, nr), -Inf)), # No bounds upon residuals
-						          uvar = vcat(nlp.meta.uvar, fill!(Vector{Float64}(undef, nr), Inf)),
-						          x0   = vcat(nlp.meta.x0, fill!(Vector{Float64}(undef, nr), res_val_init)),
-						          y0   = nlp.meta.y0,
-						          name = nlp.meta.name * " (NCL subproblem)",
-						          nnzj = nlp.meta.nnzj + nr, # we add nonzeros because of residuals
-						          nnzh = nlp.meta.nnzh + nr,
-						          ncon = nlp.meta.ncon,
-						          lcon = nlp.meta.lcon,
-						          ucon = nlp.meta.ucon,
-						         )
+						lvar = vcat(nlp.meta.lvar, fill!(Vector{Float64}(undef, nr), -Inf)), # No bounds upon residuals
+						uvar = vcat(nlp.meta.uvar, fill!(Vector{Float64}(undef, nr), Inf)),
+						x0   = vcat(nlp.meta.x0, fill!(Vector{Float64}(undef, nr), res_val_init)),
+						y0   = nlp.meta.y0,
+						name = nlp.meta.name * " (NCL subproblem)",
+						nnzj = nlp.meta.nnzj + nr, # we add nonzeros because of residuals
+						nnzh = nlp.meta.nnzh + nr,
+						ncon = nlp.meta.ncon,
+						lcon = nlp.meta.lcon,
+						ucon = nlp.meta.ucon,
+					   )
 
 	if nlp.meta.jinf != Int[]
 		error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jinf) * " infeasible")
@@ -147,8 +147,8 @@ function NLPModels.grad(ncl::NCLModel, xr::Vector{<:Float64}) ::Vector{<:Float64
 	x = xr[1 : ncl.nx]
 	r = xr[ncl.nx + 1 : ncl.nx + ncl.nr]
 	y = ncl.y[1:ncl.nr]
-	gx = vcat(grad(ncl.nlp, x),
-						ncl.ρ * r + y)
+	gx_nlp = grad(ncl.nlp, x)
+	gx = vcat(gx_nlp, ncl.ρ * r + y)
 	return gx
 end
 
@@ -190,7 +190,7 @@ function NLPModels.hess_coord(ncl::NCLModel, X::Vector{<:Float64} ; obj_weight=1
 	return (hrows, hcols, hvals)
 end
 
-function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Float64}, hrows::Vector{<:Int}, hcols::Vector{<:Int}, hvals::Vector{<:Float64} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
+function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Float64}, hrows::Vector{<:Int}, hcols::Vector{<:Int}, hvals::Vector{<:Float64} ; obj_weight=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) ::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
 	increment!(ncl, :neval_hess)
 	#Pre computation
 	len_hcols = length(hcols)
@@ -216,7 +216,7 @@ function NLPModels.hess_structure(ncl::NCLModel) ::Tuple{Vector{Int},Vector{Int}
 	return (hrows, hcols)
 end
 
-function NLPModels.hprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} ; obj_weight=1.0, y=zeros) ::Vector{<:Float64}
+function NLPModels.hprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} ; obj_weight=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) ::Vector{<:Float64}
 	increment!(ncl, :neval_hprod)
 	# Test feasibility
 	if length(v) != ncl.meta.nvar
@@ -233,7 +233,7 @@ function NLPModels.hprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float6
 	return Hv
 end
 
-function NLPModels.hprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} , Hv::Vector{<:Float64} ; obj_weight::Float64=1.0, y=zeros) ::Vector{<:Float64}
+function NLPModels.hprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} , Hv::Vector{<:Float64} ; obj_weight::Float64=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) ::Vector{<:Float64}
 	increment!(ncl, :neval_hprod)
 	# Test feasibility
 	if length(v) != ncl.meta.nvar
