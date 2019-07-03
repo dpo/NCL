@@ -58,7 +58,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 @testset "NCLModel struct information about nlp" begin
                     @test nlc_nlin_res.nx == 2
                     @test nlc_nlin_res.nr == 2 # two non linear constraint, so two residues
-                    @test nlc_nlin_res.minimize == true
+                    @test nlc_nlin_res.meta.minimize == true
                 end
 
                 @testset "NCLModel struct constant parameters" begin
@@ -211,7 +211,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 @testset "NCLModel struct information about nlp" begin
                     @test nlc_cons_res.nx == 2
                     @test nlc_cons_res.nr == 4 # two non linear constraint, so two residues
-                    @test nlc_cons_res.minimize == true
+                    @test nlc_cons_res.meta.minimize == true
                 end
 
                 @testset "NCLModel struct constant parameters" begin

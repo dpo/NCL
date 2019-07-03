@@ -35,7 +35,6 @@ mutable struct NCLModel <: AbstractNLPModel
 	nlp::AbstractNLPModel # The original problem
 	nx::Int64 # Number of variable of the nlp problem
 	nr::Int64 # Number of residuals for the nlp problem (in fact nr = length(nln), if there are no free/infeasible constraints)
-	minimize::Bool # true if the aim of the problem is to minimize, false otherwise
 	res_lin_cons::Bool # Boolean to chose if you put residuals upon linear constraints (true) or not
 
 	#* II. Constant parameters
@@ -84,7 +83,6 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 
 	#* II. Meta field
 	nx = nlp.meta.nvar
-	minimize = nlp.meta.minimize
 	nvar = nx + nr
 	meta = NLPModelMeta(nvar;
 						lvar = vcat(nlp.meta.lvar, fill!(Vector{Float64}(undef, nr), -Inf)), # No bounds upon residuals
@@ -97,6 +95,7 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 						ncon = nlp.meta.ncon,
 						lcon = nlp.meta.lcon,
 						ucon = nlp.meta.ucon,
+						minimize = true,
 					   )
 
 	if nlp.meta.jinf != Int[]
@@ -114,7 +113,6 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 	return NCLModel(nlp,
 					nx,
 					nr,
-					minimize,
 					res_lin_cons,
 					meta,
 					Counters(),
@@ -129,39 +127,33 @@ function NLPModels.obj(ncl::NCLModel, xr::AbstractVector{<:Float64})::Float64
 	increment!(ncl, :neval_obj)
 	x = xr[1 : ncl.nx]
 	r = xr[ncl.nx + 1 : ncl.nx + ncl.nr]
-	y = ncl.y[1:ncl.nr]
 	obj_val = obj(ncl.nlp, x)
-	obj_res = y' * r + 0.5 * ncl.ρ * dot(r, r)
+	obj_res = ncl.y' * r + 0.5 * ncl.ρ * dot(r, r)
 
-	if ncl.minimize
+	if ncl.nlp.meta.minimize
 		return obj_val + obj_res
-	else # argmax f(x) = argmin -f(x)
-		ncl.minimize = true
+	else
 		return -obj_val + obj_res
 	end
 end
 
 #** II.2 Gradient of the objective function
 function NLPModels.grad(ncl::NCLModel, xr::Vector{<:Float64}) ::Vector{<:Float64}
-	increment!(ncl, :neval_grad)
-	x = xr[1 : ncl.nx]
-	r = xr[ncl.nx + 1 : ncl.nx + ncl.nr]
-	y = ncl.y[1:ncl.nr]
-	gx_nlp = grad(ncl.nlp, x)
-	gx = vcat(gx_nlp, ncl.ρ * r + y)
-	return gx
+	g = Vector{eltype(x)}(undef, ncl.meta.nvar)
+	grad!(ncl, xr, g)
 end
 
 function NLPModels.grad!(ncl::NCLModel, X::Vector{<:Float64}, gx::Vector{<:Float64}) ::Vector{<:Float64}
 	increment!(ncl, :neval_grad)
 
-	if length(gx) != ncl.meta.nvar
+	if length(gx) < ncl.meta.nvar
 		error("wrong length of argument gx passed to grad! in NCLModel
 			   gx should be of length " * string(ncl.meta.nvar) * " but length " * string(length(gx)) * "given")
 	end
 
 	# Original information
 	grad!(ncl.nlp, X[1:ncl.nx], gx)
+	ncl.nlp.meta.minimize || (gx[1:ncl.nx] .*= -1)
 
 	# New information (due to residuals)
 	gx[ncl.nx + 1 : ncl.nx + ncl.nr] .= ncl.ρ * X[ncl.nx + 1 : ncl.nx + ncl.nr] .+ ncl.y[1:ncl.nr]
