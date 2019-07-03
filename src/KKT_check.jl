@@ -17,9 +17,9 @@ mult_format_check documentation
         s.t. c(x) ≥ 0
 
     And then
-        multipliers λ ≥ 0
-        Lagrangien(x, λ) = f(x) - λ' * c(x)
-        ∇_{x}[lag(x, λ)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * λ - (z_L - z_U)
+        multipliers y ≥ 0
+        Lagrangien(x, y) = f(x) - y' * c(x)
+        ∇_{x}[lag(x, y)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * y - (z_L - z_U)
 
 ###############################
 """
@@ -56,9 +56,9 @@ end
 
 
 
-function KKT_check(nlp, x, λ, z_U, z_L, file::String; kwargs...)
+function KKT_check(nlp, x, y, z_U, z_L, file::String; kwargs...)
     out = open(file, "w") do io
-        KKT_check(nlp, x, λ, z_U, z_L, io; kwargs...)
+        KKT_check(nlp, x, y, z_U, z_L, io; kwargs...)
     end
     return out
 end
@@ -66,7 +66,7 @@ end
 """
 #######################
 KKT_check Documentation
-    KKT_check tests if (x, λ, z_U, z_L) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism, it is suposed to be an AbstractNLPModel), within
+    KKT_check tests if (x, y, z_U, z_L) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism, it is suposed to be an AbstractNLPModel), within
         ω as a tolerance for the lagrangian gradient norm
         η as a tolerance for constraint infeasibility
         ϵ as a tolerance for complementarity checking
@@ -77,13 +77,13 @@ KKT_check Documentation
                                                                     # 6 & 7 : Shows full vectors, not advised if your problem has a big size
 
     !!! Important note !!! the lagrangian is considered as :
-        l(x, λ) = f(x) - λ' * c(x)
+        l(x, y) = f(x) - y' * c(x)
         with c(x) ≥ 0
-                λ ≥ 0
+                y ≥ 0
     And then
-        multipliers λ ≥ 0
-        Lagrangien(x, λ) = f(x) - λ' * c(x)
-        ∇_{x}[lag(x, λ)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * λ - (z_L - z_U)
+        multipliers y ≥ 0
+        Lagrangien(x, y) = f(x) - y' * c(x)
+        ∇_{x}[lag(x, y)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * y - (z_L - z_U)
 
     Another remark: If z_U is not given (empty), we treat in two different ways complementarity. We can check everything as a range bound constraint in this cae, and when z_L and z_U are given separately,
 #######################
@@ -91,7 +91,7 @@ KKT_check Documentation
 function KKT_check(nlp::AbstractNLPModel,                          # Problem considered
                 #* Position and multipliers
                    x::Vector{<:Float64},                           # Potential solution
-                   λ::Vector{<:Float64},                           # Lagrangian multiplier for constraint
+                   y::Vector{<:Float64},                           # Lagrangian multiplier for constraint
                    z_U::Vector{<:Float64},                         # Lagrangian multiplier for upper bound constraint
                    z_L::Vector{<:Float64};                         # Lagrangian multiplier for lower bound constraint
 
@@ -157,7 +157,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
 
     #** I. Fast check
     #** I.1 Computation
-    dual_feas = (nlp.meta.ncon != 0) ? norm(grad(nlp, x) - jtprod(nlp, x, λ) - z, Inf) : norm(grad(nlp, x) - z, Inf)
+    dual_feas = (nlp.meta.ncon != 0) ? norm(grad(nlp, x) - jtprod(nlp, x, y) - z, Inf) : norm(grad(nlp, x) - z, Inf)
     primal_feas = (nlp.meta.ncon != 0) ? norm(setdiff(vcat(cons(nlp, x) - nlp.meta.lcon, nlp.meta.ucon - cons(nlp, x)), [Inf, -Inf]), Inf) : 0.
 
     compl_bound_low = vcat(setdiff(z .* (x - nlp.meta.lvar), [Inf, -Inf, NaN]), 0.) # Just to get rid of infinite values (due to free variables or constraints)
@@ -169,8 +169,8 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
         append!(compl_bound_upp, zeros(Float64, length(compl_bound_low) - length(compl_bound_upp)))
     end
 
-    compl_var_low = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.lcon), [Inf, -Inf]), 0.) : [0.]
-    compl_var_upp = (nlp.meta.ncon != 0) ? vcat(setdiff(λ .* (cons(nlp, x) - nlp.meta.ucon), [Inf, -Inf]), 0.) : [0.]
+    compl_var_low = (nlp.meta.ncon != 0) ? vcat(setdiff(y .* (cons(nlp, x) - nlp.meta.lcon), [Inf, -Inf]), 0.) : [0.]
+    compl_var_upp = (nlp.meta.ncon != 0) ? vcat(setdiff(y .* (cons(nlp, x) - nlp.meta.ucon), [Inf, -Inf]), 0.) : [0.]
 
     if length(compl_var_low) < length(compl_var_upp)
         append!(compl_var_low, zeros(Float64, length(compl_var_upp) - length(compl_var_low)))
@@ -421,14 +421,14 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
 
         #** III.2 Complementarity
         for i in 1:nlp.meta.ncon # upper constraints
-            if !( (-ϵ ≤ (λ[i] * (c_x[i] - nlp.meta.ucon[i])) ≤ ϵ)  |  (-ϵ ≤ (λ[i] * (c_x[i] - nlp.meta.lcon[i])) ≤ ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [λ[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
-                if !( (-acc_ϵ ≤ (λ[i] * (c_x[i] - nlp.meta.ucon[i])) ≤ acc_ϵ)  |  (-acc_ϵ ≤ (λ[i] * (c_x[i] - nlp.meta.lcon[i])) ≤ acc_ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [λ[i] * (c_x[i] - nlp.meta.lcon[i])] * [λ[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
+            if !( (-ϵ ≤ (y[i] * (c_x[i] - nlp.meta.ucon[i])) ≤ ϵ)  |  (-ϵ ≤ (y[i] * (c_x[i] - nlp.meta.lcon[i])) ≤ ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [y[i] * (c_x[i] - nlp.meta.lcon[i])] * [y[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
+                if !( (-acc_ϵ ≤ (y[i] * (c_x[i] - nlp.meta.ucon[i])) ≤ acc_ϵ)  |  (-acc_ϵ ≤ (y[i] * (c_x[i] - nlp.meta.lcon[i])) ≤ acc_ϵ) )  # Complementarity condition (for range constraint, we have necessarily : [y[i] * (c_x[i] - nlp.meta.lcon[i])] * [y[i] * (c_x[i] - nlp.meta.ucon[i])] = 0
                     if print_level ≥ 1
                         if print_level ≥ 2
-                            @printf(io, "    one of the two complementarities %7.2e or %7.2e is out of acceptable tolerance acc_ϵ = %7.2e. See cons %d \n", λ[i] * (c_x[i] - nlp.meta.ucon[i]), (λ[i] * (c_x[i] - nlp.meta.lcon[i])), acc_ϵ, i)
+                            @printf(io, "    one of the two complementarities %7.2e or %7.2e is out of acceptable tolerance acc_ϵ = %7.2e. See cons %d \n", y[i] * (c_x[i] - nlp.meta.ucon[i]), (y[i] * (c_x[i] - nlp.meta.lcon[i])), acc_ϵ, i)
 
                             if print_level ≥ 3
-                                @printf(io, "      λ[%d]             = %7.2e \n", i, λ[i])
+                                @printf(io, "      y[%d]             = %7.2e \n", i, y[i])
                                 @printf(io, "      c_x[%d]           = %7.2e \n", i, c_x[i])
                                 @printf(io, "      nlp.meta.ucon[%d] = %7.2e \n", i, nlp.meta.ucon[i])
                                 @printf(io, "      nlp.meta.lcon[%d] = %7.2e \n", i, nlp.meta.lcon[i])
@@ -442,10 +442,10 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                 else
                     if print_level ≥ 1
                         if print_level ≥ 2
-                            @printf(io, "    one of the two complementarities %7.2e or %7.2e is out of tolerance ϵ = %7.2e. See cons %d \n", λ[i] * (c_x[i] - nlp.meta.ucon[i]), (λ[i] * (c_x[i] - nlp.meta.lcon[i])), ϵ, i)
+                            @printf(io, "    one of the two complementarities %7.2e or %7.2e is out of tolerance ϵ = %7.2e. See cons %d \n", y[i] * (c_x[i] - nlp.meta.ucon[i]), (y[i] * (c_x[i] - nlp.meta.lcon[i])), ϵ, i)
 
                             if print_level ≥ 3
-                                @printf(io, "      λ[%d]             = %7.2e \n", i, λ[i])
+                                @printf(io, "      y[%d]             = %7.2e \n", i, y[i])
                                 @printf(io, "      c_x[%d]           = %7.2e \n", i, c_x[i])
                                 @printf(io, "      nlp.meta.ucon[%d] = %7.2e \n", i, nlp.meta.ucon[i])
                                 @printf(io, "      nlp.meta.lcon[%d] = %7.2e \n", i, nlp.meta.lcon[i])
@@ -464,7 +464,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
         #** IV.1 Computation
         ∇f_x = grad(nlp, x)
         if nlp.meta.ncon != 0 # just to avoid DimensionMismatch with ∇f_x - [].
-            ∇lag_x = ∇f_x - jtprod(nlp, x, λ) - z
+            ∇lag_x = ∇f_x - jtprod(nlp, x, y) - z
         else
             ∇lag_x = ∇f_x - z
         end
@@ -480,7 +480,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                         if print_level ≥ 4
                             if nlp.meta.ncon != 0
                                 @printf(io, "      ‖∇f_x‖                = %7.2e \n", norm(∇f_x, Inf))
-                                @printf(io, "      ‖∇f_x - t(Jac_x) * λ‖ = %7.2e \n", norm(∇f_x - jtprod(nlp, x, λ), Inf))
+                                @printf(io, "      ‖∇f_x - t(Jac_x) * y‖ = %7.2e \n", norm(∇f_x - jtprod(nlp, x, y), Inf))
                                 @printf(io, "      ‖z‖                   = %7.2e \n", norm(z, Inf))
                                 @printf(io, "      ‖∇lag_x‖              = %7.2e \n", norm_grad_lag)
                             else
@@ -503,7 +503,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                         if print_level ≥ 7
                             if nlp.meta.ncon != 0
                                 @printf(io, "      ‖∇f_x‖                = %7.2e \n", norm(∇f_x, Inf))
-                                @printf(io, "      ‖∇f_x - t(Jac_x) * λ‖ = %7.2e \n", norm(∇f_x - jtprod(nlp, x, λ), Inf))
+                                @printf(io, "      ‖∇f_x - t(Jac_x) * y‖ = %7.2e \n", norm(∇f_x - jtprod(nlp, x, y), Inf))
                                 @printf(io, "      ‖z‖                   = %7.2e \n", norm(z, Inf))
                                 @printf(io, "      ‖∇lag_x‖              = %7.2e \n", norm_grad_lag)
                             else
