@@ -62,7 +62,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 end
 
                 @testset "NCLModel struct constant parameters" begin
-                    @test nlc_nlin_res.nvar == 4 # 2 x, 2 r
+                    @test nlc_nlin_res.meta.nvar == 4 # 2 x, 2 r
                     @test nlc_nlin_res.meta.lvar == [0., 0., -Inf, -Inf] # no bounds for residues
                     @test nlc_nlin_res.meta.uvar == [1., 1., Inf, Inf]
                     @test nlc_nlin_res.meta.x0 == [0.5, 0.5, 1., 1.]
@@ -215,7 +215,7 @@ function test_NLCModel(test::Bool) ::Test.DefaultTestSet
                 end
 
                 @testset "NCLModel struct constant parameters" begin
-                    @test nlc_cons_res.nvar == 6 # 2 x, 4 r
+                    @test nlc_cons_res.meta.nvar == 6 # 2 x, 4 r
                     @test nlc_cons_res.meta.lvar == [0., 0., -Inf, -Inf, -Inf, -Inf] # no bounds for residues
                     @test nlc_cons_res.meta.uvar == [1., 1., Inf, Inf, Inf, Inf]
                     @test nlc_cons_res.meta.x0 == [0.5, 0.5, 1., 1., 1., 1.]
