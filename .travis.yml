@@ -1,1 +1,15 @@
 language: julia
+
+addons:
+  packages:
+    - Ipopt
+    - NLPModelsIpopt
+    - NLPModels
+    - SolverTools
+    - CUTEst
+
+    - LinearAlgebra
+    - SparseArrays
+
+    - Test
+    - Printf
