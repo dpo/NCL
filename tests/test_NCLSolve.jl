@@ -1,16 +1,18 @@
 using Ipopt
 using NLPModelsIpopt
+using CUTEst
 
-include("../src/NCLSolve.jl")
 include("../src/NCLModel.jl")
-include("test_NCLModel.jl")
+include("../src/KKT_check.jl")
+include("../src/NCLSolve.jl")
+
 
 """
 ##############################
 # Unit tests for NCLSolve.jl #
 ##############################
 """
-function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 8, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 8) ::Test.DefaultTestSet
+function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 8, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 13) ::Test.DefaultTestSet
     # Test parameters
     print_level_NCL = 0
     ω = 0.001
@@ -118,7 +120,7 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                 z_U_ncl = resol_ncl_ncl.solver_specific[:multipliers_U]
                 z_L_ncl = resol_ncl_ncl.solver_specific[:multipliers_L]
 
-                D = KKT_check(nlp, x_ncl[1:ncl_nlin_res.nvar_x], λ_ncl, z_U_ncl[1:ncl_nlin_res.nvar_x], z_L_ncl[1:ncl_nlin_res.nvar_x])
+                D = KKT_check(nlp, x_ncl[1:ncl_nlin_res.nx], λ_ncl, z_U_ncl[1:ncl_nlin_res.nx], z_L_ncl[1:ncl_nlin_res.nx])
                 @test D["optimal"]
                 @test D["acceptable"]
             end
@@ -150,7 +152,7 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
                 z_U_ncl = resol_ncl_ncl.solver_specific[:multipliers_U]
                 z_L_ncl = resol_ncl_ncl.solver_specific[:multipliers_L]
 
-                D = KKT_check(nlp, x_ncl[1:nlc_cons_res.nvar_x], λ_ncl, z_U_ncl[1:nlc_cons_res.nvar_x], z_L_ncl[1:nlc_cons_res.nvar_x])
+                D = KKT_check(nlp, x_ncl[1:nlc_cons_res.nx], λ_ncl, z_U_ncl[1:nlc_cons_res.nx], z_L_ncl[1:nlc_cons_res.nx])
                 @test D["optimal"]
                 @test D["acceptable"]
             end
