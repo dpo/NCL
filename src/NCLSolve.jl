@@ -27,7 +27,7 @@ include("KKT_check.jl")
 
     # TODO (recherche) : choix des mu_init à améliorer...
     # TODO (recherche) : Points intérieurs à chaud...
-    # TODO (recherche) : tester la proximité des multiplicateurs λ_k de renvoyés par le solveur et le ncl.y du problème (si r petit, probablement proches.)
+    # TODO (recherche) : tester la proximité des multiplicateurs y_k de renvoyés par le solveur et le ncl.y du problème (si r petit, probablement proches.)
     # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
     # TODO (recherche) : ajuster eta_end
 
@@ -66,7 +66,7 @@ Main function for the NCL method.
                 iter = k,                                       # number of iteration of the ncl method (not iteration to solve subproblems)
                 objective=obj(ncl, sol),                        # objective value
                 elapsed_time=0,                                 # time of computation of the whole solve
-                solver_specific=Dict(:multipliers_con => λ_k,   # lagrangian multipliers for : constraints
+                solver_specific=Dict(:multipliers_con => y_k,   # lagrangian multipliers for : constraints
                                     :multipliers_L => z_k_L,    #                              upper bounds
                                     :multipliers_U => z_k_U     #                              lower bounds
                                     )
@@ -95,10 +95,10 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   #* Options of NCL print
                   io::IO = stdout,                             # where to print iterations
                   print_level_NCL::Int64 = 0,                  # Options for printing iterations of the NCL method : 0, nothing;
-                                                                                                                                           # 1, calls to functions and conclusion;
-                                                                                                                                           # 2, calls, little informations on iterations;
-                                                                                                                                           # 3, calls, more information about iterations (and erors in KKT_check);
-                                                                                                                                           # 4, calls, KKT_check, iterations, little information from the solver;                                                                                                                         # and so on until 7 (no further details)
+                                                                                                                    # 1, calls to functions and conclusion;
+                                                                                                                    # 2, calls, little informations on iterations;
+                                                                                                                    # 3, calls, more information about iterations (and erors in KKT_check);
+                                                                                                                    # 4, calls, KKT_check, iterations, little information from the solver;                                                                                                                         # and so on until 7 (no further details)
                   
                  ) ::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
  
@@ -119,6 +119,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         nr = ncl.nr
         nx = ncl.nx
     end
+
     #** I. Names and variables
     #** I.1 Constants & scale parameters
     warm_start = (warm_start_init_point == "yes")
@@ -145,10 +146,12 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
     ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
 
-    # TODO: if ncl has no residual variables, adjust tolerances so we solve only one problem 
-    #if nr == 0 
-    #   ...
-    #end
+    # TODO: \epsilon_k a créer, décroissant, comme \eta_k.
+
+    if no_res 
+        ω_k = ω_end
+        η_k = η_end
+    end
 
     acc_count = 0
 
@@ -165,7 +168,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     r_k = zeros(Float64, nr)
     norm_r_k_inf = norm(r_k, Inf) #Pre-computation
 
-    λ_k = zeros(Float64, ncl.meta.ncon)
+    y_k = zeros(Float64, ncl.meta.ncon)
     z_k_U = zeros(Float64, length(ncl.meta.uvar))
     z_k_L = zeros(Float64, length(ncl.meta.lvar))
 
@@ -183,7 +186,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
             
             @printf(io, "============= NCL Begin =============\n")
             @printf(io, "%4s  %7s  %7s  %7s  %7s  %7s  %9s  %7s  %7s  %7s",
-                        "Iter", "‖rₖ‖∞", "ηₖ", "ωₖ", "ρ", "μ init", "NCL obj", "‖y‖", "‖λₖ‖", "‖xₖ‖")
+                        "Iter", "‖rₖ‖∞", "ηₖ", "ωₖ", "ρ", "μ init", "NCL obj", "‖y‖", "‖yₖ‖", "‖xₖ‖")
         end
     end
 
@@ -196,6 +199,10 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     while (k ≤ max_iter_NCL) & !converged
         #** II.0 Iteration counter and mu_init
         k += 1
+        
+        if (k >= 3) & no_res #no residuals but still in the loop
+            error("in NCLSolve($(ncl.meta.name)): problem $(ncl.meta.name) is unconstrained but ipopt did not solve it at acceptable level at the first time.\nYour problem is probably degenerated")
+        end
 
         if (k == 2) & warm_start
             mu_init = 1e-4
@@ -235,14 +242,14 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
         # Get multipliers
         #! Warning, ipopt doesn't use our convention in KKT_check for constraint multipliers, so we took the opposite. For bound multiplier it seems to work though.
-        λ_k = - solve_k.solver_specific[:multipliers_con]
+        y_k = - solve_k.solver_specific[:multipliers_con]
         z_k_U = solve_k.solver_specific[:multipliers_U]
         z_k_L = solve_k.solver_specific[:multipliers_L]
 
         #** II.1.2 Output print
         if print_level_NCL ≥ 2
             @printf(io, "%4d  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %9.2e  %7.1e  %7.1e  %7.1e",
-                        k, norm_r_k_inf, η_k, ω_k, ncl.ρ, mu_init, obj(ncl, vcat(x_k, r_k)), norm(ncl.y, Inf), norm(λ_k, Inf), norm(x_k))
+                        k, norm_r_k_inf, η_k, ω_k, ncl.ρ, mu_init, obj(ncl, vcat(x_k, r_k)), norm(ncl.y, Inf), norm(y_k, Inf), norm(x_k))
         end
 
         print_level_solver > 0 && @printf(io, "\n")
@@ -272,9 +279,9 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
                     if KKT_checking
                         if no_res
-                            D_solved = KKT_check(ncl, x_k, λ_k, z_k_U[1:nx], z_k_L[1:nx] ; io=io, tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
+                            D_solved = KKT_check(ncl, x_k, y_k, z_k_U[1:nx], z_k_L[1:nx] ; io=io, tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
                         else
-                            D_solved = KKT_check(ncl.nlp, x_k, λ_k, z_k_U[1:nx], z_k_L[1:nx] ; io=io, tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
+                            D_solved = KKT_check(ncl.nlp, x_k, y_k, z_k_U[1:nx], z_k_L[1:nx] ; io=io, tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
                         end
                         converged = D_solved["optimal"]
 
@@ -290,10 +297,10 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
                 status = solve_k.status
                 if no_res
-                    dual_feas = (ncl.meta.ncon != 0) ? norm(grad(ncl, x_k) - jtprod(ncl, x_k, λ_k) - (z_k_L - z_k_U)[1:nx], Inf) : norm(grad(ncl, x_k) - (z_k_L - z_k_U)[1:nx], Inf)
+                    dual_feas = (ncl.meta.ncon != 0) ? norm(grad(ncl, x_k) - jtprod(ncl, x_k, y_k) - (z_k_L - z_k_U)[1:nx], Inf) : norm(grad(ncl, x_k) - (z_k_L - z_k_U)[1:nx], Inf)
                     primal_feas = norm(setdiff(vcat(cons(nlp, x_k) - nlp.meta.lcon, nlp.meta.ucon - cons(nlp, x_k)), [Inf, -Inf]), Inf)
                 else
-                    dual_feas = (ncl.meta.ncon != 0) ? norm(grad(ncl.nlp, x_k) - jtprod(ncl.nlp, x_k, λ_k) - (z_k_L - z_k_U)[1:nx], Inf) : norm(grad(ncl.nlp, x_k) - (z_k_L - z_k_U)[1:nx], Inf)
+                    dual_feas = (ncl.meta.ncon != 0) ? norm(grad(ncl.nlp, x_k) - jtprod(ncl.nlp, x_k, y_k) - (z_k_L - z_k_U)[1:nx], Inf) : norm(grad(ncl.nlp, x_k) - (z_k_L - z_k_U)[1:nx], Inf)
                     primal_feas = norm(setdiff(vcat(cons(ncl.nlp, x_k) - ncl.nlp.meta.lcon, ncl.nlp.meta.ucon - cons(ncl.nlp, x_k)), [Inf, -Inf]), Inf)
                 end
 
@@ -321,7 +328,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                                                 objective = no_res ? obj(ncl, x_k) : obj(ncl.nlp, x_k),
                                                 elapsed_time = 0,
                                                 #! doesn't work... counters = nlp.counters,
-                                                solver_specific = Dict(:multipliers_con => λ_k,
+                                                solver_specific = Dict(:multipliers_con => y_k,
                                                                        :multipliers_L => z_k_L[1:nx],
                                                                        :multipliers_U => z_k_U[1:nx],
                                                                        :internal_msg => converged ? Symbol("Solve_Succeeded") : Symbol("Solve_Failed"),
