@@ -257,7 +257,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
             ω_k = ω_k*τ_inv # TODO optimiser, pas de division inutile
 
             if η_k == η_min
-                @warn "Minimum constraint violation η_min = " * string(η_min) * " reached at iteration k = " * string(k)
+                @warn "in NCLSolve($(ncl.meta.name)): minimum constraint violation η_min = " * string(η_min) * " reached at iteration k = " * string(k)
             end
 
             #** II.2.2 Solution found ?
@@ -338,7 +338,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
             ncl.ρ = τ * ncl.ρ # increase the step
             #η_k = η_end / (1 + ncl.ρ ^ α) # Change infeasibility (heuristic)
             if ncl.ρ == ρ_max
-                @warn "Maximum penalty ρ = " * string(ρ_max) * " reached at iteration k = " * string(k)
+                @warn "in NCLSolve($(ncl.meta.name)): maximum penalty ρ = " * string(ρ_max) * " reached at iteration k = " * string(k)
             end
         end
         # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/ncl.ρ, ncl.ρ = 100ρ_k, η_k = 1/ncl.ρ^0.1
