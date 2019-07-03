@@ -31,9 +31,8 @@ using Printf
 mutable struct NCLModel <: AbstractNLPModel
 	#* I. Information about the residuals
 	nlp::AbstractNLPModel # The original problem
-	nx::Int # Number of variable of the nlp problem
-	nr::Int # Number of residuals for the nlp problem (in fact nr = length(nln), if there are no free/infeasible constraints)
-	nvar::Int64
+	nx::Int64 # Number of variable of the nlp problem
+	nr::Int64 # Number of residuals for the nlp problem (in fact nr = length(nln), if there are no free/infeasible constraints)
 	minimize::Bool # true if the aim of the problem is to minimize, false otherwise
 	res_lin_cons::Bool # Boolean to chose if you put residuals upon linear constraints (true) or not
 
@@ -71,12 +70,12 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 	#* I. First tests
 	#* I.1 Need to create a NCLModel ?
 	if (nlp.meta.ncon == 0) # No need to create an NCLModel, because it is an unconstrained problem or it doesn't have non linear constraints
-		@warn("The nlp problem given was unconstrained, so it was returned without modification.")
+		@warn("The nlp problem $(nlp.meta.name) given was unconstrained, so it was returned without modification.")
 		return(nlp)
 	end
 
 	if ((nlp.meta.nnln == 0) & !res_lin_cons) # No need to create an NCLModel, because we don't put residuals upon linear constraints (and there are not  any non linear constraint)
-		@warn("The nlp problem given was linearly constrained, so it was returned without modification. \nConsider setting res_lin_cons to true if you want residuals upon linear constraints.")
+		@warn("The nlp problem $(nlp.meta.name) given was linearly constrained, so it was returned without modification. \nConsider setting res_lin_cons to true if you want residuals upon linear constraints.")
 		return(nlp)
 	end
 
@@ -115,7 +114,6 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 	return NCLModel(nlp,
 					nx,
 					nr,
-					nvar,
 					minimize,
 					res_lin_cons,
 					meta,
