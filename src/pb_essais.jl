@@ -1,13 +1,17 @@
 using Printf
 using DataFrames
-using PyPlot
+#using PyPlot
 
 using CUTEst
 using NLPModels
 using NLPModelsIpopt
 using SolverBenchmark
 
+using AmplNLReader
+
+include("NCLModel.jl")
 include("NCLSolve.jl")
+include("KKT_check.jl")
 
 #* hand made hs13 model
 f(x) = (x[1] - 2.) ^ 2  +  x[2] ^ 2
@@ -676,7 +680,7 @@ end
 
 function pb_set_resolution_data(; #No arguments, only key-word arguments
 						#* Optimization parameters
-						tol::Float64 = 1e-8,
+						tol::Float64 = 1e-6,
 						constr_viol_tol::Float64 = 1e-6,
 						compl_inf_tol::Float64 = 1e-4,
 						acc_factor::Float64 = 100.,
@@ -685,12 +689,16 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						max_iter_NCL = 20,
 
 						#* CUTEst arguments
-						cutest_pb_set::Vector{String} = ["HS$i" for i in 1:57],
+						cutest_pb_set::Vector{String} = String[],
 						cutest_pb_index_set::Vector{Int64} = [i for i in 1:length(cutest_pb_set)],
 
 						#* NLP Arguments
 						nlp_pb_set::Vector{<:AbstractNLPModel} = AbstractNLPModel[],
 						nlp_pb_index_set::Vector{Int64} = [i for i in 1:length(nlp_pb_set)],
+
+						#* AmplNLReader Arguments
+						ampl_pb_set::Vector{String} = String[],
+						ampl_pb_index_set::Vector{Int64} = [i for i in 1:length(ampl_pb_set)],
 
 						#* Solver arguments
 						solver::Vector{String} = ["ipopt", "nclres", "nclkkt"], #can contain ipopt
@@ -698,11 +706,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																						   # nclres (stops when norm(r) is small enough, not checking kkt conditions during iterations)
 																						   # nclkkt (stops when fitting KKT conditions, or fitting to acceptable level)
 						max_iter_solver::Int64 = 1000
-						)
+						)::Nothing
 
 	n_solver = length(solver)
 	n_cutest = length(cutest_pb_index_set)
 	n_nlp = length(nlp_pb_index_set)
+	n_ampl = length(ampl_pb_index_set)
 
 
 	info_cutest::Array{Int64, 2} = Array{Int64, 2}(undef, n_cutest, 2) # 1: nvar, 2: ncon
@@ -716,6 +725,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	time_nlp::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_nlp, 5) # (n_solver rows, n_nlp cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
 	resol_nlp::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_nlp)
 	kkt_nlp::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_nlp)
+
+	info_ampl::Array{Int64, 2} = Array{Int64, 2}(undef, n_ampl, 2) # 1: nvar, 2: ncon
+	names_ampl::Vector{String} = Vector{String}(undef, n_ampl)
+	time_ampl::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_ampl, 5) # (n_solver rows, n_nlp cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
+	resol_ampl::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_ampl)
+	kkt_ampl::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_ampl)
 
 	#** I. CUTEst problem set
 
@@ -740,6 +755,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															constr_viol_tol = constr_viol_tol,
 																															compl_inf_tol = compl_inf_tol,
 																															acc_factor = acc_factor,
+																															#print_level_NCL = 3,
 																															#
 																															max_iter_NCL = max_iter_NCL,
 																															linear_residuals = linear_residuals,
@@ -766,6 +782,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				reset!(nlp.counters)
 				resol_nclkkt, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCLSolve(nlp ;
 																															max_iter_NCL = max_iter_NCL,
+																															#print_level_NCL = 3,
 																															tol = tol,
 																															constr_viol_tol = constr_viol_tol,
 																															compl_inf_tol = compl_inf_tol,
@@ -919,15 +936,119 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 	end
 
-	#** III. Data frames
-	info = vcat(info_cutest, info_nlp)
-	names = vcat(names_cutest, names_nlp)
+	#** III. AMPL problem set
 
-	resol = hcat(resol_cutest, resol_nlp)
-	kkt = hcat(kkt_cutest, kkt_nlp)
-	time = hcat(time_cutest, time_nlp)
+	k = 0
+	for i in ampl_pb_index_set
+		k += 1
+		
+		#** III.1 Problem
+		tax_name = ampl_pb_set[i]
+		cd("/home/perselie/Bureau/projet/AMPL_tests/TAX")
+		run(Cmd(["ampl", "-og" * tax_name, tax_name * ".mod", tax_name * ".dat"]))
+		ampl_model = AmplModel(tax_name * ".nl")
 
-	n_pb = n_cutest + n_nlp
+		info_ampl[k, 1] = ampl_model.meta.nvar
+		info_ampl[k, 2] = ampl_model.meta.ncon
+
+		names_ampl[k] = ampl_model.meta.name
+
+		#** III.2 Resolution
+		for i in 1:n_solver
+			if solver[i] == "nclres"
+				reset!(ampl_model.counters)
+				resol_nclres, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCLSolve(ampl_model ;
+																													max_iter_NCL = max_iter_NCL,
+																													tol = tol,
+																													constr_viol_tol = constr_viol_tol,
+																													compl_inf_tol = compl_inf_tol,
+																													acc_factor = acc_factor,
+																													max_iter_solver = 1000,
+																													linear_residuals = linear_residuals,
+																													KKT_checking = false,
+																													warm_start_init_point = "yes")
+
+				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
+				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
+
+				kkt_ampl[i, k] = KKT_check(ampl_model,
+											resol_nclres.solution,
+											resol_nclres.solver_specific[:multipliers_con],
+											resol_nclres.solver_specific[:multipliers_U],
+											resol_nclres.solver_specific[:multipliers_L] ;
+											tol = tol,
+											constr_viol_tol = constr_viol_tol,
+											compl_inf_tol = compl_inf_tol)
+
+				resol_ampl[i, k] = resol_nclres
+			end
+
+			if solver[i] == "nclkkt"
+				reset!(ampl_model.counters)
+				resol_nclkkt, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCLSolve(ampl_model ;
+																													max_iter_NCL = max_iter_NCL,
+																													tol = tol,
+																													constr_viol_tol = constr_viol_tol,
+																													compl_inf_tol = compl_inf_tol,
+																													acc_factor = acc_factor,
+																													max_iter_solver = 1000,
+																													linear_residuals = linear_residuals,
+																													KKT_checking = true,
+																													warm_start_init_point = "yes")
+
+				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
+				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
+
+				kkt_ampl[i, k] = KKT_check(ampl_model,
+							resol_nclkkt.solution,
+							resol_nclkkt.solver_specific[:multipliers_con],
+							resol_nclkkt.solver_specific[:multipliers_U],
+							resol_nclkkt.solver_specific[:multipliers_L] ;
+							tol = tol,
+							constr_viol_tol = constr_viol_tol,
+							compl_inf_tol = compl_inf_tol)
+
+				resol_ampl[i, k] = resol_nclkkt
+			end
+
+			if solver[i] == "ipopt"
+				reset!(ampl_model.counters)
+				resol_solver, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(ampl_model ; 
+																																max_iter = max_iter_solver,
+																																tol = tol,
+																																constr_viol_tol = constr_viol_tol,
+																																compl_inf_tol = compl_inf_tol,
+																																print_level = 0,
+																																ignore_time = true)
+
+				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
+				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
+
+				kkt_ampl[i, k] = KKT_check(ampl_model,
+											resol_solver.solution,
+											resol_solver.solver_specific[:multipliers_con],
+											resol_solver.solver_specific[:multipliers_U],
+											resol_solver.solver_specific[:multipliers_L] ;
+											tol = tol,
+											constr_viol_tol = constr_viol_tol,
+											compl_inf_tol = compl_inf_tol)
+
+				resol_ampl[i, k] = resol_solver
+			end
+		end
+
+	end
+	cd("/home/perselie/Bureau/projet/ncl/src/")
+
+	#** IV. Data frames
+	info = vcat(info_cutest, info_nlp, info_ampl)
+	names = vcat(names_cutest, names_nlp, names_ampl)
+
+	resol = hcat(resol_cutest, resol_nlp, resol_ampl)
+	kkt = hcat(kkt_cutest, kkt_nlp, kkt_ampl)
+	time = hcat(time_cutest, time_nlp, time_ampl)
+
+	n_pb = n_cutest + n_nlp + n_ampl
 
 	stats = Dict(Symbol(solver[i]) => DataFrame(:problem	=> [names[k] for k in 1:n_pb],
 												:id			=> [k for k in 1:n_pb],
@@ -983,7 +1104,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						:kkt_acc_opti => "\$KKT_{acc}\$"
 					   )
 	N = [:niter, :f, :feval, :ceval, :time, :bytes, :gctime, :feas, :compl, :mult_norm, :lag_norm, :r_norm, :solve_succeeded, :r_opti, :r_acc_opti, :kkt_opti, :kkt_acc_opti]
-	df_res = join(stats, names(stats[Symbol(solver[1])]) ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
+	df_res = join(stats, N ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
 	
 	ltx_file = open("../res/ltx_table.tex", write = true)
 	latex_table(ltx_file, df_res)
@@ -996,10 +1117,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	
 	#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
 
-	compare_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
-	p = profile_solvers(stats, compare, compare_names)
-	Plots.svg(p, "profilewall1000")
-
+	#compare_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
+	#p = profile_solvers(stats, compare, compare_names)
+	#Plots.svg(p, "profilewall1000")
+	return nothing
 end
 
-pb_set_resolution_data()#cutest_pb_index_set = [i for i in 15:25])#cutest_pb_set = ["TAX53322"], cutest_pb_index_set = [1])
+pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:57])
+
+#pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1])
