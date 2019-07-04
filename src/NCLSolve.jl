@@ -9,12 +9,14 @@ export NCLSolve
 # ? Question
 # TODO
 
+using Ipopt
+
 using LinearAlgebra
 using Printf
 
 using NLPModels
 using SolverTools
-using NLPModelsIpopt
+using NLPModelsIpopt: ipopt
 
 include("NCLModel.jl")
 include("KKT_check.jl")
