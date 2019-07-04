@@ -1,3 +1,8 @@
+module NCLSolve
+
+export NCLSolve
+
+
 # comment
 #** Important
 # ! Warning / Problem
@@ -351,3 +356,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/ncl.ρ, ncl.ρ = 100ρ_k, η_k = 1/ncl.ρ^0.1
     end
 end
+
+
+
+end #end of module
