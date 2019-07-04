@@ -1,16 +1,13 @@
-import Pkg
-Pkg.add("NLPModels")
-Pkg.add("CUTEst")
-Pkg.add("Ipopt")
-Pkg.add("NLPModelsIpopt")
-Pkg.add("SolverTools")
+using Ipopt
 
-Pkg.add("LinearAlgebra")
-Pkg.add("SparseArrays")
+using NLPModels
+using NLPModelsIpopt 
+using CUTEst
+using SolverTools
 
-Pkg.add("Test")
-
-using NLPModels, CUTEst, Ipopt, NLPModelsIpopt, SolverTools, LinearAlgebra, SparseArrays, Test
+using LinearAlgebra
+using SparseArrays
+using Test
 
 include("test_NCLSolve.jl")
 include("test_NCLModel.jl")
