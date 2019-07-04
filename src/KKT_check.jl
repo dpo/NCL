@@ -475,7 +475,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
             if norm_grad_lag > acc_ω # Not an acceptable stationnary point for the lagrangian
                 if print_level ≥ 1
                     if print_level ≥ 2
-                        @printf(io, "    Lagrangian gradient norm = %7.2e is greater acceptable than tolerance acc_ω = %7.2e \n", norm_grad_lag, acc_ω)
+                        @printf(io, "    Lagrangian gradient norm = %7.2e is greater than acceptable tolerance acc_ω = %7.2e \n", norm_grad_lag, acc_ω)
 
                         if print_level ≥ 4
                             if nlp.meta.ncon != 0
