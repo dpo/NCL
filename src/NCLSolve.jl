@@ -1,6 +1,6 @@
-module NCLSolve
+#module NCLSolve
 
-export NCLSolve
+#export NCLSolve
 
 
 # comment
@@ -47,13 +47,13 @@ include("KKT_check.jl")
 
 
 # NCLSolve called with a string outputs to file
-function NCLSolve(nlp::AbstractNLPModel, file::String; kwargs...)
-    out = open(file, "w") do io
-        NCLSolve(nlp; io=io, kwargs...)
-    end
-    
-    return out
-end
+#function NCLSolve(nlp::AbstractNLPModel, file::String; kwargs...)
+#    out = open(file, "w") do io
+#        NCLSolve(nlp; io=io, kwargs...)
+#    end
+#    
+#    return out
+#end
 
 """
 #################################
@@ -84,13 +84,26 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   #* Optimization parameters
                   tol::Float64 = 1e-6,                       # Tolerance for the gradient lagrangian norm
                   constr_viol_tol::Float64 = 1e-6,           # Tolerance for the infeasibility accepted for ncl
-                  compl_inf_tol::Float64 = 0.0001,           # Tolerance for the complementarity accepted for ncl
+                  compl_inf_tol::Float64 = 1e-4,             # Tolerance for the complementarity accepted for ncl
                   acc_factor::Float64 = 100.,
 
                   #* Options for NCL
+                  min_tol::Float64 = 1e-10,                  # Minimal tolerance authorized (ω_min)
+                  min_constr_viol_tol::Float64 = 1e-10,      # Minimal infeasibility authorized (η_min)
                   max_penal::Float64 = 1e15,                 # Maximal penalization authorized (ρ_max)
-                  min_infeas::Float64 = 1e-10,               # Minimal infeasibility authorized (η_min)
-                  max_iter_NCL::Int64 = 20,                    # Maximum number of iterations for the NCL method
+                  min_compl_inf_tol::Float64 = 1e-8,
+
+                  scale_penal::Float64 = 10.0,
+                  scale_tol::Float64 = 0.1,
+                  scale_constr_viol_tol::Float64 = 0.1,
+                  scale_compl_inf_tol::Float64 = 0.1,
+
+                  init_penal::Float64 = 10.0,
+                  init_tol::Float64 = 0.1,
+                  init_constr_viol_tol::Float64 = 0.1,
+                  init_compl_inf_tol::Float64 = 0.1,
+
+                  max_iter_NCL::Int64 = 20,                  # Maximum number of iterations for the NCL method
                   linear_residuals::Bool = false,            # To choose if you want to put residuals upon linear constraints or not
                   KKT_checking::Bool = false,                # To choose if you want to check KKT conditions in the loop, or just stop when residuals are small enough.
 
@@ -132,8 +145,11 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     warm_start = (warm_start_init_point == "yes")
     mu_init = warm_start ? 1.0e-3 : 0.1
 
-    τ = 10.0 # scale (used to update the ρ_k step)
-    τ_inv = 1.0/τ
+    τ_ρ = scale_penal # scale (used to update the ρ_k step)
+    τ_ϵ = scale_compl_inf_tol
+    τ_η = scale_constr_viol_tol
+    τ_ω = scale_tol
+    
     α = 0.1 # Constant (α needs to be < 1)
     β = 0.2 # Constant
 
@@ -144,31 +160,34 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     ρ_max = max_penal # biggest penalization authorized
 
     ω_end = tol #global tolerance, in argument
-    ω_k = 1e-2 # sub problem initial tolerance
+    ω_k = init_tol # sub problem initial tolerance
+    ω_min = min_tol
 
     #! change eta_end
     η_end = constr_viol_tol #global infeasibility in argument
-    η_k = 1e-2 # sub problem infeasibility
-    η_min = min_infeas # smallest infeasibility authorized
+    η_k = init_constr_viol_tol # sub problem infeasibility
+    η_min = min_constr_viol_tol # smallest infeasibility authorized
 
+    ϵ_k = init_compl_inf_tol
     ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
+    ϵ_min = min_compl_inf_tol
 
-    # TODO: \epsilon_k a créer, décroissant, comme \eta_k.
 
     if no_res 
         ω_k = ω_end
         η_k = η_end
+        ϵ_k = ϵ_end
     end
 
     acc_count = 0
+    iter_count = 0
 
-
-    #** I.3 Solver parameters
+    #** I.3 Solver acceptable parameters
     acceptable_tol::Float64 = acc_factor * tol
     acceptable_constr_viol_tol::Float64 = acc_factor * constr_viol_tol
     acceptable_compl_inf_tol::Float64 = acc_factor * compl_inf_tol
 
-    output_file_name_solver = "ncl_$(ncl.meta.name).log"
+    output_file_name_solver = print_level_solver > 0 ? "ncl_$(ncl.meta.name).log" : "tmp_ncl_$(ncl.meta.name).log"
 
     #** I.4 Initial variables
     x_k = zeros(Float64, nx)
@@ -188,8 +207,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                 @printf(io, "\n    Global tolerance                 ω_end = %7.2e for gradient lagrangian norm", tol)
                 @printf(io, "\n    Global infeasibility             η_end = %7.2e for residuals norm and constraint violation", constr_viol_tol)
                 @printf(io, "\n    Global complementarity tolerance ϵ_end = %7.2e for multipliers and constraints", compl_inf_tol)
-                @printf(io, "\n    Maximum penalty parameter        ρ_max = %7.2e ", max_penal)
-                @printf(io, "\n    Minimum infeasibility accepted   η_min = %7.2e \n", min_infeas)
+                @printf(io, "\n    Maximum penalty parameter        ρ_max = %7.2e \n\n", max_penal)
             
             @printf(io, "============= NCL Begin =============\n")
             @printf(io, "%4s  %7s  %7s  %7s  %7s  %7s  %9s  %7s  %7s  %7s",
@@ -207,8 +225,9 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         #** II.0 Iteration counter and mu_init
         k += 1
         
-        if (k >= 3) & no_res #no residuals but still in the loop
-            error("in NCLSolve($(ncl.meta.name)): problem $(ncl.meta.name) is unconstrained but ipopt did not solve it at acceptable level at the first time.\nYour problem is probably degenerated")
+        if (k >= 5) & no_res #no residuals but still in the loop
+            error("\nin NCLSolve($(ncl.nlp.meta.name)): problem $(ncl.nlp.meta.name) is unconstrained but ipopt did not solve it at acceptable level at the first time.
+                   \nYour problem is probably degenerated, or maybe you could raise an issue about it on github...")
         end
 
         if (k == 2) & warm_start
@@ -228,18 +247,20 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         solve_k = ipopt(ncl;
                         tol = ω_k,
                         constr_viol_tol = η_k,
-                        compl_inf_tol = ϵ_end,
+                        compl_inf_tol = ϵ_k,
                         acceptable_tol = acceptable_tol,
                         acceptable_constr_viol_tol = acceptable_constr_viol_tol,
                         acceptable_compl_inf_tol = acceptable_compl_inf_tol,
-                        print_level = print_level_solver,
-                        output_file = print_level_solver > 0 ? output_file_name_solver : "",
+                        print_level = print_level_solver >= 1 ? print_level_solver : 2,
+                        output_file = output_file_name_solver,
                         ignore_time = true,
                         warm_start_init_point = warm_start_init_point,
                         mu_init = mu_init,
                         dual_inf_tol=1e-6,
-                        max_iter = 1000,
-                        sb = "yes")
+                        max_iter = 1000)
+
+        (print_level_solver == 0) && rm(output_file_name_solver)
+
 
         # Get variables
         X_k = solve_k.solution #pre-access
@@ -252,6 +273,8 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         y_k = - solve_k.solver_specific[:multipliers_con]
         z_k_U = solve_k.solver_specific[:multipliers_U]
         z_k_L = solve_k.solver_specific[:multipliers_L]
+
+        iter_count += solve_k.iter + 1 #1 for NCL
 
         #** II.1.2 Output print
         if print_level_NCL ≥ 2
@@ -266,12 +289,19 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
             #** II.2.1 Update
             if !no_res
                 ncl.y = ncl.y + ncl.ρ * r_k # Updating multiplier
+                η_k = max(η_k*τ_η, η_min) # η_k / (1 + ncl.ρ ^ β) # (heuristic)
+                ϵ_k = max(ϵ_k*τ_ϵ, ϵ_min)
+                ω_k = max(ω_k*τ_ω, ω_min)
             end
-            η_k = max(η_k*τ_inv, η_min) # η_k / (1 + ncl.ρ ^ β) # (heuristic)
-            ω_k = ω_k*τ_inv # TODO optimiser, pas de division inutile
 
             if η_k == η_min
-                @warn "in NCLSolve($(ncl.meta.name)): minimum constraint violation η_min = " * string(η_min) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum constraint violation η_min = " * string(η_min) * " reached at iteration k = " * string(k)
+            end
+            if ω_k == ω_min
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum tolerance ω_min = " * string(η_min) * " reached at iteration k = " * string(k)
+            end
+            if ϵ_k == ϵ_min
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum complementarity infeasibility ϵ_min = " * string(η_min) * " reached at iteration k = " * string(k)
             end
 
             #** II.2.2 Solution found ?
@@ -285,11 +315,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                     end
 
                     if KKT_checking
-                        if no_res
-                            D_solved = KKT_check(ncl, x_k, y_k, z_k_U[1:nx], z_k_L[1:nx] ; io=io, tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
-                        else
-                            D_solved = KKT_check(ncl.nlp, x_k, y_k, z_k_U[1:nx], z_k_L[1:nx] ; io=io, tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
-                        end
+                        D_solved = KKT_check(ncl.nlp, x_k, y_k, z_k_U[1:nx], z_k_L[1:nx] ; io=io, tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
                         converged = D_solved["optimal"]
 
                         if D_solved["acceptable"]
@@ -303,13 +329,6 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                 end
 
                 status = solve_k.status
-                if no_res
-                    dual_feas = (ncl.meta.ncon != 0) ? norm(grad(ncl, x_k) - jtprod(ncl, x_k, y_k) - (z_k_L - z_k_U)[1:nx], Inf) : norm(grad(ncl, x_k) - (z_k_L - z_k_U)[1:nx], Inf)
-                    primal_feas = norm(setdiff(vcat(cons(nlp, x_k) - nlp.meta.lcon, nlp.meta.ucon - cons(nlp, x_k)), [Inf, -Inf]), Inf)
-                else
-                    dual_feas = (ncl.meta.ncon != 0) ? norm(grad(ncl.nlp, x_k) - jtprod(ncl.nlp, x_k, y_k) - (z_k_L - z_k_U)[1:nx], Inf) : norm(grad(ncl.nlp, x_k) - (z_k_L - z_k_U)[1:nx], Inf)
-                    primal_feas = norm(setdiff(vcat(cons(ncl.nlp, x_k) - ncl.nlp.meta.lcon, ncl.nlp.meta.ucon - cons(ncl.nlp, x_k)), [Inf, -Inf]), Inf)
-                end
 
                 #* Print results
                 if print_level_NCL ≥ 1
@@ -327,19 +346,23 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
                 #** II.2.3 Return if end of the algorithm
                 if converged | (k == max_iter_NCL)
+                    
+                    dual_feas = (ncl.meta.ncon != 0) ? norm(grad(ncl.nlp, x_k) - jtprod(ncl.nlp, x_k, y_k) - (z_k_L - z_k_U)[1:nx], Inf) : norm(grad(ncl.nlp, x_k) - (z_k_L - z_k_U)[1:nx], Inf)
+                    primal_feas = norm(setdiff(vcat(cons(ncl.nlp, x_k) - ncl.nlp.meta.lcon, ncl.nlp.meta.ucon - cons(ncl.nlp, x_k)), [Inf, -Inf]), Inf)
+                
                     return GenericExecutionStats(status, ncl,
                                                 solution = x_k,
-                                                iter = k,
+                                                iter = iter_count,
                                                 primal_feas = primal_feas,
                                                 dual_feas = dual_feas,
-                                                objective = no_res ? obj(ncl, x_k) : obj(ncl.nlp, x_k),
+                                                objective = obj(ncl.nlp, x_k),
                                                 elapsed_time = 0,
                                                 #! doesn't work... counters = nlp.counters,
                                                 solver_specific = Dict(:multipliers_con => y_k,
                                                                        :multipliers_L => z_k_L[1:nx],
                                                                        :multipliers_U => z_k_U[1:nx],
                                                                        :internal_msg => converged ? Symbol("Solve_Succeeded") : Symbol("Solve_Failed"),
-                                                                       :residuals => ncl isa NCLModel ? r_k : Float64[]
+                                                                       :residuals => r_k
                                                                       )
                                                 )
                 #else
@@ -349,10 +372,10 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
         else
    #** II.3 Increase penalization
-            ncl.ρ = τ * ncl.ρ # increase the step
+            ncl.ρ = min(ncl.ρ*τ_ρ, ρ_max) # increase the penalization
             #η_k = η_end / (1 + ncl.ρ ^ α) # Change infeasibility (heuristic)
             if ncl.ρ == ρ_max
-                @warn "in NCLSolve($(ncl.meta.name)): maximum penalty ρ = " * string(ρ_max) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): maximum penalty ρ = " * string(ρ_max) * " reached at iteration k = " * string(k)
             end
         end
         # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/ncl.ρ, ncl.ρ = 100ρ_k, η_k = 1/ncl.ρ^0.1
@@ -361,4 +384,4 @@ end
 
 
 
-end #end of module
+#end #end of module
