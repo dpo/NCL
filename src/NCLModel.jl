@@ -72,11 +72,9 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 	#* I. First tests
 	#* I.1 Need to create a NCLModel ?
 	if (nlp.meta.ncon == 0) # No need to create an NCLModel, because it is an unconstrained problem or it doesn't have non linear constraints
-		@warn("in NCLModel($(nlp.meta.name)): the nlp problem $(nlp.meta.name) given was unconstrained, so it was returned with 0 residuals")
-	end
-
-	if ((nlp.meta.nnln == 0) & !res_lin_cons) # No need to create an NCLModel, because we don't put residuals upon linear constraints (and there are not  any non linear constraint)
-		@warn("in NCLModel($(nlp.meta.name)): the nlp problem $(nlp.meta.name) given was linearly constrained, so it was returned with 0 residuals. \nConsider setting res_lin_cons to true if you want residuals upon linear constraints.")
+		@warn("\nin NCLModel($(nlp.meta.name)): the nlp problem $(nlp.meta.name) given was unconstrained, so it was returned with 0 residuals")
+	elseif ((nlp.meta.nnln == 0) & !res_lin_cons) # No need to create an NCLModel, because we don't put residuals upon linear constraints (and there are not  any non linear constraint)
+		@warn("\nin NCLModel($(nlp.meta.name)): the nlp problem $(nlp.meta.name) given was linearly constrained, so it was returned with 0 residuals. \nConsider setting res_lin_cons to true if you want residuals upon linear constraints.")
 	end
 
 	#* I.2 Residuals treatment
