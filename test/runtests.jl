@@ -1,13 +1,15 @@
 using Ipopt
 
 using NLPModels
-using NLPModelsIpopt 
+using NLPModelsIpopt
 using CUTEst
 using SolverTools
 
 using LinearAlgebra
 using SparseArrays
 using Test
+
+using NCL
 
 include("test_NCLSolve.jl")
 include("test_NCLModel.jl")

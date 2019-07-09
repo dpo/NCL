@@ -1,10 +1,6 @@
-using Ipopt
-using NLPModelsIpopt
-using CUTEst
-
-include("../src/NCLModel.jl")
-include("../src/KKT_check.jl")
-include("../src/NCLSolve.jl")
+#include("../src/NCLModel.jl")
+#include("../src/KKT_check.jl")
+#include("../src/NCLSolve.jl")
 
 
 """
@@ -12,7 +8,7 @@ include("../src/NCLSolve.jl")
 # Unit tests for NCLSolve.jl #
 ##############################
 """
-function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 8, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 13) ::Test.DefaultTestSet
+function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 8, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 57) ::Test.DefaultTestSet
     # Test parameters
     print_level_NCL = 0
     ω = 0.001

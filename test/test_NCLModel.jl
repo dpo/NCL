@@ -1,4 +1,4 @@
-include("../src/NCLModel.jl")
+#include("../src/NCLModel.jl")
 
 """
 ##############################
