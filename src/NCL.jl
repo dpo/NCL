@@ -1,4 +1,4 @@
-module NCLSolve
+module NCL_Solve
 
 
 
@@ -19,7 +19,7 @@ using NLPModelsIpopt: ipopt
 
 include("NCLModel.jl")
 include("KKT_check.jl")
-include("NCLSolve.jl")
+include("NCL_Solve.jl")
 
 #using NLPModelsKnitro
 
