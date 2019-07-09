@@ -6,7 +6,7 @@ using CUTEst
 using NLPModels
 using NLPModelsIpopt
 using SolverBenchmark
-using NCLSolve
+using NCL
 using AmplNLReader
 
 include("NCLModel.jl")
