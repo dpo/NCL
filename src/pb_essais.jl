@@ -60,7 +60,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 			#** I.2 Resolution
 				#* I.2.1 NCL resolution
 					reset!(nlp.counters)
-					resol = NCL_Solve(nlp ;
+					resol = NCLSolve(nlp ;
 							max_iter_NCL = 20,
 							tol = tol,
 							constr_viol_tol = constr_viol_tol,
@@ -181,7 +181,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 			#** II.2 Resolution
 				#** II.2.1 NCL resolution
 					reset!(nlp.counters)
-					resol = NCL_Solve(nlp ;
+					resol = NCLSolve(nlp ;
 							max_iter_NCL = 20,
 							max_iter_solver = 1000,
 							tol = tol,
@@ -574,7 +574,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		for i in 1:n_solver
 			if solver[i] == "nclres"
 				reset!(nlp.counters)
-				resol_nclres, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCL_Solve(nlp ;
+				resol_nclres, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCLSolve(nlp ;
 																															#
 																															tol = tol,
 																															constr_viol_tol = constr_viol_tol,
@@ -605,7 +605,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "nclkkt"
 				reset!(nlp.counters)
-				resol_nclkkt, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCL_Solve(nlp ;
+				resol_nclkkt, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCLSolve(nlp ;
 																															max_iter_NCL = max_iter_NCL,
 																															#print_level_NCL = 3,
 																															tol = tol,
@@ -680,7 +680,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		for i in 1:n_solver
 			if solver[i] == "nclres"
 				reset!(nlp.counters)
-				resol_nclres, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCL_Solve(nlp ;
+				resol_nclres, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCLSolve(nlp ;
 																													max_iter_NCL = max_iter_NCL,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
@@ -708,7 +708,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "nclkkt"
 				reset!(nlp.counters)
-				resol_nclkkt, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCL_Solve(nlp ;
+				resol_nclkkt, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCLSolve(nlp ;
 																													max_iter_NCL = max_iter_NCL,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
@@ -787,7 +787,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		for i in 1:n_solver
 			if solver[i] == "nclres"
 				reset!(ampl_model.counters)
-				resol_nclres, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCL_Solve(ampl_model ;
+				resol_nclres, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCLSolve(ampl_model ;
 																													max_iter_NCL = max_iter_NCL,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
@@ -815,7 +815,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "nclkkt"
 				reset!(ampl_model.counters)
-				resol_nclkkt, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCL_Solve(ampl_model ;
+				resol_nclkkt, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCLSolve(ampl_model ;
 																													max_iter_NCL = max_iter_NCL,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,

@@ -1,10 +1,10 @@
 
-export NCL_Solve
+export NCLSolve
 
-# NCL_Solve called with a string outputs to file
-#function NCL_Solve(nlp::AbstractNLPModel, file::String; kwargs...)
+# NCLSolve called with a string outputs to file
+#function NCLSolve(nlp::AbstractNLPModel, file::String; kwargs...)
 #    out = open(file, "w") do io
-#        NCL_Solve(nlp; io=io, kwargs...)
+#        NCLSolve(nlp; io=io, kwargs...)
 #    end
 #
 #    return out
@@ -35,7 +35,7 @@ Main function for the NCL method.
                 )
 #################################
 """
-function NCL_Solve(nlp::AbstractNLPModel ;                    # Problem to be solved by this method
+function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be solved by this method
                   #* Optimization parameters
                   tol::Float64 = 1e-6,                       # Tolerance for the gradient lagrangian norm
                   constr_viol_tol::Float64 = 1e-6,           # Tolerance for the infeasibility accepted for ncl
@@ -189,7 +189,7 @@ function NCL_Solve(nlp::AbstractNLPModel ;                    # Problem to be so
         k += 1
 
         if (k >= 5) & no_res #no residuals but still in the loop
-            error("\nin NCL_Solve($(ncl.nlp.meta.name)): problem $(ncl.nlp.meta.name) is unconstrained but ipopt did not solve it at acceptable level at the first time.
+            error("\nin NCLSolve($(ncl.nlp.meta.name)): problem $(ncl.nlp.meta.name) is unconstrained but ipopt did not solve it at acceptable level at the first time.
                    \nYour problem is probably degenerated, or maybe you could raise an issue about it on github...")
         end
 
@@ -258,13 +258,13 @@ function NCL_Solve(nlp::AbstractNLPModel ;                    # Problem to be so
             end
 
             if η_k == η_min
-                @warn "\nin NCL_Solve($(ncl.nlp.meta.name)): minimum constraint violation η_min = " * string(η_min) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum constraint violation η_min = " * string(η_min) * " reached at iteration k = " * string(k)
             end
             if ω_k == ω_min
-                @warn "\nin NCL_Solve($(ncl.nlp.meta.name)): minimum tolerance ω_min = " * string(η_min) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum tolerance ω_min = " * string(η_min) * " reached at iteration k = " * string(k)
             end
             if ϵ_k == ϵ_min
-                @warn "\nin NCL_Solve($(ncl.nlp.meta.name)): minimum complementarity infeasibility ϵ_min = " * string(η_min) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum complementarity infeasibility ϵ_min = " * string(η_min) * " reached at iteration k = " * string(k)
             end
 
             #** II.2.2 Solution found ?
@@ -350,7 +350,7 @@ function NCL_Solve(nlp::AbstractNLPModel ;                    # Problem to be so
             ncl.ρ = min(ncl.ρ*τ_ρ, ρ_max) # increase the penalization
             #η_k = η_end / (1 + ncl.ρ ^ α) # Change infeasibility (heuristic)
             if ncl.ρ == ρ_max
-                @warn "\nin NCL_Solve($(ncl.nlp.meta.name)): maximum penalty ρ = " * string(ρ_max) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): maximum penalty ρ = " * string(ρ_max) * " reached at iteration k = " * string(k)
             end
         end
         # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/ncl.ρ, ncl.ρ = 100ρ_k, η_k = 1/ncl.ρ^0.1

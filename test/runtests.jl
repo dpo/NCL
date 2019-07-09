@@ -11,8 +11,13 @@ using Test
 
 using NCL
 
-include("test_NCLSolve.jl")
+include("../src/NCLModel.jl")
 include("test_NCLModel.jl")
+
+include("../src/KKT_check.jl")
+include("../src/NCLSolve.jl")
+include("test_NCLSolve.jl")
+
 
 """
 ##########################
