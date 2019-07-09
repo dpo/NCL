@@ -1,4 +1,4 @@
-name = "NCLSolve"
+name = "NCL"
 uuid = "635d528c-a255-11e9-a2a3-2a2ae2dbcce4"
 
 [deps]
