@@ -1,3 +1,4 @@
+export KKT_check
 
 using LinearAlgebra
 using Printf
@@ -20,7 +21,6 @@ mult_format_check documentation
         multipliers y ≥ 0
         Lagrangien(x, y) = f(x) - y' * c(x)
         ∇_{x}[lag(x, y)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * y - (z_L - z_U)
-
 ###############################
 """
 function mult_format_check(z_U::Vector{<:Float64}, z_L::Vector{<:Float64}, ϵ::Float64) ::Tuple{Vector{<:Float64}, Vector{<:Float64}}
@@ -110,7 +110,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
                                                                                      # 3... : Same, increasing information
                                                                                      # 6 & 7 : Shows full vectors, not advised if your problem has a big size
  ) ::Dict{String, Any} # dictionnary containing booleans optimality and acceptable optimality, and values of feasibility
- 
+
     #** 0. Initial settings
     #** 0.1 Notations
 

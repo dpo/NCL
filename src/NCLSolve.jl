@@ -1,51 +1,5 @@
-module NCLSolve
 
 export NCLSolve
-
-
-# comment
-#** Important
-# ! Warning / Problem
-# ? Question
-# TODO
-
-using Ipopt
-
-using LinearAlgebra
-using Printf
-
-using NLPModels
-using SolverTools
-using NLPModelsIpopt: ipopt
-
-include("NCLModel.jl")
-include("KKT_check.jl")
-
-#using NLPModelsKnitro
-
-#! TODO Fix closing file problem...
-
-######### TODO #########
-######### TODO #########
-######### TODO #########
-
-    # TODO (feature)   : Créer un vrai statut
-    # TODO (infos)     : Lecture des infos de ipopt
-    # TODO KKT_check output in file to fix
-
-    # TODO (recherche) : choix des mu_init à améliorer...
-    # TODO (recherche) : Points intérieurs à chaud...
-    # TODO (recherche) : tester la proximité des multiplicateurs y_k de renvoyés par le solveur et le ncl.y du problème (si r petit, probablement proches.)
-    # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
-    # TODO (recherche) : ajuster eta_end
-
-    # TODO (Plus tard) : Pierric pour choix de alpha, beta, tau...
-########## TODO ########
-########## TODO ########
-########## TODO ########
-
-
-
 
 # NCLSolve called with a string outputs to file
 #function NCLSolve(nlp::AbstractNLPModel, file::String; kwargs...)
@@ -104,18 +58,18 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   init_constr_viol_tol::Float64 = 0.1,
                   init_compl_inf_tol::Float64 = 0.1,
 
-                  max_iter_NCL::Int64 = 20,                  # Maximum number of iterations for the NCL method
+                  max_iter_NCL::Int = 20,                  # Maximum number of iterations for the NCL method
                   linear_residuals::Bool = false,            # To choose if you want to put residuals upon linear constraints or not
                   KKT_checking::Bool = false,                # To choose if you want to check KKT conditions in the loop, or just stop when residuals are small enough.
 
                   #* Options for solver
-                  max_iter_solver::Int64 = 1000,               # Maximum number of iterations for the subproblem solver
-                  print_level_solver::Int64 = 0,               # Options for printing iterations of the subproblem solver
+                  max_iter_solver::Int = 1000,               # Maximum number of iterations for the subproblem solver
+                  print_level_solver::Int = 0,               # Options for printing iterations of the subproblem solver
                   warm_start_init_point::String = "yes",     # "yes" to choose warm start in the subproblem solving. "no" for normal solving.
 
                   #* Options of NCL print
                   io::IO = stdout,                             # where to print iterations
-                  print_level_NCL::Int64 = 0,                  # Options for printing iterations of the NCL method : 0, nothing;
+                  print_level_NCL::Int = 0,                  # Options for printing iterations of the NCL method : 0, nothing;
                                                                                                                     # 1, calls to functions and conclusion;
                                                                                                                     # 2, calls, little informations on iterations;
                                                                                                                     # 3, calls, more information about iterations (and erors in KKT_check);
@@ -402,7 +356,3 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         # ? Chez Nocedal & Wright, p.521, on a : ω_k = 1/ncl.ρ, ncl.ρ = 100ρ_k, η_k = 1/ncl.ρ^0.1
     end
 end
-
-
-
-end #end of module

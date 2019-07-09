@@ -1,3 +1,9 @@
+export NCLModel
+export obj, grad, grad!, cons, cons!,
+       jac_structure!, jac_structure, jac_coord!, jac_coord,
+       jac, jprod, jprod!, jtprod, jtprod!,
+       hess_structure!, hess_structure, hess_coord!, hess_coord, hess, hprod, hprod!
+
 import NLPModels: increment!
 using NLPModels
 using LinearAlgebra
@@ -33,8 +39,8 @@ using Printf
 mutable struct NCLModel <: AbstractNLPModel
 	#* I. Information about the residuals
 	nlp::AbstractNLPModel # The original problem
-	nx::Int64 # Number of variable of the nlp problem
-	nr::Int64 # Number of residuals for the nlp problem (in fact nr = length(nln), if there are no free/infeasible constraints)
+	nx::Int # Number of variable of the nlp problem
+	nr::Int # Number of residuals for the nlp problem (in fact nr = length(nln), if there are no free/infeasible constraints)
 	minimize::Bool # true if the aim of the problem is to minimize, false otherwise
 	res_lin_cons::Bool # Boolean to chose if you put residuals upon linear constraints (true) or not
 
@@ -67,7 +73,7 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 				         	res_lin_cons::Bool = true, 															# Choose if you want residuals for linear constraints or not
 				         	ρ::Float64 = 1., 																	# Initial penalty
 				         	y = res_lin_cons ? zeros(Float64, nlp.meta.ncon) : zeros(Float64, nlp.meta.nnln),	# Initial multiplier, depending on the number of residuals considered
-				         ) ::NCLModel 		
+				         ) ::NCLModel
 
 	#* I. First tests
 	#* I.1 Need to create a NCLModel ?
