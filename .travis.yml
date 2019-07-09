@@ -1,15 +1,19 @@
 language: julia
 
-addons:
-  packages:
-    - Ipopt
-    - NLPModelsIpopt
-    - NLPModels
-    - SolverTools
-    - CUTEst
+os:
+  - linux
+  - osx
 
-    - LinearAlgebra
-    - SparseArrays
+julia:
+  - 1.0
+  - 1.1
+  - nightly
 
-    - Test
-    - Printf
+matrix:
+  allow_failures:
+    - julia: nightly
+
+branches:
+  only:
+    - master
+    - /^v\d+\.\d+(\.\d+)?(-\S*)?$/ # tags

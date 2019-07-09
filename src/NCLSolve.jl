@@ -1,5 +1,5 @@
 #module NCLSolve
-
+#
 #export NCLSolve
 
 
@@ -30,6 +30,7 @@ include("KKT_check.jl")
 ######### TODO #########
 
     # TODO (feature)   : Créer un vrai statut
+    # TODO (infos)     : Lecture des infos de ipopt
     # TODO KKT_check output in file to fix
 
     # TODO (recherche) : choix des mu_init à améliorer...
@@ -51,7 +52,7 @@ include("KKT_check.jl")
 #    out = open(file, "w") do io
 #        NCLSolve(nlp; io=io, kwargs...)
 #    end
-#    
+#
 #    return out
 #end
 
@@ -111,7 +112,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   max_iter_solver::Int64 = 1000,               # Maximum number of iterations for the subproblem solver
                   print_level_solver::Int64 = 0,               # Options for printing iterations of the subproblem solver
                   warm_start_init_point::String = "yes",     # "yes" to choose warm start in the subproblem solving. "no" for normal solving.
- 
+
                   #* Options of NCL print
                   io::IO = stdout,                             # where to print iterations
                   print_level_NCL::Int64 = 0,                  # Options for printing iterations of the NCL method : 0, nothing;
@@ -119,10 +120,10 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                                                                                                                     # 2, calls, little informations on iterations;
                                                                                                                     # 3, calls, more information about iterations (and erors in KKT_check);
                                                                                                                     # 4, calls, KKT_check, iterations, little information from the solver;                                                                                                                         # and so on until 7 (no further details)
-                  
+
                  ) ::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
- 
-    #** I.0 Solution with NCL 
+
+    #** I.0 Solution with NCL
     if nlp isa NCLModel #no need to pass through NCLModel constructor
         ncl = nlp
     else
@@ -149,7 +150,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     τ_ϵ = scale_compl_inf_tol
     τ_η = scale_constr_viol_tol
     τ_ω = scale_tol
-    
+
     α = 0.1 # Constant (α needs to be < 1)
     β = 0.2 # Constant
 
@@ -164,19 +165,19 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     ω_min = min_tol
 
     #! change eta_end
-    η_end = constr_viol_tol #global infeasibility in argument
+    η_end = 0.5 * constr_viol_tol #global infeasibility in argument
     η_k = init_constr_viol_tol # sub problem infeasibility
     η_min = min_constr_viol_tol # smallest infeasibility authorized
 
-    ϵ_k = init_compl_inf_tol
     ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
+    ϵ_k = init_compl_inf_tol
     ϵ_min = min_compl_inf_tol
 
 
-    if no_res 
-        ω_k = ω_end
-        η_k = η_end
-        ϵ_k = ϵ_end
+    if no_res
+        ω_k = tol
+        η_k = constr_viol_tol
+        ϵ_k = compl_inf_tol
     end
 
     acc_count = 0
@@ -187,7 +188,15 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     acceptable_constr_viol_tol::Float64 = acc_factor * constr_viol_tol
     acceptable_compl_inf_tol::Float64 = acc_factor * compl_inf_tol
 
-    output_file_name_solver = print_level_solver > 0 ? "ncl_$(ncl.meta.name).log" : "tmp_ncl_$(ncl.meta.name).log"
+    output_dir_tmp_solver = "/tmp/ncl/solver_logs"
+    output_dir_solver = "./solver_logs"
+    #if (!isdir(output_dir_solver)) & (print_level_solver > 0)
+    #    mkdir(output_dir_solver)
+    #elseif !isdir(output_dir_tmp_solver)
+    #    mkdir(output_dir_tmp_solver)
+    #    run(`chmod 700 /tmp/ncl/`) # only readable to me
+    #end
+    output_file_name_solver = print_level_solver > 0 ? "$(output_dir_solver)_ncl_$(ncl.meta.name).log" : "$(output_dir_tmp_solver)_tmp_ncl_$(ncl.meta.name).log"
 
     #** I.4 Initial variables
     x_k = zeros(Float64, nx)
@@ -208,7 +217,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                 @printf(io, "\n    Global infeasibility             η_end = %7.2e for residuals norm and constraint violation", constr_viol_tol)
                 @printf(io, "\n    Global complementarity tolerance ϵ_end = %7.2e for multipliers and constraints", compl_inf_tol)
                 @printf(io, "\n    Maximum penalty parameter        ρ_max = %7.2e \n\n", max_penal)
-            
+
             @printf(io, "============= NCL Begin =============\n")
             @printf(io, "%4s  %7s  %7s  %7s  %7s  %7s  %9s  %7s  %7s  %7s",
                         "Iter", "‖rₖ‖∞", "ηₖ", "ωₖ", "ρ", "μ init", "NCL obj", "‖y‖", "‖yₖ‖", "‖xₖ‖")
@@ -224,7 +233,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     while (k ≤ max_iter_NCL) & !converged
         #** II.0 Iteration counter and mu_init
         k += 1
-        
+
         if (k >= 5) & no_res #no residuals but still in the loop
             error("\nin NCLSolve($(ncl.nlp.meta.name)): problem $(ncl.nlp.meta.name) is unconstrained but ipopt did not solve it at acceptable level at the first time.
                    \nYour problem is probably degenerated, or maybe you could raise an issue about it on github...")
@@ -244,22 +253,22 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
         #** II.1 Get subproblem's solution
         #** II.1.1 Solver
-        solve_k = ipopt(ncl;
+        solve_k = NLPModelsIpopt.ipopt(ncl;
                         tol = ω_k,
                         constr_viol_tol = η_k,
                         compl_inf_tol = ϵ_k,
                         acceptable_tol = acceptable_tol,
                         acceptable_constr_viol_tol = acceptable_constr_viol_tol,
                         acceptable_compl_inf_tol = acceptable_compl_inf_tol,
-                        print_level = print_level_solver >= 1 ? print_level_solver : 2,
-                        output_file = output_file_name_solver,
+                        print_level = print_level_solver, #>= 1 ? print_level_solver : 2,
+                        #output_file = output_file_name_solver,
                         ignore_time = true,
                         warm_start_init_point = warm_start_init_point,
                         mu_init = mu_init,
                         dual_inf_tol=1e-6,
                         max_iter = 1000)
 
-        (print_level_solver == 0) && rm(output_file_name_solver)
+        #(print_level_solver == 0) && rm(output_file_name_solver)
 
 
         # Get variables
@@ -315,7 +324,17 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                     end
 
                     if KKT_checking
-                        D_solved = KKT_check(ncl.nlp, x_k, y_k, z_k_U[1:nx], z_k_L[1:nx] ; io=io, tol=ω_end, constr_viol_tol=η_end, compl_inf_tol=ϵ_end, print_level=print_level_NCL)
+                        D_solved = KKT_check(ncl.nlp,
+                                             x_k,
+                                             y_k,
+                                             z_k_U[1:nx],
+                                             z_k_L[1:nx] ;
+                                             io = io,
+                                             tol = tol,
+                                             constr_viol_tol = constr_viol_tol,
+                                             compl_inf_tol = compl_inf_tol,
+                                             print_level = print_level_NCL)
+
                         converged = D_solved["optimal"]
 
                         if D_solved["acceptable"]
@@ -346,13 +365,15 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
                 #** II.2.3 Return if end of the algorithm
                 if converged | (k == max_iter_NCL)
-                    
+
                     dual_feas = (ncl.meta.ncon != 0) ? norm(grad(ncl.nlp, x_k) - jtprod(ncl.nlp, x_k, y_k) - (z_k_L - z_k_U)[1:nx], Inf) : norm(grad(ncl.nlp, x_k) - (z_k_L - z_k_U)[1:nx], Inf)
                     primal_feas = norm(setdiff(vcat(cons(ncl.nlp, x_k) - ncl.nlp.meta.lcon, ncl.nlp.meta.ucon - cons(ncl.nlp, x_k)), [Inf, -Inf]), Inf)
-                
+
+                    #(print_level_solver == 0) && rm(output_dir_solver)
+
                     return GenericExecutionStats(status, ncl,
                                                 solution = x_k,
-                                                iter = iter_count,
+                                                iter = max(iter_count, k),
                                                 primal_feas = primal_feas,
                                                 dual_feas = dual_feas,
                                                 objective = obj(ncl.nlp, x_k),
