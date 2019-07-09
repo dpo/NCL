@@ -1,6 +1,6 @@
-#module NCLSolve
-#
-#export NCLSolve
+module NCLSolve
+
+export NCLSolve
 
 
 # comment
@@ -405,4 +405,4 @@ end
 
 
 
-#end #end of module
+end #end of module
