@@ -66,7 +66,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   #* Options for solver
                   max_iter_solver::Int = 1000,               # Maximum number of iterations for the subproblem solver
                   print_level_solver::Int = 0,               # Options for printing iterations of the subproblem solver
-                  warm_start_init_point::String = "yes",     # "yes" to choose warm start in the subproblem solving. "no" for normal solving.
+                  warm_start::Bool = true,     # "yes" to choose warm start in the subproblem solving. "no" for normal solving.
 
                   #* Options of NCL print
                   io::IO = stdout,                             # where to print iterations
@@ -98,7 +98,6 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
     #** I. Names and variables
     #** I.1 Constants & scale parameters
-    warm_start = (warm_start_init_point == "yes")
     mu_init = warm_start ? 1.0e-3 : 0.1
 
     τ_ρ = scale_penal # scale (used to update the ρ_k penalization)
@@ -218,9 +217,9 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
 
         # Get variables
-        X_k = solve_k.solution #pre-access
-        x_k = X_k[1:nx]
-        r_k = X_k[nx+1 : nx+nr]
+        xr_k = solve_k.solution #pre-access
+        x_k = xr_k[1:nx]
+        r_k = xr_k[nx+1 : nx+nr]
         norm_r_k_inf = norm(r_k, Inf) # update
 
         # Get multipliers
@@ -234,7 +233,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         #** II.1.2 Output print
         if print_level_NCL ≥ 2
             @printf(io, "%4d  %7.1e  %7.1e  %7.1e  %7.1e  %7.1e  %9.2e  %7.1e  %7.1e  %7.1e",
-                        k, norm_r_k_inf, η_k, ω_k, ncl.ρ, mu_init, obj(ncl, vcat(x_k, r_k)), norm(ncl.y, Inf), norm(y_k, Inf), norm(x_k))
+                        k, norm_r_k_inf, η_k, ω_k, ncl.ρ, mu_init, obj(ncl, xr_k), norm(ncl.y, Inf), norm(y_k, Inf), norm(x_k))
         end
 
         print_level_solver > 0 && @printf(io, "\n")
@@ -317,7 +316,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
 
                     #(print_level_solver == 0) && rm(output_dir_solver)
 
-                    return GenericExecutionStats(status, ncl,
+                    return GenericExecutionStats(status, ncl ;
                                                 solution = x_k,
                                                 iter = max(iter_count, k),
                                                 primal_feas = primal_feas,
