@@ -52,6 +52,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   scale_tol::Float64 = 0.1,
                   scale_constr_viol_tol::Float64 = 0.1,
                   scale_compl_inf_tol::Float64 = 0.1,
+                  scale_mu_init::Float64 = 0.1,
 
                   init_penal::Float64 = 10.0,
                   init_tol::Float64 = 0.1,
@@ -100,17 +101,18 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     warm_start = (warm_start_init_point == "yes")
     mu_init = warm_start ? 1.0e-3 : 0.1
 
-    τ_ρ = scale_penal # scale (used to update the ρ_k step)
+    τ_ρ = scale_penal # scale (used to update the ρ_k penalization)
     τ_ϵ = scale_compl_inf_tol
     τ_η = scale_constr_viol_tol
     τ_ω = scale_tol
+    τ_mu_init = scale_mu_init
 
     α = 0.1 # Constant (α needs to be < 1)
     β = 0.2 # Constant
 
     #** I.2 Parameters
     if !no_res
-        ncl.ρ = 100.0 # step
+        ncl.ρ = 100.0 # penalization
     end
     ρ_max = max_penal # biggest penalization authorized
 
@@ -138,9 +140,9 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     iter_count = 0
 
     #** I.3 Solver acceptable parameters
-    acceptable_tol::Float64 = acc_factor * tol
-    acceptable_constr_viol_tol::Float64 = acc_factor * constr_viol_tol
-    acceptable_compl_inf_tol::Float64 = acc_factor * compl_inf_tol
+    acceptable_tol::Float64 = acc_factor * ω_k
+    acceptable_constr_viol_tol::Float64 = acc_factor * η_k
+    acceptable_compl_inf_tol::Float64 = acc_factor * ϵ_k
 
     output_dir_tmp_solver = "/tmp/ncl/solver_logs"
     output_dir_solver = "./solver_logs"
@@ -193,17 +195,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                    \nYour problem is probably degenerated, or maybe you could raise an issue about it on github...")
         end
 
-        if (k == 2) & warm_start
-            mu_init = 1e-4
-        elseif (k == 4) & warm_start
-            mu_init = 1e-5
-        elseif (k == 6) & warm_start
-            mu_init = 1e-6
-        elseif (k == 8) & warm_start
-            mu_init = 1e-7
-        elseif (k == 10) & warm_start
-            mu_init = 1e-8
-        end
+        warm_start && mu_init *= τ_mu_init
 
         #** II.1 Get subproblem's solution
         #** II.1.1 Solver
