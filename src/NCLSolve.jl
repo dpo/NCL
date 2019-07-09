@@ -194,7 +194,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                    \nYour problem is probably degenerated, or maybe you could raise an issue about it on github...")
         end
 
-        warm_start && mu_init *= τ_mu_init
+        warm_start && (mu_init *= τ_mu_init)
 
         #** II.1 Get subproblem's solution
         #** II.1.1 Solver

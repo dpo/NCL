@@ -1,4 +1,4 @@
-module NCLSolve
+module NCL
 
 
 
