@@ -6,187 +6,12 @@ using CUTEst
 using NLPModels
 using NLPModelsIpopt
 using SolverBenchmark
-
+using NCL_Solve
 using AmplNLReader
 
 include("NCLModel.jl")
-include("NCLSolve.jl")
+#include("NCL_Solve.jl")
 include("KKT_check.jl")
-
-#* hand made hs13 model
-f(x) = (x[1] - 2.) ^ 2  +  x[2] ^ 2
-c(x) = [(1-x[1]) ^ 3  -  x[2]]
-lcon = [0.]
-ucon = [Inf]
-lvar = [0., 0.]
-uvar = [Inf, Inf]
-x0 = [-2.,-2.]
-
-mutable struct hs13 <: AbstractNLPModel
-	meta :: NLPModelMeta
-	counters :: Counters
-end
-
-function hs13()
-	meta = NLPModelMeta(2 ;
-						ncon=1,
-						nnzh=2,
-						nnzj=2,
-						x0=[-2.0 ; -2.0],
-						lvar=lvar,
-						uvar=uvar,
-						lcon=lcon,
-						ucon=ucon,
-						name="hs13")
-
-	return hs13(meta, Counters())
-end
-
-function NLPModels.obj(nlp :: hs13, x :: AbstractVector)
-	increment!(nlp, :neval_obj)
-	return (x[1] - 2.) ^ 2  +  x[2] ^ 2
-end
-
-function NLPModels.grad!(nlp :: hs13, x :: AbstractVector, gx :: AbstractVector)
-	increment!(nlp, :neval_grad)
-	gx[1] = 2.0 * (x[1] - 2)
-	gx[2] = 2.0 * x[2]
-	return gx
-end
-
-function NLPModels.hess(nlp :: hs13, x :: AbstractVector; obj_weight=1.0, y=[0.])
-	increment!(nlp, :neval_hess)
-	return [2.0 * obj_weight - 6 * y[1] * (1-x[1]) 0.0; 0.0 2 * obj_weight]
-end
-
-function NLPModels.hess_coord(nlp :: hs13, x :: AbstractVector; obj_weight=1.0, y=[0.])
-	increment!(nlp, :neval_hess)
-	return ([1,2], [1,2], [2.0 * obj_weight - 6 * y * (1-x[1]), 2. * obj_weight])
-end
-
-function NLPModels.hess_coord!(nlp :: hs13, x :: AbstractVector, hrows::Vector{<:Int64}, hcols::Vector{<:Int64}, hvals::Vector{<:Float64} ; obj_weight=1.0, y=[0.])
-	increment!(nlp, :neval_hess)
-	hvals[1] = 2.0 * obj_weight - 6 * y[1] * (1-x[1])
-	hvals[2] = 2 * obj_weight
-	return (hrows, hcols, hvals)
-end
-
-function NLPModels.hess_structure(nlp::hs13)
-	increment!(nlp, :neval_hess)
-	return ([1,2], [1,2])
-end
-
-function NLPModels.hprod!(nlp :: hs13, x :: AbstractVector, v :: AbstractVector, Hv :: AbstractVector; obj_weight=1.0, y=Float64[])
-	increment!(nlp, :neval_hprod)
-	Hv .= [(2.0 * obj_weight - 6 * y * (1-x[1])) * v[1] ; 2. * obj_weight * v[2]]
-	return Hv
-end
-
-function NLPModels.cons(nlp :: hs13, x :: AbstractVector)
-	increment!(nlp, :neval_cons)
-	return c(x)
-end
-
-function NLPModels.cons!(nlp :: hs13, x :: AbstractVector, cx :: AbstractVector)
-	increment!(nlp, :neval_cons)
-	cx .= c(x)
-	return cx
-end
-
-function NLPModels.jac(nlp :: hs13, x :: AbstractVector)
-	increment!(nlp, :neval_jac)
-	return [-3*(1-x[1])^2  -1]
-end
-
-function NLPModels.jac_coord(nlp :: hs13, x :: AbstractVector)
-	increment!(nlp, :neval_jac)
-	return ([1, 1], [1, 2], [-3*(1 - x[1])^2, -1])
-end
-
-function NLPModels.jac_coord!(nlp :: hs13, x :: AbstractVector, rows :: AbstractVector, cols :: AbstractVector, vals :: AbstractVector)
-	increment!(nlp, :neval_jac)
-	vals[1] = -3*(1 - x[1])^2
-	vals[2] = -1
-	return (rows, cols, vals)
-end
-
-function NLPModels.jprod!(nlp :: hs13, x :: AbstractVector, v :: AbstractVector, Jv :: AbstractVector)
-	increment!(nlp, :neval_jprod)
-	Jv .= [(-3*(1 - x[1])^2) * v[1] - v[2]]
-	return Jv
-end
-
-function NLPModels.jtprod!(nlp :: hs13, x :: AbstractVector, v :: AbstractVector, Jtv :: AbstractVector)
-	increment!(nlp, :neval_jtprod)
-	Jtv .= [(-3*(1 - x[1])^2) * v[1] ; - v[1]]
-	return Jtv
-end
-
-function NLPModels.jac_structure(nlp :: hs13)
-	increment!(nlp, :neval_jac)
-	return ([1, 1], [1, 2])
-end
-
-function pb_try()
-	##** HS13
-	f(x) = (x[1] - 2.) ^ 2  +  x[2] ^ 2
-	c(x) = [(1-x[1]) ^ 3  -  x[2]]
-	lcon = [0.]
-	ucon = [Inf]
-	lvar = [0., 0.]
-	uvar = [Inf, Inf]
-	x0 = [-2.,-2.]
-
-	#* Differentes resolutions
-	#   hand_made_hs13 = hs13()
-	#	println("First resolution hand_made_hs13")
-	#		resol = NLPModelsIpopt.ipopt(hand_made_hs13, tol = 1e-6, constr_viol_tol = 0.001, compl_inf_tol = 0.001, print_level = 5)
-	#
-	#		println("\n\nHand made hs13 check")
-	#			@show resol.solution
-	#			@show KKT_check(hand_made_hs13, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L] , 0.001, 0.001, 0.001, 3)
-	#
-	#
-	#
-	#	println("\n\nCUTEst hs13 check and resolution")
-	#		resol_new = NLPModelsIpopt.ipopt(CUTEst_hs13, max_iter = 5000, tol = 1e-6, constr_viol_tol = 0.001, compl_inf_tol = 0.001, print_level = 0)
-	#		@show KKT_check(CUTEst_hs13, resol_new.solution, - resol_new.solver_specific[:multipliers_con] , resol_new.solver_specific[:multipliers_U] , resol_new.solver_specific[:multipliers_L] , 0.001, 0.001, 0.001, 3)
-	#
-	#
-	#
-	#	ampl_hs13 = AmplModel("../../AMPL_tests/hs13.nl")
-	#	println("\n\nAMPL hs13 check and resolution")
-	#		resol_ampl = NLPModelsIpopt.ipopt(ampl_hs13, max_iter = 5000, tol = 1e-6, constr_viol_tol = 0.001, compl_inf_tol = 0.001, print_level = 0)
-	#		@show KKT_check(CUTEst_hs13, resol_ampl.solution, - resol_ampl.solver_specific[:multipliers_con] , resol_ampl.solver_specific[:multipliers_U] , resol_ampl.solver_specific[:multipliers_L] , 0.001, 0.001, 0.001, 3)
-	#		finalize(CUTEst_hs13)
-
-	nlp = hs13()
-	#nlp = ADNLPModel(f, x0 ; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name = "HS13")
-	#nlp = CUTEstModel("HS13")
-
-	##** TAX1
-	#nlp = CUTEstModel("TAX13322") # gros
-	#nlp = CUTEstModel("TAX53322") # tres gros
-	#nlp = CUTEstModel("TAX213322") # enorme
-
-	ncl = NCLModel(nlp, res_lin_cons = false)
-
-	resolution = NCLSolve(nlp;
-						            max_iter_NCL = 20,
-						            max_iter_solver = 1000,
-						            print_level_NCL = 2,
-						            print_level_solver = 0,
-						            linear_residuals = true,
-						            output_file_print_NCL = true,
-						            output_file_print_solver = false,
-						            output_file_name_NCL = "NCL_on_hs13",
-						            warm_start_init_point = "yes")
-
-	println(resolution.solver_specific[:internal_msg])
-
-	finalize(nlp)
-	return resolution.solver_specific[:internal_msg]
-end
 
 function pb_set_resolution_files( ; #No arguments, only key-word arguments
 						#* Common arguments
@@ -202,17 +27,17 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 						#* CUTEst arguments
 							cutest_generic_pb_name::String = "CUTEst_HS",
 							cutest_pb_set::Vector{String} = ["HS$i" for i in 1:57],
-							cutest_pb_index_set::Vector{Int64} = [i for i in 1:length(cutest_pb_set)],
+							cutest_pb_index_set::Vector{Int} = [i for i in 1:length(cutest_pb_set)],
 
 						#* Solver arguments
 							solver::String = "ipopt",
-							print_level_solver::Int64 = 0,
-							max_iter_solver::Int64 = 1000,
+							print_level_solver::Int = 0,
+							max_iter_solver::Int = 1000,
 
 						#* NLP Arguments
 							nlp_generic_pb_name::String = "NLP_HS",
-							nlp_pb_set::Vector{<:AbstractNLPModel} = [hs13()],
-							nlp_pb_index_set::Vector{Int64} = [1],
+							nlp_pb_set::Vector{<:AbstractNLPModel} = AbstractNLPModel[],
+							nlp_pb_index_set::Vector{Int} = Int[],
 
 						#* Latex ?
 							generate_latex::Bool = true
@@ -235,7 +60,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 			#** I.2 Resolution
 				#* I.2.1 NCL resolution
 					reset!(nlp.counters)
-					resol = NCLSolve(nlp ;
+					resol = NCL_Solve(nlp ;
 							max_iter_NCL = 20,
 							tol = tol,
 							constr_viol_tol = constr_viol_tol,
@@ -356,7 +181,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 			#** II.2 Resolution
 				#** II.2.1 NCL resolution
 					reset!(nlp.counters)
-					resol = NCLSolve(nlp ;
+					resol = NCL_Solve(nlp ;
 							max_iter_NCL = 20,
 							max_iter_solver = 1000,
 							tol = tol,
@@ -672,7 +497,6 @@ function res_tabular(outputFile::String ;
     println(fout, "\\end{landscape}\\end{document}")
 
     close(fout)
-
 end
 #################
 
@@ -690,22 +514,22 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 						#* CUTEst arguments
 						cutest_pb_set::Vector{String} = String[],
-						cutest_pb_index_set::Vector{Int64} = [i for i in 1:length(cutest_pb_set)],
+						cutest_pb_index_set::Vector{Int} = [i for i in 1:length(cutest_pb_set)],
 
 						#* NLP Arguments
 						nlp_pb_set::Vector{<:AbstractNLPModel} = AbstractNLPModel[],
-						nlp_pb_index_set::Vector{Int64} = [i for i in 1:length(nlp_pb_set)],
+						nlp_pb_index_set::Vector{Int} = [i for i in 1:length(nlp_pb_set)],
 
 						#* AmplNLReader Arguments
 						ampl_pb_set::Vector{String} = String[],
-						ampl_pb_index_set::Vector{Int64} = [i for i in 1:length(ampl_pb_set)],
+						ampl_pb_index_set::Vector{Int} = [i for i in 1:length(ampl_pb_set)],
 
 						#* Solver arguments
 						solver::Vector{String} = ["ipopt", "nclres", "nclkkt"], #can contain ipopt
 																						   # knitro
 																						   # nclres (stops when norm(r) is small enough, not checking kkt conditions during iterations)
 																						   # nclkkt (stops when fitting KKT conditions, or fitting to acceptable level)
-						max_iter_solver::Int64 = 1000
+						max_iter_solver::Int = 1000
 						)::Nothing
 
 	n_solver = length(solver)
@@ -714,23 +538,24 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	n_ampl = length(ampl_pb_index_set)
 
 
-	info_cutest::Array{Int64, 2} = Array{Int64, 2}(undef, n_cutest, 2) # 1: nvar, 2: ncon
+	info_cutest::Array{Int, 2} = Array{Int, 2}(undef, n_cutest, 2) # 1: nvar, 2: ncon
 	names_cutest::Vector{String} = Vector{String}(undef, n_cutest)
 	time_cutest::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_cutest, 5) # (n_solver rows, n_cutest cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
 	resol_cutest::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_cutest)
 	kkt_cutest::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_cutest)
 
-	info_nlp::Array{Int64, 2} = Array{Int64, 2}(undef, n_nlp, 2) # 1: nvar, 2: ncon
+	info_nlp::Array{Int, 2} = Array{Int, 2}(undef, n_nlp, 2) # 1: nvar, 2: ncon
 	names_nlp::Vector{String} = Vector{String}(undef, n_nlp)
 	time_nlp::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_nlp, 5) # (n_solver rows, n_nlp cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
 	resol_nlp::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_nlp)
 	kkt_nlp::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_nlp)
 
-	info_ampl::Array{Int64, 2} = Array{Int64, 2}(undef, n_ampl, 2) # 1: nvar, 2: ncon
+	info_ampl::Array{Int, 2} = Array{Int, 2}(undef, n_ampl, 2) # 1: nvar, 2: ncon
 	names_ampl::Vector{String} = Vector{String}(undef, n_ampl)
 	time_ampl::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_ampl, 5) # (n_solver rows, n_nlp cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
 	resol_ampl::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_ampl)
 	kkt_ampl::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_ampl)
+
 
 	#** I. CUTEst problem set
 
@@ -749,7 +574,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		for i in 1:n_solver
 			if solver[i] == "nclres"
 				reset!(nlp.counters)
-				resol_nclres, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCLSolve(nlp ;
+				resol_nclres, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCL_Solve(nlp ;
 																															#
 																															tol = tol,
 																															constr_viol_tol = constr_viol_tol,
@@ -780,7 +605,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "nclkkt"
 				reset!(nlp.counters)
-				resol_nclkkt, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCLSolve(nlp ;
+				resol_nclkkt, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCL_Solve(nlp ;
 																															max_iter_NCL = max_iter_NCL,
 																															#print_level_NCL = 3,
 																															tol = tol,
@@ -821,7 +646,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
-				
+
 				kkt_cutest[i, k] = KKT_check(nlp,
 							resol_solver.solution,
 							resol_solver.solver_specific[:multipliers_con],
@@ -836,6 +661,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		end
 		finalize(nlp)
 	end
+
 
 	#** II. NLP problem set
 
@@ -854,7 +680,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		for i in 1:n_solver
 			if solver[i] == "nclres"
 				reset!(nlp.counters)
-				resol_nclres, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCLSolve(nlp ;
+				resol_nclres, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCL_Solve(nlp ;
 																													max_iter_NCL = max_iter_NCL,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
@@ -882,7 +708,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "nclkkt"
 				reset!(nlp.counters)
-				resol_nclkkt, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCLSolve(nlp ;
+				resol_nclkkt, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCL_Solve(nlp ;
 																													max_iter_NCL = max_iter_NCL,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
@@ -910,7 +736,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "ipopt"
 				reset!(nlp.counters)
-				resol_solver, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(nlp ; 
+				resol_solver, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(nlp ;
 																																max_iter = max_iter_solver,
 																																tol = tol,
 																																constr_viol_tol = constr_viol_tol,
@@ -936,16 +762,20 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 	end
 
+
 	#** III. AMPL problem set
 
 	k = 0
 	for i in ampl_pb_index_set
 		k += 1
-		
+
 		#** III.1 Problem
 		tax_name = ampl_pb_set[i]
 		cd("/home/perselie/Bureau/projet/AMPL_tests/TAX")
-		run(Cmd(["ampl", "-og" * tax_name, tax_name * ".mod", tax_name * ".dat"]))
+
+		if !isfile(tax_name * ".nl")
+			run(Cmd(["ampl", "-og" * tax_name, tax_name * ".mod", tax_name * ".dat"]))
+		end
 		ampl_model = AmplModel(tax_name * ".nl")
 
 		info_ampl[k, 1] = ampl_model.meta.nvar
@@ -957,7 +787,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		for i in 1:n_solver
 			if solver[i] == "nclres"
 				reset!(ampl_model.counters)
-				resol_nclres, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCLSolve(ampl_model ;
+				resol_nclres, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCL_Solve(ampl_model ;
 																													max_iter_NCL = max_iter_NCL,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
@@ -985,7 +815,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "nclkkt"
 				reset!(ampl_model.counters)
-				resol_nclkkt, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCLSolve(ampl_model ;
+				resol_nclkkt, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCL_Solve(ampl_model ;
 																													max_iter_NCL = max_iter_NCL,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
@@ -1013,13 +843,13 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "ipopt"
 				reset!(ampl_model.counters)
-				resol_solver, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(ampl_model ; 
-																																max_iter = max_iter_solver,
-																																tol = tol,
-																																constr_viol_tol = constr_viol_tol,
-																																compl_inf_tol = compl_inf_tol,
-																																print_level = 0,
-																																ignore_time = true)
+				resol_solver, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(ampl_model ;
+																													max_iter = max_iter_solver,
+																													tol = tol,
+																													constr_viol_tol = constr_viol_tol,
+																													compl_inf_tol = compl_inf_tol,
+																													print_level = 0,
+																													ignore_time = true)
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
@@ -1076,12 +906,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 												:kkt_opti 	=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
 												:kkt_acc_opti => [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]])
 				for i in 1:n_solver)
-	
-	
-	
 
 
-	
+
+
+
+
 	hdr_override = Dict(:problem => "\\textbf{Problem}",
 						:nvar => "\$n_{var}\$",
 						:ncon => "\$n_{con}\$",
@@ -1105,16 +935,16 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 					   )
 	N = [:niter, :f, :feval, :ceval, :time, :bytes, :gctime, :feas, :compl, :mult_norm, :lag_norm, :r_norm, :solve_succeeded, :r_opti, :r_acc_opti, :kkt_opti, :kkt_acc_opti]
 	df_res = join(stats, N ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
-	
+
 	ltx_file = open("../res/ltx_table.tex", write = true)
 	latex_table(ltx_file, df_res)
 	close(ltx_file)
 
-	solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded")) 
+	solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded"))
 	kkt_opti(df) = (df.kkt_opti .== Symbol(true))
 	kkt_acc_opti(df) = (df.kkt_acc_opti .== Symbol(true))
 	compare = [df -> df.f, df -> .!solved(df) * 1000 + df.feval, df -> .!kkt_opti(df) * 1000 + df.feval, df -> .!kkt_acc_opti(df) * 1000 + df.feval]
-	
+
 	#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
 
 	#compare_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
@@ -1123,6 +953,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	return nothing
 end
 
-pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:57])
+pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:10], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = Int[])
 
-#pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1])
+#pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1,2])
