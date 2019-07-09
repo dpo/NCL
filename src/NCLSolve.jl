@@ -86,6 +86,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                        res_val_init = 0.,
                        res_lin_cons = linear_residuals)
     end
+
     if (nlp.meta.ncon == 0) | ((nlp.meta.nnln == 0) & !linear_residuals) # No need to create an NCLModel, because it is an unconstrained problem or it doesn't have non linear constraints
         no_res = true
         nr = 0
@@ -244,7 +245,30 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         if (norm_r_k_inf ≤ max(η_k, η_end)) | (k == max_iter_NCL) # The residual has decreased enough
             #** II.2.1 Update
             if !no_res
-                ncl.y = ncl.y + ncl.ρ * r_k # Updating multiplier
+                new_mult = ncl.y + ncl.ρ * r_k # Updating multiplier
+                @show ncl.nlp.meta.jfix
+                @show ncl.nlp.meta.ncon
+                @show ncl.nlp.meta.nln
+                @show ncl.nlp.meta.nnln
+
+                jeq_res = ncl.nlp.meta.jfix
+                jineq_res = setdiff([i for i in 1:ncl.nlp.meta.ncon], ncl.nlp.meta.jfix)
+                @show jeq_res
+                @show jineq_res
+
+                if !linear_residuals
+                    jeq_res = intersect(jeq_res, ncl.nlp.meta.nln)
+                    jineq_res = intersect(jineq_res, ncl.nlp.meta.nln)
+                end
+
+                @show jeq_res
+                @show jineq_res
+                @show ncl.y
+                ncl.y[jeq_res] = new_mult[jeq_res]
+                ncl.y[jineq_res] = max.(new_mult[jineq_res], 0.)
+
+
+
                 η_k = max(η_k*τ_η, η_min) # η_k / (1 + ncl.ρ ^ β) # (heuristic)
                 ϵ_k = max(ϵ_k*τ_ϵ, ϵ_min)
                 ω_k = max(ω_k*τ_ω, ω_min)
