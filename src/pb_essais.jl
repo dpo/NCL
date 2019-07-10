@@ -10,7 +10,7 @@ using NCL
 using AmplNLReader
 
 include("NCLModel.jl")
-#include("NCLSolve.jl")
+include("NCLSolve.jl")
 include("KKT_check.jl")
 
 function pb_set_resolution_files( ; #No arguments, only key-word arguments
@@ -73,7 +73,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							output_file_print_NCL = true,
 							output_file_print_solver = false,
 							output_file_NCL = file_cutest,
-							warm_start_init_point = "yes")
+							warm_start = true)
 
 					@printf(file_cutest, "\n=================\n")
 
@@ -194,7 +194,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							output_file_print_NCL = true,
 							output_file_print_solver = false,
 							output_file_NCL = file_nlp,
-							warm_start_init_point = "yes")
+							warm_start = true)
 
 					D = KKT_check(nlp,
 							resol.solution,
@@ -585,7 +585,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															max_iter_NCL = max_iter_NCL,
 																															linear_residuals = linear_residuals,
 																															KKT_checking = false,
-																															warm_start_init_point = "yes")
+																															warm_start = true)
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
@@ -616,7 +616,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															linear_residuals = linear_residuals,
 																															KKT_checking = true,
 
-																															warm_start_init_point = "yes")
+																															warm_start = true)
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
@@ -689,7 +689,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													max_iter_solver = 1000,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = false,
-																													warm_start_init_point = "yes")
+																													warm_start = true)
 
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
@@ -717,7 +717,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													max_iter_solver = 1000,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = true,
-																													warm_start_init_point = "yes")
+																													warm_start = true)
 
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
@@ -796,7 +796,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													max_iter_solver = 1000,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = false,
-																													warm_start_init_point = "yes")
+																													warm_start = true)
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
@@ -824,7 +824,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													max_iter_solver = 1000,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = true,
-																													warm_start_init_point = "yes")
+																													warm_start = true)
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
@@ -953,6 +953,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	return nothing
 end
 
-pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:10], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = Int[])
+pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:57], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = Int[1,2])
 
 #pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1,2])
