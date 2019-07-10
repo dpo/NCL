@@ -52,7 +52,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   scale_tol::Float64 = 0.1,
                   scale_constr_viol_tol::Float64 = 0.1,
                   scale_compl_inf_tol::Float64 = 0.1,
-                  scale_mu_init::Float64 = 0.1,
+                  scale_mu_init::Float64 = 0.3,
 
                   init_penal::Float64 = 10.0,
                   init_tol::Float64 = 0.1,
