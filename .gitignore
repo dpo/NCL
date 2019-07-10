@@ -1,3 +1,4 @@
 *.svg
 solver_log
 *.log
+*.tex
