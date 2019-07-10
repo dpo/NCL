@@ -30,4 +30,5 @@ function test_main(test_NCLModel_command::Bool, test_NCLSolve_command::Bool) ::T
 end
 ################################
 ################################
-test_main(true,true)
+
+test_main(false,true)
