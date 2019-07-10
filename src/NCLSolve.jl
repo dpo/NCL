@@ -79,6 +79,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                  ) ::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
 
     #** I.0 Solution with NCL
+    linear_residuals = true
     if nlp isa NCLModel #no need to pass through NCLModel constructor
         ncl = nlp
     else
@@ -246,28 +247,12 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
             #** II.2.1 Update
             if !no_res
                 new_mult = ncl.y + ncl.ρ * r_k # Updating multiplier
-                @show ncl.nlp.meta.jfix
-                @show ncl.nlp.meta.ncon
-                @show ncl.nlp.meta.nln
-                @show ncl.nlp.meta.nnln
 
-                jeq_res = ncl.nlp.meta.jfix
-                jineq_res = setdiff([i for i in 1:ncl.nlp.meta.ncon], ncl.nlp.meta.jfix)
-                @show jeq_res
-                @show jineq_res
+                jeq = ncl.nlp.meta.jfix
+                jineq = setdiff([i for i in 1:ncl.nlp.meta.ncon], ncl.nlp.meta.jfix)
 
-                if !linear_residuals
-                    jeq_res = intersect(jeq_res, ncl.nlp.meta.nln)
-                    jineq_res = intersect(jineq_res, ncl.nlp.meta.nln)
-                end
-
-                @show jeq_res
-                @show jineq_res
-                @show ncl.y
-                ncl.y[jeq_res] = new_mult[jeq_res]
-                ncl.y[jineq_res] = max.(new_mult[jineq_res], 0.)
-
-
+                ncl.y[jeq] = new_mult[jeq]
+                ncl.y[jineq] = max.(new_mult[jineq], 0.)
 
                 η_k = max(η_k*τ_η, η_min) # η_k / (1 + ncl.ρ ^ β) # (heuristic)
                 ϵ_k = max(ϵ_k*τ_ϵ, ϵ_min)

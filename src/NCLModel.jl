@@ -1,8 +1,8 @@
 export NCLModel
 export obj, grad, grad!, cons, cons!,
-       jac_structure!, jac_structure, jac_coord!, jac_coord,
+       jac_structure, jac_coord!, jac_coord,
        jac, jprod, jprod!, jtprod, jtprod!,
-       hess_structure!, hess_structure, hess_coord!, hess_coord, hess, hprod, hprod!
+       hess_structure, hess_coord!, hess_coord, hess, hprod, hprod!
 
 import NLPModels: increment!
 using NLPModels
@@ -75,6 +75,7 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 				         	y = res_lin_cons ? zeros(Float64, nlp.meta.ncon) : zeros(Float64, nlp.meta.nnln),	# Initial multiplier, depending on the number of residuals considered
 				         ) ::NCLModel
 
+	res_lin_cons = true
 	#* I. First tests
 	#* I.1 Need to create a NCLModel ?
 	if (nlp.meta.ncon == 0) # No need to create an NCLModel, because it is an unconstrained problem or it doesn't have non linear constraints
