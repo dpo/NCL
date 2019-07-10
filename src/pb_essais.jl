@@ -5,12 +5,13 @@ using DataFrames
 using CUTEst
 using NLPModels
 using NLPModelsIpopt
+using SolverTools
 using SolverBenchmark
-using NCL
+
 using AmplNLReader
 
 include("NCLModel.jl")
-#include("NCLSolve.jl")
+include("NCLSolve.jl")
 include("KKT_check.jl")
 
 function pb_set_resolution_files( ; #No arguments, only key-word arguments
@@ -26,8 +27,8 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 
 						#* CUTEst arguments
 							cutest_generic_pb_name::String = "CUTEst_HS",
-							cutest_pb_set::Vector{String} = ["HS$i" for i in 1:57],
-							cutest_pb_index_set::Vector{Int} = [i for i in 1:length(cutest_pb_set)],
+							cutest_pb_set::Vector{String} = String[],
+							cutest_pb_index_set::Vector{Int} = Int[],
 
 						#* Solver arguments
 							solver::String = "ipopt",
@@ -73,7 +74,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							output_file_print_NCL = true,
 							output_file_print_solver = false,
 							output_file_NCL = file_cutest,
-							warm_start_init_point = "yes")
+							warm_start = true)
 
 					@printf(file_cutest, "\n=================\n")
 
@@ -194,7 +195,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							output_file_print_NCL = true,
 							output_file_print_solver = false,
 							output_file_NCL = file_nlp,
-							warm_start_init_point = "yes")
+							warm_start = true)
 
 					D = KKT_check(nlp,
 							resol.solution,
@@ -287,7 +288,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 		close(file_nlp)
 
 	if generate_latex
-		res_tabular("../res/latex.tex")
+		res_tabular("./res/latex.tex")
 	end
 end
 
@@ -497,6 +498,7 @@ function res_tabular(outputFile::String ;
     println(fout, "\\end{landscape}\\end{document}")
 
     close(fout)
+
 end
 #################
 
@@ -508,7 +510,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						constr_viol_tol::Float64 = 1e-6,
 						compl_inf_tol::Float64 = 1e-4,
 						acc_factor::Float64 = 100.,
-						KKT_checking::Bool = false,
 						linear_residuals = true,
 						max_iter_NCL = 20,
 
@@ -585,7 +586,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															max_iter_NCL = max_iter_NCL,
 																															linear_residuals = linear_residuals,
 																															KKT_checking = false,
-																															warm_start_init_point = "yes")
+																															warm_start = true)
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
@@ -616,7 +617,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															linear_residuals = linear_residuals,
 																															KKT_checking = true,
 
-																															warm_start_init_point = "yes")
+																															warm_start = true)
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
@@ -646,7 +647,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
-
+				
 				kkt_cutest[i, k] = KKT_check(nlp,
 							resol_solver.solution,
 							resol_solver.solver_specific[:multipliers_con],
@@ -689,7 +690,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													max_iter_solver = 1000,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = false,
-																													warm_start_init_point = "yes")
+																													warm_start = true)
 
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
@@ -717,7 +718,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													max_iter_solver = 1000,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = true,
-																													warm_start_init_point = "yes")
+																													warm_start = true)
 
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
@@ -736,7 +737,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "ipopt"
 				reset!(nlp.counters)
-				resol_solver, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(nlp ;
+				resol_solver, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(nlp ; 
 																																max_iter = max_iter_solver,
 																																tol = tol,
 																																constr_viol_tol = constr_viol_tol,
@@ -768,16 +769,16 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	k = 0
 	for i in ampl_pb_index_set
 		k += 1
-
+		
 		#** III.1 Problem
 		tax_name = ampl_pb_set[i]
 		cd("/home/perselie/Bureau/projet/AMPL_tests/TAX")
-
+		
 		if !isfile(tax_name * ".nl")
 			run(Cmd(["ampl", "-og" * tax_name, tax_name * ".mod", tax_name * ".dat"]))
 		end
 		ampl_model = AmplModel(tax_name * ".nl")
-
+		
 		info_ampl[k, 1] = ampl_model.meta.nvar
 		info_ampl[k, 2] = ampl_model.meta.ncon
 
@@ -796,7 +797,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													max_iter_solver = 1000,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = false,
-																													warm_start_init_point = "yes")
+																													warm_start = true)
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
@@ -824,7 +825,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													max_iter_solver = 1000,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = true,
-																													warm_start_init_point = "yes")
+																													warm_start = true)
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
@@ -843,7 +844,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 			if solver[i] == "ipopt"
 				reset!(ampl_model.counters)
-				resol_solver, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(ampl_model ;
+				resol_solver, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(ampl_model ; 
 																													max_iter = max_iter_solver,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
@@ -868,7 +869,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		end
 
 	end
-	cd("/home/perselie/Bureau/projet/ncl/src/")
+	cd("/home/perselie/Bureau/projet/ncl/")
 
 	#** IV. Data frames
 	info = vcat(info_cutest, info_nlp, info_ampl)
@@ -906,12 +907,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 												:kkt_opti 	=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
 												:kkt_acc_opti => [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]])
 				for i in 1:n_solver)
+	
+	
+	
 
 
-
-
-
-
+	
 	hdr_override = Dict(:problem => "\\textbf{Problem}",
 						:nvar => "\$n_{var}\$",
 						:ncon => "\$n_{con}\$",
@@ -935,16 +936,16 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 					   )
 	N = [:niter, :f, :feval, :ceval, :time, :bytes, :gctime, :feas, :compl, :mult_norm, :lag_norm, :r_norm, :solve_succeeded, :r_opti, :r_acc_opti, :kkt_opti, :kkt_acc_opti]
 	df_res = join(stats, N ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
-
-	ltx_file = open("../res/ltx_table.tex", write = true)
+	
+	ltx_file = open("./res/ltx_table.tex", write = true)
 	latex_table(ltx_file, df_res)
 	close(ltx_file)
 
-	solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded"))
+	solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded")) 
 	kkt_opti(df) = (df.kkt_opti .== Symbol(true))
 	kkt_acc_opti(df) = (df.kkt_acc_opti .== Symbol(true))
 	compare = [df -> df.f, df -> .!solved(df) * 1000 + df.feval, df -> .!kkt_opti(df) * 1000 + df.feval, df -> .!kkt_acc_opti(df) * 1000 + df.feval]
-
+	
 	#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
 
 	#compare_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
@@ -953,6 +954,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	return nothing
 end
 
-pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:10], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = Int[])
+#pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:10], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1])
 
-#pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1,2])
+pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1])

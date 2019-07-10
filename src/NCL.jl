@@ -15,7 +15,7 @@ using Printf
 
 using NLPModels
 using SolverTools
-using NLPModelsIpopt: ipopt
+using NLPModelsIpopt
 
 include("NCLModel.jl")
 include("KKT_check.jl")
