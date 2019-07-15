@@ -6,6 +6,7 @@ using CUTEst
 using NLPModels
 using NLPModelsIpopt
 using SolverBenchmark
+using SolverTools
 using NCL
 using AmplNLReader
 
@@ -868,7 +869,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		end
 
 	end
-	cd("/home/perselie/Bureau/projet/ncl/src/")
+	cd("/home/perselie/Bureau/projet/ncl/")
 
 	#** IV. Data frames
 	info = vcat(info_cutest, info_nlp, info_ampl)
@@ -936,7 +937,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	N = [:niter, :f, :feval, :ceval, :time, :bytes, :gctime, :feas, :compl, :mult_norm, :lag_norm, :r_norm, :solve_succeeded, :r_opti, :r_acc_opti, :kkt_opti, :kkt_acc_opti]
 	df_res = join(stats, N ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
 
-	ltx_file = open("../res/ltx_table.tex", write = true)
+	ltx_file = open("./res/ltx_table.tex", write = true)
 	latex_table(ltx_file, df_res)
 	close(ltx_file)
 
@@ -953,6 +954,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	return nothing
 end
 
-pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:57], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = Int[1,2])
+#pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:57], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = Int[1,2])
 
-#pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1,2])
+pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [3])
