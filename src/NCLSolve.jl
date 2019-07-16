@@ -124,7 +124,11 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     η_k = init_constr_viol_tol # sub problem infeasibility
     η_min = min_constr_viol_tol # smallest infeasibility authorized
 
-    ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
+    ϵ_end = compl_inf_tol - η_end
+    if ϵ_end < 0
+        ϵ_end = compl_inf_tol
+        @warn "NCLSolve($(ncl.nlp.meta.name)): your tolerance compl_inf_tol is to low regarding to constr_viol_tol.\nYou should have compl_inf_tol >= constr_viol_tol if you want the solution to satisfy optimal KKT conditions with your level of tolerances."
+    end
     ϵ_k = init_compl_inf_tol
     ϵ_min = min_compl_inf_tol
 
@@ -254,10 +258,10 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                 @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum constraint violation η_min = " * string(η_min) * " reached at iteration k = " * string(k)
             end
             if ω_k == ω_min
-                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum tolerance ω_min = " * string(η_min) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum tolerance ω_min = " * string(ω_min) * " reached at iteration k = " * string(k)
             end
             if ϵ_k == ϵ_min
-                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum complementarity infeasibility ϵ_min = " * string(η_min) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum complementarity infeasibility ϵ_min = " * string(ϵ_min) * " reached at iteration k = " * string(k)
             end
 
             #** II.2.2 Solution found ?
