@@ -311,20 +311,20 @@ function NLPModels.jac(ncl::NCLModel, X::Vector{<:Float64}) ::SparseMatrixCSC{<:
 	return J
 end
 
-function NLPModels.jac_coord(ncl::NCLModel, X::Vector{<:Float64}) ::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
-	increment!(ncl, :neval_jac)
-	# Original information
-	jrows, jcols, jvals = jac_coord(ncl.nlp, X[1:ncl.nx])
-	# New information (due to residuals)
-	if ncl.res_lin_cons
-		append!(jrows, 1:ncl.meta.ncon)
-	else
-		append!(jrows, ncl.nlp.meta.nln)
-	end
-	append!(jcols, ncl.nx+1 : ncl.meta.nvar)
-	append!(jvals, ones(typeof(jvals[1]), ncl.nr))
-	return (jrows, jcols, jvals)
-end
+# function NLPModels.jac_coord(ncl::NCLModel, X::Vector{<:Float64}) ::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
+# 	increment!(ncl, :neval_jac)
+# 	# Original information
+# 	jrows, jcols, jvals = jac_coord(ncl.nlp, X[1:ncl.nx])
+# 	# New information (due to residuals)
+# 	if ncl.res_lin_cons
+# 		append!(jrows, 1:ncl.meta.ncon)
+# 	else
+# 		append!(jrows, ncl.nlp.meta.nln)
+# 	end
+# 	append!(jcols, ncl.nx+1 : ncl.meta.nvar)
+# 	append!(jvals, ones(typeof(jvals[1]), ncl.nr))
+# 	return (jrows, jcols, jvals)
+# end
 
 function NLPModels.jac_coord!(ncl::NCLModel, X::Vector{<:Float64}, jrows::Vector{<:Int}, jcols::Vector{<:Int}, jvals::Vector{<:Float64}) ::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
 	increment!(ncl, :neval_jac)
@@ -347,20 +347,20 @@ function NLPModels.jac_coord!(ncl::NCLModel, X::Vector{<:Float64}, jrows::Vector
 	return (jrows, jcols, jvals)
 end
 
-function NLPModels.jac_structure(ncl::NCLModel) ::Tuple{Vector{Int},Vector{Int}}
-	increment!(ncl, :neval_jac)
-	# Original information
-	jrows, jcols = jac_structure(ncl.nlp)
+# function NLPModels.jac_structure(ncl::NCLModel) ::Tuple{Vector{Int},Vector{Int}}
+# 	increment!(ncl, :neval_jac)
+# 	# Original information
+# 	jrows, jcols = jac_structure(ncl.nlp)
 		
-	# New information (due to residuals)
-	if ncl.res_lin_cons
-		append!(jrows, 1:ncl.meta.ncon)
-	else
-		append!(jrows, ncl.nlp.meta.nln)
-	end
-	append!(jcols, ncl.nx+1 : ncl.meta.nvar)
-	return jrows, jcols
-end
+# 	# New information (due to residuals)
+# 	if ncl.res_lin_cons
+# 		append!(jrows, 1:ncl.meta.ncon)
+# 	else
+# 		append!(jrows, ncl.nlp.meta.nln)
+# 	end
+# 	append!(jcols, ncl.nx+1 : ncl.meta.nvar)
+# 	return jrows, jcols
+# end
 
 function NLPModels.jac_structure!(ncl::NCLModel, jrows::Vector{Int}, jcols::Vector{Int}) ::Tuple{Vector{Int},Vector{Int}}
 	increment!(ncl, :neval_jac)
