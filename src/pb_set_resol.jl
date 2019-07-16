@@ -632,7 +632,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 							resol_nclkkt.solver_specific[:multipliers_con],
 							resol_nclkkt.solver_specific[:multipliers_U],
 							resol_nclkkt.solver_specific[:multipliers_L] ;
-							print_level_NCL = print_level_checks,
+							print_level = print_level_checks,
 							tol = tol,
 							constr_viol_tol = constr_viol_tol,
 							compl_inf_tol = compl_inf_tol,
@@ -974,14 +974,3 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	#Plots.svg(p, "profilewall1000")
 	return nothing
 end
-
-#pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:10], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1])
-
-pb_set_resolution_data(solver = ["nclres"], 
-						ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], 
-						ampl_pb_index_set = [1], 
-
-						print_level_iter = 3, 
-						print_level_checks = 0, 
-						print_level_NCL_solver = 2)
-
