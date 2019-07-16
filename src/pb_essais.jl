@@ -12,7 +12,7 @@ using AmplNLReader
 
 include("NCLModel.jl")
 include("NCLSolve.jl")
-include("KKT_check.jl")
+include("KKTCheck.jl")
 
 function pb_set_resolution_files( ; #No arguments, only key-word arguments
 						#* Common arguments
@@ -78,7 +78,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 
 					@printf(file_cutest, "\n=================\n")
 
-					D = KKT_check(nlp,
+					D = KKTCheck(nlp,
 								resol.solution,
 								resol.solver_specific[:multipliers_con],
 								resol.solver_specific[:multipliers_U],
@@ -104,7 +104,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 
 					@printf(file_cutest, "\n\n=== Checking solver resolution ===\n")
 
-					D_solver = KKT_check(nlp,
+					D_solver = KKTCheck(nlp,
 										resol.solution,
 										resol.solver_specific[:multipliers_con],
 										resol.solver_specific[:multipliers_U],
@@ -197,7 +197,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							output_file_NCL = file_nlp,
 							warm_start = true)
 
-					D = KKT_check(nlp,
+					D = KKTCheck(nlp,
 							resol.solution,
 							resol.solver_specific[:multipliers_con],
 							resol.solver_specific[:multipliers_U],
@@ -226,7 +226,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 
 					@printf(file_nlp, "\n\n=== Checking solver resolution ===\n")
 
-					D_solver = KKT_check(nlp,
+					D_solver = KKTCheck(nlp,
 										resol.solution,
 										resol.solver_specific[:multipliers_con],
 										resol.solver_specific[:multipliers_U],
@@ -511,7 +511,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						compl_inf_tol::Float64 = 1e-4,
 						acc_factor::Float64 = 100.,
 						linear_residuals = true,
-						max_iter_NCL = 20,
+						max_iter_NCL = 30,
 
 						#* CUTEst arguments
 						cutest_pb_set::Vector{String} = String[],
@@ -595,7 +595,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
 
-				kkt_cutest[i, k] = KKT_check(nlp,
+				kkt_cutest[i, k] = KKTCheck(nlp,
 											resol_nclres.solution,
 											resol_nclres.solver_specific[:multipliers_con],
 											resol_nclres.solver_specific[:multipliers_U],
@@ -627,7 +627,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
 
-				kkt_cutest[i, k] = KKT_check(nlp,
+				kkt_cutest[i, k] = KKTCheck(nlp,
 							resol_nclkkt.solution,
 							resol_nclkkt.solver_specific[:multipliers_con],
 							resol_nclkkt.solver_specific[:multipliers_U],
@@ -654,7 +654,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
 				
-				kkt_cutest[i, k] = KKT_check(nlp,
+				kkt_cutest[i, k] = KKTCheck(nlp,
 							resol_solver.solution,
 							resol_solver.solver_specific[:multipliers_con],
 							resol_solver.solver_specific[:multipliers_U],
@@ -703,7 +703,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
 
-				kkt_nlp[i, k] = KKT_check(nlp,
+				kkt_nlp[i, k] = KKTCheck(nlp,
 											resol_nclres.solution,
 											resol_nclres.solver_specific[:multipliers_con],
 											resol_nclres.solver_specific[:multipliers_U],
@@ -733,7 +733,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
 
-				kkt_nlp[i, k] = KKT_check(nlp,
+				kkt_nlp[i, k] = KKTCheck(nlp,
 							resol_nclkkt.solution,
 							resol_nclkkt.solver_specific[:multipliers_con],
 							resol_nclkkt.solver_specific[:multipliers_U],
@@ -759,7 +759,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
 
-				kkt_nlp[i, k] = KKT_check(nlp,
+				kkt_nlp[i, k] = KKTCheck(nlp,
 											resol_solver.solution,
 											resol_solver.solver_specific[:multipliers_con],
 											resol_solver.solver_specific[:multipliers_U],
@@ -816,7 +816,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
 
-				kkt_ampl[i, k] = KKT_check(ampl_model,
+				kkt_ampl[i, k] = KKTCheck(ampl_model,
 											resol_nclres.solution,
 											resol_nclres.solver_specific[:multipliers_con],
 											resol_nclres.solver_specific[:multipliers_U],
@@ -846,7 +846,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
 
-				kkt_ampl[i, k] = KKT_check(ampl_model,
+				kkt_ampl[i, k] = KKTCheck(ampl_model,
 							resol_nclkkt.solution,
 							resol_nclkkt.solver_specific[:multipliers_con],
 							resol_nclkkt.solver_specific[:multipliers_U],
@@ -872,7 +872,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
 
-				kkt_ampl[i, k] = KKT_check(ampl_model,
+				kkt_ampl[i, k] = KKTCheck(ampl_model,
 											resol_solver.solution,
 											resol_solver.solver_specific[:multipliers_con],
 											resol_solver.solver_specific[:multipliers_U],
@@ -886,6 +886,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 			end
 		end
 
+		finalize(ampl_model)
 		rm(tax_name * ".nl")
 
 	end
@@ -977,10 +978,10 @@ end
 #pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:10], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1])
 
 pb_set_resolution_data(solver = ["nclres"], 
-								 ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], 
-								 ampl_pb_index_set = [1], 
+						ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], 
+						ampl_pb_index_set = [1], 
 
-								 print_level_iter = 3, 
-								 print_level_checks = 0, 
-								 print_level_NCL_solver = 3)
+						print_level_iter = 3, 
+						print_level_checks = 0, 
+						print_level_NCL_solver = 2)
 
