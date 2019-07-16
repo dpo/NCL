@@ -8,13 +8,13 @@
 # Unit tests for NCLSolve.jl #
 ##############################
 """
-function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 8, HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 7) ::Test.DefaultTestSet
+function test_NCLSolve(test::Bool ; HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 12) ::Test.DefaultTestSet
     # Test parameters
     print_level_NCL = 0
     ω = 0.001
     η = 0.0001
     ϵ = 0.0001
-    probs_KKT = ["HS" * string(i) for i in HS_begin_KKT:HS_end_KKT]
+
     probs_NCL = ["HS" * string(i) for i in HS_begin_NCL:HS_end_NCL] #[13,15,17,19,20]
 
     # Test problem
@@ -50,38 +50,6 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
 
     if test
         @testset "NCLSolve NLP (only linear residuals)" begin
-            @testset "KKTCheck function" begin
-                @testset "KKTCheck(nlp) via ipopt" begin
-                    # Solution of NLP with NLPModelsIpopt
-                    resol_nlp_ipopt = NLPModelsIpopt.ipopt(nlp ; print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
-                    x_nlp_ipopt = resol_nlp_ipopt.solution
-
-                    # Get multipliers
-                    λ_nlp_ipopt = - resol_nlp_ipopt.solver_specific[:multipliers_con]
-                    z_U_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_U]
-                    z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
-
-                    D = KKTCheck(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt)
-                    @test D["optimal"]
-                    @test D["acceptable"]
-                end
-
-                @testset "KKTCheck(ncl_nlin_res) via ipopt" begin
-                    # Solution of ncl_nlin_res with NLPModelsIpopt
-                    resol_ncl_ipopt = NLPModelsIpopt.ipopt(ncl_nlin_res ; print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
-                    x_ncl_ipopt = resol_ncl_ipopt.solution
-
-                    # Get multipliers
-                    λ_ncl_ipopt = - resol_ncl_ipopt.solver_specific[:multipliers_con]
-                    z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
-                    z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
-
-                    D = KKTCheck(ncl_nlin_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt)
-                    @test D["optimal"]
-                    @test D["acceptable"]
-                end
-            end
-
             @testset "KKTCheck(nlp) via NCLSolve" begin
                 # Solution of ncl_nlin_res with NCL method
                 resol_ncl_ncl = NCLSolve(ncl_nlin_res)
@@ -97,37 +65,6 @@ function test_NCLSolve(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
             end
         end
 
-
-        @testset "NCLSolve NLP (all residuals)" begin
-            @testset "KKTCheck(nlc_cons_res) via ipopt" begin
-                # Solution of ncl_nlin_res with NLPModelsIpopt
-                resol_ncl_ipopt = NLPModelsIpopt.ipopt(nlc_cons_res ; print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
-                x_ncl_ipopt = resol_ncl_ipopt.solution
-
-                # Get multipliers
-                λ_ncl_ipopt = - resol_ncl_ipopt.solver_specific[:multipliers_con]
-                z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
-                z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
-
-                D = KKTCheck(nlc_cons_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt)
-                @test D["optimal"]
-                @test D["acceptable"]
-            end
-
-            @testset "KKTCheck(nlp) via NCLSolve" begin
-                # Solution of nlc_cons_res with NCL method
-                resol_ncl_ncl = NCLSolve(nlc_cons_res)
-                x_ncl = resol_ncl_ncl.solution
-
-                λ_ncl = resol_ncl_ncl.solver_specific[:multipliers_con]
-                z_U_ncl = resol_ncl_ncl.solver_specific[:multipliers_U]
-                z_L_ncl = resol_ncl_ncl.solver_specific[:multipliers_L]
-
-                D = KKTCheck(nlp, x_ncl[1:nlc_cons_res.nx], λ_ncl, z_U_ncl[1:nlc_cons_res.nx], z_L_ncl[1:nlc_cons_res.nx])
-                @test D["optimal"]
-                @test D["acceptable"]
-            end
-        end
 
         @testset "NCLSolve HS (only linear residuals)" begin
             for name in probs_NCL # several tests

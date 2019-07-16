@@ -71,4 +71,36 @@ function test_KKTCheck(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
             finalize(hs)
         end
     end
+
+    @testset "KKTCheck function" begin
+        @testset "KKTCheck(nlp) via ipopt" begin
+            # Solution of NLP with NLPModelsIpopt
+            resol_nlp_ipopt = NLPModelsIpopt.ipopt(nlp ; print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
+            x_nlp_ipopt = resol_nlp_ipopt.solution
+
+            # Get multipliers
+            λ_nlp_ipopt = - resol_nlp_ipopt.solver_specific[:multipliers_con]
+            z_U_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_U]
+            z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
+
+            D = KKTCheck(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt)
+            @test D["optimal"]
+            @test D["acceptable"]
+        end
+
+        @testset "KKTCheck(ncl_nlin_res) via ipopt" begin
+            # Solution of ncl_nlin_res with NLPModelsIpopt
+            resol_ncl_ipopt = NLPModelsIpopt.ipopt(ncl_nlin_res ; print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
+            x_ncl_ipopt = resol_ncl_ipopt.solution
+
+            # Get multipliers
+            λ_ncl_ipopt = - resol_ncl_ipopt.solver_specific[:multipliers_con]
+            z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
+            z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
+
+            D = KKTCheck(ncl_nlin_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt)
+            @test D["optimal"]
+            @test D["acceptable"]
+        end
+    end
 end
