@@ -530,6 +530,9 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																						   # knitro
 																						   # nclres (stops when norm(r) is small enough, not checking kkt conditions during iterations)
 																						   # nclkkt (stops when fitting KKT conditions, or fitting to acceptable level)
+						print_level_iter::Int = 0,
+						print_level_checks::Int = 0,
+						print_level_NCL_solver::Int = 0,
 						max_iter_solver::Int = 1000
 						)::Nothing
 
@@ -537,6 +540,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	n_cutest = length(cutest_pb_index_set)
 	n_nlp = length(nlp_pb_index_set)
 	n_ampl = length(ampl_pb_index_set)
+
 
 
 	info_cutest::Array{Int, 2} = Array{Int, 2}(undef, n_cutest, 2) # 1: nvar, 2: ncon
@@ -581,7 +585,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															constr_viol_tol = constr_viol_tol,
 																															compl_inf_tol = compl_inf_tol,
 																															acc_factor = acc_factor,
-																															#print_level_NCL = 3,
+																															print_level_NCL = print_level_iter,
 																															#
 																															max_iter_NCL = max_iter_NCL,
 																															linear_residuals = linear_residuals,
@@ -596,6 +600,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											resol_nclres.solver_specific[:multipliers_con],
 											resol_nclres.solver_specific[:multipliers_U],
 											resol_nclres.solver_specific[:multipliers_L] ;
+											print_level = print_level_checks,
 											tol = tol,
 											constr_viol_tol = constr_viol_tol,
 											compl_inf_tol = compl_inf_tol,
@@ -608,7 +613,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				reset!(nlp.counters)
 				resol_nclkkt, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NCLSolve(nlp ;
 																															max_iter_NCL = max_iter_NCL,
-																															#print_level_NCL = 3,
+																															print_level_NCL = print_level_iter,
 																															tol = tol,
 																															constr_viol_tol = constr_viol_tol,
 																															compl_inf_tol = compl_inf_tol,
@@ -627,6 +632,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 							resol_nclkkt.solver_specific[:multipliers_con],
 							resol_nclkkt.solver_specific[:multipliers_U],
 							resol_nclkkt.solver_specific[:multipliers_L] ;
+							print_level_NCL = print_level_checks,
 							tol = tol,
 							constr_viol_tol = constr_viol_tol,
 							compl_inf_tol = compl_inf_tol,
@@ -638,11 +644,11 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 			if solver[i] == "ipopt"
 				reset!(nlp.counters)
 				resol_solver, time_cutest[i, k, 3], time_cutest[i, k, 4], time_cutest[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(nlp ; max_iter = max_iter_solver,
-											tol = tol,
-											constr_viol_tol = constr_viol_tol,
-											compl_inf_tol = compl_inf_tol,
-											print_level = 0,
-											ignore_time = true)
+																																		tol = tol,
+																																		constr_viol_tol = constr_viol_tol,
+																																		compl_inf_tol = compl_inf_tol,
+																																		print_level = print_level_iter,
+																																		ignore_time = true)
 
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
@@ -653,6 +659,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 							resol_solver.solver_specific[:multipliers_con],
 							resol_solver.solver_specific[:multipliers_U],
 							resol_solver.solver_specific[:multipliers_L] ;
+							print_level = print_level_checks,
 							tol = tol,
 							constr_viol_tol = constr_viol_tol,
 							compl_inf_tol = compl_inf_tol)
@@ -683,6 +690,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				reset!(nlp.counters)
 				resol_nclres, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCLSolve(nlp ;
 																													max_iter_NCL = max_iter_NCL,
+																													print_level_NCL = print_level_iter,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
@@ -700,6 +708,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											resol_nclres.solver_specific[:multipliers_con],
 											resol_nclres.solver_specific[:multipliers_U],
 											resol_nclres.solver_specific[:multipliers_L] ;
+											print_level = print_level_checks,
 											tol = tol,
 											constr_viol_tol = constr_viol_tol,
 											compl_inf_tol = compl_inf_tol)
@@ -711,6 +720,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				reset!(nlp.counters)
 				resol_nclkkt, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NCLSolve(nlp ;
 																													max_iter_NCL = max_iter_NCL,
+																													print_level_NCL = print_level_iter,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
@@ -728,6 +738,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 							resol_nclkkt.solver_specific[:multipliers_con],
 							resol_nclkkt.solver_specific[:multipliers_U],
 							resol_nclkkt.solver_specific[:multipliers_L] ;
+							print_level = print_level_checks,
 							tol = tol,
 							constr_viol_tol = constr_viol_tol,
 							compl_inf_tol = compl_inf_tol)
@@ -740,9 +751,9 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				resol_solver, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(nlp ; 
 																																max_iter = max_iter_solver,
 																																tol = tol,
+																																print_level = print_level_iter,
 																																constr_viol_tol = constr_viol_tol,
 																																compl_inf_tol = compl_inf_tol,
-																																print_level = 0,
 																																ignore_time = true)
 
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
@@ -753,6 +764,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											resol_solver.solver_specific[:multipliers_con],
 											resol_solver.solver_specific[:multipliers_U],
 											resol_solver.solver_specific[:multipliers_L] ;
+											print_level = print_level_checks,
 											tol = tol,
 											constr_viol_tol = constr_viol_tol,
 											compl_inf_tol = compl_inf_tol)
@@ -789,6 +801,8 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 			if solver[i] == "nclres"
 				reset!(ampl_model.counters)
 				resol_nclres, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCLSolve(ampl_model ;
+																													print_level_NCL = print_level_iter,
+																													print_level_solver = print_level_NCL_solver,
 																													max_iter_NCL = max_iter_NCL,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
@@ -807,6 +821,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											resol_nclres.solver_specific[:multipliers_con],
 											resol_nclres.solver_specific[:multipliers_U],
 											resol_nclres.solver_specific[:multipliers_L] ;
+											print_level = print_level_checks,
 											tol = tol,
 											constr_viol_tol = constr_viol_tol,
 											compl_inf_tol = compl_inf_tol)
@@ -818,6 +833,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				reset!(ampl_model.counters)
 				resol_nclkkt, time_ampl[i, k, 3], time_ampl[i, k, 4], time_ampl[i, k, 5], memallocs = @timed NCLSolve(ampl_model ;
 																													max_iter_NCL = max_iter_NCL,
+																													print_level_NCL = print_level_iter,
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
@@ -835,6 +851,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 							resol_nclkkt.solver_specific[:multipliers_con],
 							resol_nclkkt.solver_specific[:multipliers_U],
 							resol_nclkkt.solver_specific[:multipliers_L] ;
+							print_level = print_level_checks,
 							tol = tol,
 							constr_viol_tol = constr_viol_tol,
 							compl_inf_tol = compl_inf_tol)
@@ -849,7 +866,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
-																													print_level = 0,
+																													print_level = print_level_iter,
 																													ignore_time = true)
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
@@ -860,6 +877,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											resol_solver.solver_specific[:multipliers_con],
 											resol_solver.solver_specific[:multipliers_U],
 											resol_solver.solver_specific[:multipliers_L] ;
+											print_level = print_level_checks,
 											tol = tol,
 											constr_viol_tol = constr_viol_tol,
 											compl_inf_tol = compl_inf_tol)
@@ -867,6 +885,8 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				resol_ampl[i, k] = resol_solver
 			end
 		end
+
+		rm(tax_name * ".nl")
 
 	end
 	cd("/home/perselie/Bureau/projet/ncl/")
@@ -956,4 +976,11 @@ end
 
 #pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:10], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1])
 
-pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [1])
+pb_set_resolution_data(solver = ["nclres"], 
+								 ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], 
+								 ampl_pb_index_set = [1], 
+
+								 print_level_iter = 3, 
+								 print_level_checks = 0, 
+								 print_level_NCL_solver = 3)
+

@@ -1,4 +1,4 @@
-export KKT_check
+export KKTCheck
 
 using LinearAlgebra
 using Printf
@@ -11,7 +11,7 @@ using NLPModels
 """
 ###############################
 mult_format_check documentation
-    mult_format_check verifys that z_U and z_L are given in the right format to KKT_check.
+    mult_format_check verifys that z_U and z_L are given in the right format to KKTCheck.
 
     !!! Important note !!! The convention is :
     (P) min f(x)
@@ -27,7 +27,7 @@ function mult_format_check(z_U::Vector{<:Float64}, z_L::Vector{<:Float64}, ϵ::F
     if (any(z_U .< -ϵ) & any(z_U .> ϵ))
         println("    z_U = ", z_U)
 
-        error("sign problem of z_U passed in argument to KKT_check (detected by mult_format_check function).
+        error("sign problem of z_U passed in argument to KKTCheck (detected by mult_format_check function).
                Multipliers are supposed to be ≥ 0.
                Here, some components are negatives")
     end
@@ -35,7 +35,7 @@ function mult_format_check(z_U::Vector{<:Float64}, z_L::Vector{<:Float64}, ϵ::F
     if (any(z_L .< -ϵ) & any(z_L .> ϵ))
         println("    z_L = ", z_L)
 
-        error("sign problem of z_L passed in argument to KKT_check (detected by mult_format_check function).
+        error("sign problem of z_L passed in argument to KKTCheck (detected by mult_format_check function).
                Multipliers are supposed to be ≥ 0.
                Here, some components are negatives")
     end
@@ -56,17 +56,17 @@ end
 
 
 
-function KKT_check(nlp, x, y, z_U, z_L, file::String; kwargs...)
+function KKTCheck(nlp, x, y, z_U, z_L, file::String; kwargs...)
     out = open(file, "w") do io
-        KKT_check(nlp, x, y, z_U, z_L, io; kwargs...)
+        KKTCheck(nlp, x, y, z_U, z_L, io; kwargs...)
     end
     return out
 end
 
 """
 #######################
-KKT_check Documentation
-    KKT_check tests if (x, y, z_U, z_L) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism, it is suposed to be an AbstractNLPModel), within
+KKTCheck Documentation
+    KKTCheck tests if (x, y, z_U, z_L) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism, it is suposed to be an AbstractNLPModel), within
         ω as a tolerance for the lagrangian gradient norm
         η as a tolerance for constraint infeasibility
         ϵ as a tolerance for complementarity checking
@@ -88,7 +88,7 @@ KKT_check Documentation
     Another remark: If z_U is not given (empty), we treat in two different ways complementarity. We can check everything as a range bound constraint in this cae, and when z_L and z_U are given separately,
 #######################
 """
-function KKT_check(nlp::AbstractNLPModel,                          # Problem considered
+function KKTCheck(nlp::AbstractNLPModel,                          # Problem considered
                 #* Position and multipliers
                    x::Vector{<:Float64},                           # Potential solution
                    y::Vector{<:Float64},                           # Lagrangian multiplier for constraint
@@ -132,7 +132,7 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
 
     #** 0.2 Print
     if print_level ≥ 1
-        @printf(io, "\nKKT_check called on %s \n", nlp.meta.name)
+        @printf(io, "\nKKTCheck called on %s \n", nlp.meta.name)
     end
 
     #** 0.3 Warnings et format
@@ -146,13 +146,13 @@ function KKT_check(nlp::AbstractNLPModel,                          # Problem con
     end
 
     if nlp.meta.jfree != []
-        error("Problem with free constraints at indices " * string(nlp.meta.jfree) * " passed to KKT_check")
+        error("Problem with free constraints at indices " * string(nlp.meta.jfree) * " passed to KKTCheck")
     end
     if nlp.meta.jinf != []
-        error("Problem with infeasible constraints at indices " * string(nlp.meta.jinf) * " passed to KKT_check")
+        error("Problem with infeasible constraints at indices " * string(nlp.meta.jinf) * " passed to KKTCheck")
     end
     if nlp.meta.iinf != []
-        error("Problem with infeasible bound constraints at indices " * string(nlp.meta.iinf) * " passed to KKT_check")
+        error("Problem with infeasible bound constraints at indices " * string(nlp.meta.iinf) * " passed to KKTCheck")
     end
 
     #** I. Fast check

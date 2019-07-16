@@ -18,7 +18,7 @@ using SolverTools
 using NLPModelsIpopt
 
 include("NCLModel.jl")
-include("KKT_check.jl")
+include("KKTCheck.jl")
 include("NCLSolve.jl")
 
 #using NLPModelsKnitro

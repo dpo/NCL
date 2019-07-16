@@ -11,7 +11,7 @@ using SparseArrays
 using Test
 using Printf
 
-#!!!!! ncl.minimze dans le gradient, à voir...
+#!!!!! ncl.minimize dans le gradient, à voir...
 
 ######### TODO #########
 ######### TODO #########
@@ -24,7 +24,7 @@ using Printf
 
 #** I. Model and constructor
 """
-	Subtype of AbstractNLPModel, adapted to the NCL method.
+Subtype of AbstractNLPModel, adapted to the NCL method.
 	Keeps some informations from the original AbstractNLPModel,
 	and creates a new problem, modifying
 		the objective function (sort of augmented lagrangian, with residuals instead of constraints)
@@ -41,7 +41,6 @@ mutable struct NCLModel <: AbstractNLPModel
 	nlp::AbstractNLPModel # The original problem
 	nx::Int # Number of variable of the nlp problem
 	nr::Int # Number of residuals for the nlp problem (in fact nr = length(nln), if there are no free/infeasible constraints)
-	minimize::Bool # true if the aim of the problem is to minimize, false otherwise
 	res_lin_cons::Bool # Boolean to chose if you put residuals upon linear constraints (true) or not
 
 	#* II. Constant parameters
@@ -88,7 +87,6 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 
 	#* II. Meta field
 	nx = nlp.meta.nvar
-	minimize = nlp.meta.minimize
 	nvar = nx + nr
 	meta = NLPModelMeta(nvar;
 						lvar = vcat(nlp.meta.lvar, fill!(Vector{Float64}(undef, nr), -Inf)), # No bounds upon residuals
@@ -118,7 +116,6 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 	return NCLModel(nlp,
 					nx,
 					nr,
-					minimize,
 					res_lin_cons,
 					meta,
 					Counters(),
@@ -134,27 +131,36 @@ function NLPModels.obj(ncl::NCLModel, xr::AbstractVector{<:Float64})::Float64
 	x = xr[1 : ncl.nx]
 	r = xr[ncl.nx + 1 : ncl.nx + ncl.nr]
 	y = ncl.y[1:ncl.nr]
-	obj_val = obj(ncl.nlp, x)
+
+	#Original information
+	obj_nlp = obj(ncl.nlp, x)
+	if !(ncl.nlp.meta.minimize) 
+		obj_nlp *= -1
+	end
+
+	# New information (due to residuals)
 	obj_res = y' * r + 0.5 * ncl.ρ * dot(r, r)
 
-	if ncl.minimize
-		return obj_val + obj_res
-	else # argmax f(x) = argmin -f(x)
-		ncl.minimize = true
-		return -obj_val + obj_res
-	end
+	return obj_nlp + obj_res
 end
 
 #** II.2 Gradient of the objective function
-function NLPModels.grad(ncl::NCLModel, xr::Vector{<:Float64}) ::Vector{<:Float64}
-	increment!(ncl, :neval_grad)
-	x = xr[1 : ncl.nx]
-	r = xr[ncl.nx + 1 : ncl.nx + ncl.nr]
-	y = ncl.y[1:ncl.nr]
-	gx_nlp = grad(ncl.nlp, x)
-	gx = vcat(gx_nlp, ncl.ρ * r + y)
-	return gx
-end
+# function NLPModels.grad(ncl::NCLModel, xr::Vector{<:Float64}) ::Vector{<:Float64}
+# 	increment!(ncl, :neval_grad)
+# 	x = xr[1 : ncl.nx]
+# 	r = xr[ncl.nx + 1 : ncl.nx + ncl.nr]
+# 	y = ncl.y[1:ncl.nr]
+
+# 	#Original information
+# 	gx_nlp = grad(ncl.nlp, x)
+# 	if !(ncl.nlp.meta.minimize)
+# 		gx_nlp *= -1
+# 	end
+
+# 	# New information (due to residuals)
+# 	gx = vcat(gx_nlp, ncl.ρ * r + y)
+# 	return gx
+# end
 
 function NLPModels.grad!(ncl::NCLModel, X::Vector{<:Float64}, gx::Vector{<:Float64}) ::Vector{<:Float64}
 	increment!(ncl, :neval_grad)
@@ -166,7 +172,10 @@ function NLPModels.grad!(ncl::NCLModel, X::Vector{<:Float64}, gx::Vector{<:Float
 
 	# Original information
 	grad!(ncl.nlp, X[1:ncl.nx], gx)
-
+	if !(ncl.nlp.meta.minimize)
+		gx *= -1
+	end
+	
 	# New information (due to residuals)
 	gx[ncl.nx + 1 : ncl.nx + ncl.nr] .= ncl.ρ * X[ncl.nx + 1 : ncl.nx + ncl.nr] .+ ncl.y[1:ncl.nr]
 
@@ -177,22 +186,22 @@ end
 function NLPModels.hess(ncl::NCLModel, X::Vector{<:Float64} ; obj_weight=1.0, y=zeros) ::SparseMatrixCSC{<:Float64, Int}
 	increment!(ncl, :neval_hess)
 
-	H = sparse(hess_coord(ncl, X ; obj_weight=obj_weight, y=y)[1], hess_coord(ncl, X ; obj_weight=obj_weight, y=y)[2], hess_coord(ncl, X ; obj_weight=obj_weight, y=y)[3])
+	H = sparse(hess_coord(ncl, X ; obj_weight=obj_weight, y=y)...)
 
 	return H
 end
 
-function NLPModels.hess_coord(ncl::NCLModel, X::Vector{<:Float64} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
-	increment!(ncl, :neval_hess)
-	# Original information
-	hrows, hcols, hvals = hess_coord(ncl.nlp, X[1:ncl.nx], obj_weight=obj_weight, y=y)
+# function NLPModels.hess_coord(ncl::NCLModel, X::Vector{<:Float64} ; obj_weight=1.0, y=zeros) ::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
+# 	increment!(ncl, :neval_hess)
+# 	# Original information
+# 	hrows, hcols, hvals = hess_coord(ncl.nlp, X[1:ncl.nx], obj_weight=obj_weight, y=y)
 
-	# New information (due to residuals)
-	append!(hrows, ncl.nx+1:ncl.meta.nvar)
-	append!(hcols, ncl.nx+1:ncl.meta.nvar)
-	append!(hvals, fill!(Vector{typeof(hvals[1])}(undef, ncl.nr), ncl.ρ)) # concatenate with a vector full of ncl.ρ
-	return (hrows, hcols, hvals)
-end
+# 	# New information (due to residuals)
+# 	append!(hrows, ncl.nx+1:ncl.meta.nvar)
+# 	append!(hcols, ncl.nx+1:ncl.meta.nvar)
+# 	append!(hvals, fill!(Vector{typeof(hvals[1])}(undef, ncl.nr), ncl.ρ)) # concatenate with a vector full of ncl.ρ
+# 	return (hrows, hcols, hvals)
+# end
 
 function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Float64}, hrows::Vector{<:Int}, hcols::Vector{<:Int}, hvals::Vector{<:Float64} ; obj_weight=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) ::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
 	increment!(ncl, :neval_hess)
@@ -202,40 +211,47 @@ function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Float64}, hrows::Vecto
 
 	# Original information
 	hvals[1:orig_len] .= hess_coord!(ncl.nlp, X[1:ncl.nx], hrows[1:orig_len], hcols[1:orig_len], hvals[1:orig_len], obj_weight=obj_weight, y=y)[3]
-
+	if !(ncl.nlp.meta.minimize) 
+		hvals *= -1
+	end
+	
 	# New information (due to residuals)
-	hvals[orig_len + 1 : len_hcols] .= fill!(Vector{typeof(hvals[1])}(undef, ncl.nr), ncl.ρ) # a vector full of ncl.ρ
+	hvals[orig_len + 1 : len_hcols] .= ncl.ρ # a vector full of ncl.ρ
 
 	return (hrows, hcols, hvals)
 end
 
-function NLPModels.hess_structure(ncl::NCLModel) ::Tuple{Vector{Int},Vector{Int}}
+function NLPModels.hess_structure!(ncl::NCLModel, hrows::Vector{<:Int}, hcols::Vector{<:Int}) ::Tuple{Vector{Int},Vector{Int}}
 	increment!(ncl, :neval_hess)
+
 	# Original information
-	hrows, hcols = hess_structure(ncl.nlp)
+	NLPModels.hess_structure!(ncl.nlp, hrows, hcols)
 
 	# New information (due to residuals)
-	append!(hrows, ncl.nx+1:ncl.meta.nvar)
-	append!(hcols, ncl.nx+1:ncl.meta.nvar)
+	hrows[end - (ncl.meta.nvar - ncl.nx)+1: end] .= [i for i in ncl.nx+1:ncl.meta.nvar]
+	hcols[end - (ncl.meta.nvar - ncl.nx)+1: end] .= [i for i in ncl.nx+1:ncl.meta.nvar]
 	return (hrows, hcols)
 end
 
-function NLPModels.hprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} ; obj_weight=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) ::Vector{<:Float64}
-	increment!(ncl, :neval_hprod)
-	# Test feasibility
-	if length(v) != ncl.meta.nvar
-		error("wrong length of argument v passed to hprod in NCLModel
-			gx should be of length " * string(ncl.meta.nvar) * " but length " * string(length(v)) * "given")
-	end
+# function NLPModels.hprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} ; obj_weight=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) ::Vector{<:Float64}
+# 	increment!(ncl, :neval_hprod)
+# 	# Test feasibility
+# 	if length(v) != ncl.meta.nvar
+# 		error("wrong length of argument v passed to hprod in NCLModel
+# 			gx should be of length " * string(ncl.meta.nvar) * " but length " * string(length(v)) * "given")
+# 	end
 
-	# Original information
-	Hv = hprod(ncl.nlp, X[1:ncl.nx], v[1:ncl.nx], obj_weight=obj_weight, y=y)
+# 	# Original information
+# 	Hv = hprod(ncl.nlp, X[1:ncl.nx], v[1:ncl.nx], obj_weight=obj_weight, y=y)
+# 	if !(ncl.nlp.meta.minimize) 
+# 		Hv *= -1
+# 	end
 
-	# New information (due to residuals)
-	append!(Hv, ncl.ρ * v[ncl.nx+1:ncl.nx+ncl.nr])
+# 	# New information (due to residuals)
+# 	append!(Hv, ncl.ρ * v[ncl.nx+1:ncl.nx+ncl.nr])
 
-	return Hv
-end
+# 	return Hv
+# end
 
 function NLPModels.hprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} , Hv::Vector{<:Float64} ; obj_weight::Float64=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) ::Vector{<:Float64}
 	increment!(ncl, :neval_hprod)
@@ -247,6 +263,9 @@ function NLPModels.hprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float
 
 	# Original information
 	Hv[1:ncl.nx] .= hprod!(ncl.nlp, X[1:ncl.nx], v[1:ncl.nx], Hv[1:ncl.nx], obj_weight=obj_weight, y=y)
+	if !(ncl.nlp.meta.minimize) 
+		Hv *= -1
+	end
 
 	# New information (due to residuals)
 	Hv[ncl.nx+1:ncl.nx+ncl.nr] .= ncl.ρ * v[ncl.nx+1:ncl.nx+ncl.nr]
@@ -255,20 +274,20 @@ function NLPModels.hprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float
 end
 
 #** II.4 Constraints
-function NLPModels.cons(ncl::NCLModel, X::Vector{<:Float64}) ::Vector{<:Float64}
-	increment!(ncl, :neval_cons)
-	# Original information
-		cx = cons(ncl.nlp, X[1:ncl.nx]) # pre computation
+# function NLPModels.cons(ncl::NCLModel, X::Vector{<:Float64}) ::Vector{<:Float64}
+# 	increment!(ncl, :neval_cons)
+# 	# Original information
+# 		cx = cons(ncl.nlp, X[1:ncl.nx]) # pre computation
 
-	# New information (due to residuals)
-		if ncl.res_lin_cons
-			cx .+= X[ncl.nx+1:ncl.nx+ncl.nr] # a constraint on every residual
-		else
-			cx[ncl.nlp.meta.nln] .+= X[ncl.nx+1:ncl.nx+ncl.nr] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
-		end
+# 	# New information (due to residuals)
+# 		if ncl.res_lin_cons
+# 			cx .+= X[ncl.nx+1:ncl.nx+ncl.nr] # a constraint on every residual
+# 		else
+# 			cx[ncl.nlp.meta.nln] .+= X[ncl.nx+1:ncl.nx+ncl.nr] # residual for the i-th constraint (feasible, not free and not linear (not considered in this model))
+# 		end
 
-	return cx
-end
+# 	return cx
+# end
 
 function NLPModels.cons!(ncl::NCLModel, X::Vector{<:Float64}, cx::Vector{<:Float64}) ::Vector{<:Float64}
 	increment!(ncl, :neval_cons)
@@ -288,9 +307,7 @@ end
 #** II.5 Jacobian of the constraints vector
 function NLPModels.jac(ncl::NCLModel, X::Vector{<:Float64}) ::SparseMatrixCSC{<:Float64, Int}
 	increment!(ncl, :neval_jac)
-
-	J = sparse(jac_coord(ncl, X)[1], jac_coord(ncl, X)[2], jac_coord(ncl, X)[3])
-
+	J = sparse(jac_coord(ncl, X)...)
 	return J
 end
 
@@ -298,7 +315,6 @@ function NLPModels.jac_coord(ncl::NCLModel, X::Vector{<:Float64}) ::Tuple{Vector
 	increment!(ncl, :neval_jac)
 	# Original information
 	jrows, jcols, jvals = jac_coord(ncl.nlp, X[1:ncl.nx])
-
 	# New information (due to residuals)
 	if ncl.res_lin_cons
 		append!(jrows, 1:ncl.meta.ncon)
@@ -335,7 +351,7 @@ function NLPModels.jac_structure(ncl::NCLModel) ::Tuple{Vector{Int},Vector{Int}}
 	increment!(ncl, :neval_jac)
 	# Original information
 	jrows, jcols = jac_structure(ncl.nlp)
-
+		
 	# New information (due to residuals)
 	if ncl.res_lin_cons
 		append!(jrows, 1:ncl.meta.ncon)
@@ -346,26 +362,42 @@ function NLPModels.jac_structure(ncl::NCLModel) ::Tuple{Vector{Int},Vector{Int}}
 	return jrows, jcols
 end
 
-function NLPModels.jprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}) ::Vector{<:Float64}
-	increment!(ncl, :neval_jprod)
-	# Test feasability
-	if length(v) != ncl.meta.nvar
-		error("wrong sizes of argument v passed to jprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jv::Vector{<:Float64}) ::Vector{<:Float64}")
-	end
-
+function NLPModels.jac_structure!(ncl::NCLModel, jrows::Vector{Int}, jcols::Vector{Int}) ::Tuple{Vector{Int},Vector{Int}}
+	increment!(ncl, :neval_jac)
 	# Original information
-	Jv = jprod(ncl.nlp, X[1:ncl.nx], v[1:ncl.nx])
+	NLPModels.jac_structure!(ncl.nlp, jrows, jcols)
 
 	# New information (due to residuals)
-	Resv = zeros(typeof(Jv[1,1]), ncl.meta.ncon)
 	if ncl.res_lin_cons
-		Resv += v[ncl.nx+1:ncl.nx+ncl.nr]
+		jrows[end - (ncl.nlp.meta.ncon)+1: end] .= [i for i in 1:ncl.nlp.meta.ncon]
 	else
-		Resv[ncl.nlp.meta.nln] += v[ncl.nx+1:ncl.nx+ncl.nr]
+		jrows[end - (ncl.nlp.meta.nnln)+1: end] .= ncl.nlp.meta.nln
 	end
+	jcols[end - (ncl.meta.nvar - ncl.nx)+1: end] .= [i for i in ncl.nx+1:ncl.meta.nvar]
 
-	return Jv + Resv
+	return jrows, jcols
 end
+
+# function NLPModels.jprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}) ::Vector{<:Float64}
+# 	increment!(ncl, :neval_jprod)
+# 	# Test feasability
+# 	if length(v) != ncl.meta.nvar
+# 		error("wrong sizes of argument v passed to jprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jv::Vector{<:Float64}) ::Vector{<:Float64}")
+# 	end
+
+# 	# Original information
+# 	Jv = jprod(ncl.nlp, X[1:ncl.nx], v[1:ncl.nx])
+
+# 	# New information (due to residuals)
+# 	Resv = zeros(typeof(Jv[1,1]), ncl.meta.ncon)
+# 	if ncl.res_lin_cons
+# 		Resv += v[ncl.nx+1:ncl.nx+ncl.nr]
+# 	else
+# 		Resv[ncl.nlp.meta.nln] += v[ncl.nx+1:ncl.nx+ncl.nr]
+# 	end
+
+# 	return Jv + Resv
+# end
 
 function NLPModels.jprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jv::Vector{<:Float64}) ::Vector{<:Float64}
 	increment!(ncl, :neval_jprod)
@@ -389,25 +421,25 @@ function NLPModels.jprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float
 	return Jv
 end
 
-function NLPModels.jtprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}) ::Vector{<:Float64}
-	increment!(ncl, :neval_jtprod)
-	# Test feasability
-	if length(v) != ncl.meta.ncon
-		error("wrong length of argument v passed to jtprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jtv::Vector{<:Float64}) ::Vector{<:Float64}")
-	end
+# function NLPModels.jtprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}) ::Vector{<:Float64}
+# 	increment!(ncl, :neval_jtprod)
+# 	# Test feasability
+# 	if length(v) != ncl.meta.ncon
+# 		error("wrong length of argument v passed to jtprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jtv::Vector{<:Float64}) ::Vector{<:Float64}")
+# 	end
 
-	# Original information
-	Jv = jtprod(ncl.nlp, X[1:ncl.nx], v)
+# 	# Original information
+# 	Jv = jtprod(ncl.nlp, X[1:ncl.nx], v)
 
-	# New information (due to residuals)
-	if ncl.res_lin_cons
-		append!(Jv, v)
-	else
-		append!(Jv, v[ncl.nlp.meta.nln])
-	end
+# 	# New information (due to residuals)
+# 	if ncl.res_lin_cons
+# 		append!(Jv, v)
+# 	else
+# 		append!(Jv, v[ncl.nlp.meta.nln])
+# 	end
 
-	return Jv
-end
+# 	return Jv
+# end
 
 function NLPModels.jtprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jtv::Vector{<:Float64}) ::Vector{<:Float64}
 	increment!(ncl, :neval_jtprod)

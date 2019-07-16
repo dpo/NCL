@@ -73,8 +73,8 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   print_level_NCL::Int = 0,                  # Options for printing iterations of the NCL method : 0, nothing;
                                                                                                                     # 1, calls to functions and conclusion;
                                                                                                                     # 2, calls, little informations on iterations;
-                                                                                                                    # 3, calls, more information about iterations (and erors in KKT_check);
-                                                                                                                    # 4, calls, KKT_check, iterations, little information from the solver;                                                                                                                         # and so on until 7 (no further details)
+                                                                                                                    # 3, calls, more information about iterations (and erors in KKTCheck);
+                                                                                                                    # 4, calls, KKTCheck, iterations, little information from the solver;                                                                                                                         # and so on until 7 (no further details)
 
                  ) ::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
 
@@ -225,7 +225,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         norm_r_k_inf = norm(r_k, Inf) # update
 
         # Get multipliers
-        #! Warning, ipopt doesn't use our convention in KKT_check for constraint multipliers, so we took the opposite. For bound multiplier it seems to work though.
+        #! Warning, ipopt doesn't use our convention in KKTCheck for constraint multipliers, so we took the opposite. For bound multiplier it seems to work though.
         y_k = - solve_k.solver_specific[:multipliers_con]
         z_k_U = solve_k.solver_specific[:multipliers_U]
         z_k_L = solve_k.solver_specific[:multipliers_L]
@@ -271,7 +271,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                     end
 
                     if KKT_checking
-                        D_solved = KKT_check(ncl.nlp,
+                        D_solved = KKTCheck(ncl.nlp,
                                              x_k,
                                              y_k,
                                              z_k_U[1:nx],
@@ -290,7 +290,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                             acc_count = 0 # if not, then go back to 0
                         end
                     else
-                        converged = true #Chose not to pass into KKT_check
+                        converged = true #Chose not to pass into KKTCheck
                     end
                 end
 
