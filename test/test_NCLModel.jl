@@ -45,11 +45,11 @@ function test_NCLModel(test::Bool) ::Test.DefaultTestSet
 
     name = "Unit test problem"
     nlp::ADNLPModel = ADNLPModel(f, x0 ; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])
-    ncl_nlin_res::NCLModel = NCLModel(nlp ; res_val_init = 1., res_lin_cons = false, y = [1.,1.])
+    ncl_nlin_res::NCLModel = NCLModel(nlp ; res_val_init = 1., y = [1.,1.])
     ncl_nlin_res.y = y
     ncl_nlin_res.ρ = ρ
 
-    ncl_cons_res::NCLModel = NCLModel(nlp ; res_val_init = 1., res_lin_cons = true, y = [1.,1.,1.,1.])
+    ncl_cons_res::NCLModel = NCLModel(nlp ; res_val_init = 1., y = [1.,1.,1.,1.])
     ncl_cons_res.ρ = ρ
 
     # Unit tests
