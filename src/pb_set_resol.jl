@@ -607,7 +607,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															compl_inf_tol = compl_inf_tol,
 																															acc_factor = acc_factor,
 																															max_iter_solver = max_iter_solver,
-																															max_iter_solver = 1000,
 																															linear_residuals = linear_residuals,
 																															KKT_checking = true,
 
