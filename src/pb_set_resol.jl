@@ -14,7 +14,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 						#* CUTEst arguments
 							cutest_generic_pb_name::String = "CUTEst_HS",
 							cutest_pb_set::Vector{String} = String[],
-							cutest_pb_index_set::Vector{Int} = Int[],
+							cutest_pb_index::Vector{Int} = Int[],
 
 						#* Solver arguments
 							solver::String = "ipopt",
@@ -24,7 +24,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 						#* NLP Arguments
 							nlp_generic_pb_name::String = "NLP_HS",
 							nlp_pb_set::Vector{<:AbstractNLPModel} = AbstractNLPModel[],
-							nlp_pb_index_set::Vector{Int} = Int[],
+							nlp_pb_index::Vector{Int} = Int[],
 
 						#* Latex ?
 							generate_latex::Bool = true
@@ -40,7 +40,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 
 			file_cutest = open(path_res_folder * cutest_generic_pb_name * "/" * cutest_generic_pb_name * ".log", write=true)
 
-		for i in cutest_pb_index_set
+		for i in cutest_pb_index
 			#** I.1 Problem
 				nlp = CUTEstModel(cutest_pb_set[i])
 
@@ -160,7 +160,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 
 			file_nlp = open(path_res_folder *  nlp_generic_pb_name * "/" * nlp_generic_pb_name * ".log", write=true)
 
-		for i in nlp_pb_index_set
+		for i in nlp_pb_index
 			#** II.1 Problem
 				nlp = nlp_pb_set[i]
 
@@ -495,15 +495,15 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 						#* CUTEst arguments
 						cutest_pb_set::Vector{String} = String[],
-						cutest_pb_index_set::Vector{Int} = [i for i in 1:length(cutest_pb_set)],
+						cutest_pb_index::Vector{Int} = [i for i in 1:length(cutest_pb_set)],
 
 						#* NLP Arguments
 						nlp_pb_set::Vector{<:AbstractNLPModel} = AbstractNLPModel[],
-						nlp_pb_index_set::Vector{Int} = [i for i in 1:length(nlp_pb_set)],
+						nlp_pb_index::Vector{Int} = [i for i in 1:length(nlp_pb_set)],
 
 						#* AmplNLReader Arguments
 						ampl_pb_set::Vector{String} = String[],
-						ampl_pb_index_set::Vector{Int} = [i for i in 1:length(ampl_pb_set)],
+						ampl_pb_index::Vector{Int} = [i for i in 1:length(ampl_pb_set)],
 
 						#* Solver arguments
 						solver::Vector{String} = ["ipopt", "nclres", "nclkkt"], #can contain ipopt
@@ -518,9 +518,9 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						)::Nothing
 
 	n_solver = length(solver)
-	n_cutest = length(cutest_pb_index_set)
-	n_nlp = length(nlp_pb_index_set)
-	n_ampl = length(ampl_pb_index_set)
+	n_cutest = length(cutest_pb_index)
+	n_nlp = length(nlp_pb_index)
+	n_ampl = length(ampl_pb_index)
 
 
 	info_cutest::Array{Int, 2} = Array{Int, 2}(undef, n_cutest, 2) # 1: nvar, 2: ncon
@@ -545,7 +545,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	#** I. CUTEst problem set
 
 	k = 0
-	for i in cutest_pb_index_set
+	for i in cutest_pb_index
 		k += 1
 		#** I.1 Problem
 		nlp = CUTEstModel(cutest_pb_set[i])
@@ -652,7 +652,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	#** II. NLP problem set
 
 	k = 0
-	for i in nlp_pb_index_set
+	for i in nlp_pb_index
 		k += 1
 		#** II.1 Problem
 		nlp = nlp_pb_set[i]
@@ -755,7 +755,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	#** III. AMPL problem set
 
 	k = 0
-	for i in ampl_pb_index_set
+	for i in ampl_pb_index
 		k += 1
     
 		#** III.1 Problem
