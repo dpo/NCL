@@ -1,23 +1,5 @@
-using Ipopt
-
-using NLPModels
-using NLPModelsIpopt
-using CUTEst
-using SolverTools
-
-using LinearAlgebra
-using SparseArrays
-using Test
-
-#using NCL
-
-include("../src/NCLModel.jl")
 include("test_NCLModel.jl")
-
-include("../src/KKTCheck.jl")
 include("test_KKTCheck.jl")
-
-include("../src/NCLSolve.jl")
 include("test_NCLSolve.jl")
 
 

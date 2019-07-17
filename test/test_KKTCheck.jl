@@ -1,8 +1,6 @@
-#include("../src/NCLModel.jl")
-#include("../src/KKTCheck.jl")
-#include("../src/NCLSolve.jl")
-
-
+using NCL
+using CUTEst
+using NLPModelsIpopt
 """
 ##############################
 # Unit tests for NCLSolve.jl #
@@ -40,12 +38,6 @@ function test_KKTCheck(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
 
     name = "Unit test problem"
     nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])::ADNLPModel
-    ncl_nlin_res = NCLModel(nlp ; res_lin_cons = false)::NCLModel
-
-    ncl_nlin_res.y = y
-    ncl_nlin_res.ρ = ρ
-
-    nlc_cons_res = NCLModel(nlp ; res_lin_cons = true)::NCLModel
 
 
     @testset "KKTCheck function" begin
@@ -84,21 +76,6 @@ function test_KKTCheck(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
             z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
 
             D = KKTCheck(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt)
-            @test D["optimal"]
-            @test D["acceptable"]
-        end
-
-        @testset "KKTCheck(ncl_nlin_res) via ipopt" begin
-            # Solution of ncl_nlin_res with NLPModelsIpopt
-            resol_ncl_ipopt = NLPModelsIpopt.ipopt(ncl_nlin_res ; print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
-            x_ncl_ipopt = resol_ncl_ipopt.solution
-
-            # Get multipliers
-            λ_ncl_ipopt = - resol_ncl_ipopt.solver_specific[:multipliers_con]
-            z_U_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_U]
-            z_L_ncl_ipopt = resol_ncl_ipopt.solver_specific[:multipliers_L]
-
-            D = KKTCheck(ncl_nlin_res, x_ncl_ipopt, λ_ncl_ipopt, z_U_ncl_ipopt, z_L_ncl_ipopt)
             @test D["optimal"]
             @test D["acceptable"]
         end

@@ -60,7 +60,6 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   init_compl_inf_tol::Float64 = 0.1,
 
                   max_iter_NCL::Int = 20,                  # Maximum number of iterations for the NCL method
-                  linear_residuals::Bool = false,            # To choose if you want to put residuals upon linear constraints or not
                   KKT_checking::Bool = false,                # To choose if you want to check KKT conditions in the loop, or just stop when residuals are small enough.
 
                   #* Options for solver
@@ -79,16 +78,14 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                  ) ::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
 
     #** I.0 Solution with NCL
-    linear_residuals = true
     if nlp isa NCLModel #no need to pass through NCLModel constructor
         ncl = nlp
     else
         ncl = NCLModel(nlp;
-                       res_val_init = 0.,
-                       res_lin_cons = linear_residuals)
+                       res_val_init = 0.)
     end
 
-    if (nlp.meta.ncon == 0) | ((nlp.meta.nnln == 0) & !linear_residuals) # No need to create an NCLModel, because it is an unconstrained problem or it doesn't have non linear constraints
+    if (nlp.meta.ncon == 0) # No need to create an NCLModel, because it is an unconstrained problem or it doesn't have non linear constraints
         no_res = true
         nr = 0
         nx = ncl.meta.nvar

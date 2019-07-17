@@ -1,6 +1,5 @@
-#include("../src/NCLModel.jl")
-#include("../src/KKTCheck.jl")
-#include("../src/NCLSolve.jl")
+using NCL
+using CUTEst
 
 
 """
@@ -45,41 +44,15 @@ function test_NCLSolve(test::Bool ; HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 
     nlc_cons_res = NCLModel(nlp)::NCLModel
 
     if test
-
-        @testset "NCLSolve NLP (only linear residuals)" begin
-            @testset "KKTCheck(nlp) via NCLSolve" begin
-                # Solution of ncl_nlin_res with NCL method
-                resol_ncl_ncl = NCLSolve(ncl_nlin_res)
-                x_ncl = resol_ncl_ncl.solution
-
-                λ_ncl = resol_ncl_ncl.solver_specific[:multipliers_con]
-                z_U_ncl = resol_ncl_ncl.solver_specific[:multipliers_U]
-                z_L_ncl = resol_ncl_ncl.solver_specific[:multipliers_L]
-
-                D = KKTCheck(nlp, x_ncl[1:ncl_nlin_res.nx], λ_ncl, z_U_ncl[1:ncl_nlin_res.nx], z_L_ncl[1:ncl_nlin_res.nx])
-                @test D["optimal"]
-                @test D["acceptable"]
-            end
-        end
-
-
-        @testset "NCLSolve HS (only linear residuals)" begin
-            for name in probs_NCL # several tests
-                nlp = CUTEstModel(name)
-                test_name = name * " problem resolution"
-                @testset "$test_name" begin
-                    @test NCLSolve(nlp ; linear_residuals=false).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
-                end
-                finalize(nlp)
-            end
-        end
+        @test NCLSolve(nlp).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+        @test NCLSolve(nlc_cons_res).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
 
         @testset "NCLSolve HS (all residuals)" begin
             for name in probs_NCL # several tests
                 nlp = CUTEstModel(name)
                 test_name = name * " problem resolution"
                 @testset "$test_name" begin
-                    @test NCLSolve(nlp ; linear_residuals = true).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+                    @test NCLSolve(nlp).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
                 end
                 finalize(nlp)
             end

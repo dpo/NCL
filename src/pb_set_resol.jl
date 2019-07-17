@@ -1,14 +1,5 @@
-using Printf
-using DataFrames
-using Plots
+export pb_set_resolution_data
 
-using CUTEst
-using NLPModels
-using NLPModelsIpopt
-using SolverBenchmark
-using SolverTools
-#using NCL
-using AmplNLReader
 
 include("NCLModel.jl")
 include("NCLSolve.jl")
@@ -291,8 +282,6 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 		res_tabular("./res/latex.tex")
 	end
 end
-
-
 
 """
 #################

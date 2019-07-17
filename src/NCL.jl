@@ -1,47 +1,41 @@
 module NCL
 
-
-
 # comment
 #** Important
 # ! Warning / Problem
 # ? Question
 # TODO
 
+# Solver
 using Ipopt
 
+# Julia packages
 using LinearAlgebra
 using Printf
 
+# Problem modelisation and structures
 using NLPModels
-using SolverTools
 using NLPModelsIpopt
+using SolverTools
 
+# For pb_set benchmarks
+using DataFrames
+using Plots
+
+using CUTEst
+using AmplNLReader
+using SolverBenchmark
+
+# Module files
 include("NCLModel.jl")
 include("KKTCheck.jl")
 include("NCLSolve.jl")
+include("pb_set_resol.jl")
 
-#using NLPModelsKnitro
-
-#! TODO Fix closing file problem...
 
 ######### TODO #########
-######### TODO #########
-######### TODO #########
-
     # TODO (feature)   : Créer un vrai statut
-    # TODO (infos)     : Lecture des infos de ipopt
     # TODO KKT_check output in file to fix
-
-    # TODO (recherche) : choix des mu_init à améliorer...
-    # TODO (recherche) : Points intérieurs à chaud...
-    # TODO (recherche) : tester la proximité des multiplicateurs y_k de renvoyés par le solveur et le ncl.y du problème (si r petit, probablement proches.)
-    # TODO (recherche) : Mieux choisir le pas pour avoir une meilleure convergence
-    # TODO (recherche) : ajuster eta_end
-
-    # TODO (Plus tard) : Pierric pour choix de alpha, beta, tau...
-########## TODO ########
-########## TODO ########
 ########## TODO ########
 
 
