@@ -1,13 +1,13 @@
 using Printf
 using DataFrames
-#using PyPlot
+using Plots
 
 using CUTEst
 using NLPModels
 using NLPModelsIpopt
 using SolverBenchmark
 using SolverTools
-using NCL
+#using NCL
 using AmplNLReader
 
 include("NCLModel.jl")
@@ -530,7 +530,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																						   # knitro
 																						   # nclres (stops when norm(r) is small enough, not checking kkt conditions during iterations)
 																						   # nclkkt (stops when fitting KKT conditions, or fitting to acceptable level)
-						max_iter_solver::Int = 1000
+						max_iter_solver::Int = 500
 						)::Nothing
 
 	n_solver = length(solver)
@@ -613,7 +613,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															constr_viol_tol = constr_viol_tol,
 																															compl_inf_tol = compl_inf_tol,
 																															acc_factor = acc_factor,
-																															max_iter_solver = 1000,
+																															max_iter_solver = max_iter_solver,
 																															linear_residuals = linear_residuals,
 																															KKT_checking = true,
 
@@ -687,7 +687,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
-																													max_iter_solver = 1000,
+																													max_iter_solver = max_iter_solver,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = false,
 																													warm_start = true)
@@ -715,7 +715,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
-																													max_iter_solver = 1000,
+																													max_iter_solver = max_iter_solver,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = true,
 																													warm_start = true)
@@ -794,7 +794,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
-																													max_iter_solver = 1000,
+																													max_iter_solver = max_iter_solver,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = false,
 																													warm_start = true)
@@ -822,7 +822,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
-																													max_iter_solver = 1000,
+																													max_iter_solver = max_iter_solver,
 																													linear_residuals = linear_residuals,
 																													KKT_checking = true,
 																													warm_start = true)
@@ -944,16 +944,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded"))
 	kkt_opti(df) = (df.kkt_opti .== Symbol(true))
 	kkt_acc_opti(df) = (df.kkt_acc_opti .== Symbol(true))
-	compare = [df -> df.f, df -> .!solved(df) * 1000 + df.feval, df -> .!kkt_opti(df) * 1000 + df.feval, df -> .!kkt_acc_opti(df) * 1000 + df.feval]
+	compare = [df -> df.f, df -> df.feval + df.ceval, df -> .!kkt_opti(df) * 1000 + df.feval, df -> .!kkt_acc_opti(df) * 1000 + df.feval]
 
 	#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
 
-	#compare_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
-	#p = profile_solvers(stats, compare, compare_names)
-	#Plots.svg(p, "profilewall1000")
+	compare_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
+	p = profile_solvers(stats, compare, compare_names)
+	Plots.svg(p, "profilewall1000")
 	return nothing
 end
-
-#pb_set_resolution_data(cutest_pb_set = ["HS$i" for i in 1:57], ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = Int[1,2])
-
-pb_set_resolution_data(ampl_pb_set = ["tax1D", "tax2D", "pTax3D", "pTax4D", "pTax5D"], ampl_pb_index_set = [3])
