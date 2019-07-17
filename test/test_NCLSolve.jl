@@ -41,14 +41,11 @@ function test_NCLSolve(test::Bool ; HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 
 
     name = "Unit test problem"
     nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])::ADNLPModel
-    ncl_nlin_res = NCLModel(nlp ; res_lin_cons = false)::NCLModel
 
-    ncl_nlin_res.y = y
-    ncl_nlin_res.ρ = ρ
-
-    nlc_cons_res = NCLModel(nlp ; res_lin_cons = true)::NCLModel
+    nlc_cons_res = NCLModel(nlp)::NCLModel
 
     if test
+
         @testset "NCLSolve NLP (only linear residuals)" begin
             @testset "KKTCheck(nlp) via NCLSolve" begin
                 # Solution of ncl_nlin_res with NCL method

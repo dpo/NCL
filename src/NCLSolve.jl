@@ -79,6 +79,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                  ) ::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
 
     #** I.0 Solution with NCL
+    linear_residuals = true
     if nlp isa NCLModel #no need to pass through NCLModel constructor
         ncl = nlp
     else
@@ -86,6 +87,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                        res_val_init = 0.,
                        res_lin_cons = linear_residuals)
     end
+
     if (nlp.meta.ncon == 0) | ((nlp.meta.nnln == 0) & !linear_residuals) # No need to create an NCLModel, because it is an unconstrained problem or it doesn't have non linear constraints
         no_res = true
         nr = 0
@@ -248,7 +250,14 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         if (norm_r_k_inf ≤ max(η_k, η_end)) | (k == max_iter_NCL) # The residual has decreased enough
             #** II.2.1 Update
             if !no_res
-                ncl.y = ncl.y + ncl.ρ * r_k # Updating multiplier
+                new_mult = ncl.y + ncl.ρ * r_k # Updating multiplier
+
+                jeq = ncl.nlp.meta.jfix
+                jineq = setdiff([i for i in 1:ncl.nlp.meta.ncon], ncl.nlp.meta.jfix)
+
+                ncl.y[jeq] = new_mult[jeq]
+                ncl.y[jineq] = max.(new_mult[jineq], 0.)
+
                 η_k = max(η_k*τ_η, η_min) # η_k / (1 + ncl.ρ ^ β) # (heuristic)
                 ϵ_k = max(ϵ_k*τ_ϵ, ϵ_min)
                 ω_k = max(ω_k*τ_ω, ω_min)
