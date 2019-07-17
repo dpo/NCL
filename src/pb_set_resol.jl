@@ -55,7 +55,6 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							max_iter_solver = 1000,
 							print_level_NCL = 6,
 							print_level_solver = 0,
-							linear_residuals = linear_residuals,
 							KKT_checking = KKT_checking,
 							output_file_print_NCL = true,
 							output_file_print_solver = false,
@@ -176,7 +175,6 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							compl_inf_tol = compl_inf_tol,
 							print_level_NCL = 6,
 							print_level_solver = 0,
-							linear_residuals = linear_residuals,
 							KKT_checking = KKT_checking,
 							output_file_print_NCL = true,
 							output_file_print_solver = false,
@@ -493,7 +491,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						constr_viol_tol::Float64 = 1e-6,
 						compl_inf_tol::Float64 = 1e-4,
 						acc_factor::Float64 = 100.,
-						linear_residuals = true,
 						max_iter_NCL = 30,
 
 						#* CUTEst arguments
@@ -571,7 +568,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															print_level_NCL = print_level_iter,
 																															#
 																															max_iter_NCL = max_iter_NCL,
-																															linear_residuals = linear_residuals,
 																															KKT_checking = false,
 																															warm_start = true)
 
@@ -602,7 +598,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															compl_inf_tol = compl_inf_tol,
 																															acc_factor = acc_factor,
 																															max_iter_solver = max_iter_solver,
-																															linear_residuals = linear_residuals,
 																															KKT_checking = true,
 
 																															warm_start = true)
@@ -679,7 +674,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
 																													max_iter_solver = max_iter_solver,
-																													linear_residuals = linear_residuals,
 																													KKT_checking = false,
 																													warm_start = true)
 
@@ -709,7 +703,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
 																													max_iter_solver = max_iter_solver,
-																													linear_residuals = linear_residuals,
 																													KKT_checking = true,
 																													warm_start = true)
 
@@ -793,7 +786,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
 																													max_iter_solver = max_iter_solver,
-																													linear_residuals = linear_residuals,
 																													KKT_checking = false,
 																													warm_start = true)
 
@@ -823,7 +815,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
 																													max_iter_solver = max_iter_solver,
-																													linear_residuals = linear_residuals,
 																													KKT_checking = true,
 																													warm_start = true)
 
