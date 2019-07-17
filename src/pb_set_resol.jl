@@ -9,7 +9,6 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							constr_viol_tol::Float64 = 1e-6,
 							compl_inf_tol::Float64 = 1e-4,
 							KKT_checking::Bool = false,
-							linear_residuals = true,
 
 						#* CUTEst arguments
 							cutest_generic_pb_name::String = "CUTEst_HS",
@@ -514,7 +513,11 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						print_level_iter::Int = 0,
 						print_level_checks::Int = 0,
 						print_level_NCL_solver::Int = 0,
-						max_iter_solver::Int = 1000
+						max_iter_solver::Int = 1000,
+
+						#* Files
+						profile_name = "default_profile_name",
+						latex_table_name = "default_latex_table_name.tex"
 						)::Nothing
 
 	n_solver = length(solver)
@@ -930,8 +933,13 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	N = [:niter, :f, :feval, :ceval, :time, :bytes, :gctime, :feas, :compl, :mult_norm, :lag_norm, :r_norm, :solve_succeeded, :r_opti, :r_acc_opti, :kkt_opti, :kkt_acc_opti]
 	df_res = join(stats, N ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
 
-  
-	ltx_file = open("./res/ltx_table.tex", write = true)
+
+	#* V. Results
+	if !isdir("./res/")
+		mkdir("./res/")
+	end
+
+	ltx_file = open("./res/$latex_table_name", write = true)
 	latex_table(ltx_file, df_res)
 	close(ltx_file)
 
@@ -942,9 +950,11 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 	#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
 
-	compare_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
-	p = profile_solvers(stats, compare, compare_names)
-	Plots.svg(p, "profilewall1000")
+	comparison_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
+	p = profile_solvers(stats, compare, comparison_names)
+
+	
+	Plots.svg(p, "./res/$profile_name")
 
 	return nothing
 end
