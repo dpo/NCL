@@ -1,10 +1,5 @@
 export pb_set_resolution_data
 
-
-include("NCLModel.jl")
-include("NCLSolve.jl")
-include("KKTCheck.jl")
-
 function pb_set_resolution_files( ; #No arguments, only key-word arguments
 						#* Common arguments
 							path_res_folder::String = "/home/perselie/Bureau/projet/ncl/res/",

@@ -6,12 +6,6 @@ export obj, grad, grad!, cons, cons!,
 
 import NLPModels: increment!
 
-using NLPModels
-using LinearAlgebra
-using SparseArrays
-using Test
-using Printf
-
 #!!!!! ncl.minimize dans le gradient, à voir...
 
 ######### TODO #########

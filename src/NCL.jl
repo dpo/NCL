@@ -12,6 +12,7 @@ using Ipopt
 # Julia packages
 using LinearAlgebra
 using Printf
+using SparseArrays
 
 # Problem modelisation and structures
 using NLPModels

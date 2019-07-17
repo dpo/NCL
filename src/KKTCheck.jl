@@ -1,13 +1,5 @@
 export KKTCheck
 
-using LinearAlgebra
-using Printf
-
-using NLPModels
-
-
-
-
 """
 ###############################
 mult_format_check documentation
