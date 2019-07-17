@@ -1,6 +1,4 @@
-using NCL
-using CUTEst
-
+#include("../src/NCLSolve.jl")
 
 """
 ##############################

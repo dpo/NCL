@@ -1,3 +1,11 @@
+using NCL
+using Test
+using NLPModels
+using CUTEst
+using SolverTools
+using NLPModelsIpopt
+
+
 include("test_NCLModel.jl")
 include("test_KKTCheck.jl")
 include("test_NCLSolve.jl")
