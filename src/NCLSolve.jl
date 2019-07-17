@@ -52,7 +52,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   scale_tol::Float64 = 0.1,
                   scale_constr_viol_tol::Float64 = 0.1,
                   scale_compl_inf_tol::Float64 = 0.1,
-                  scale_mu_init::Float64 = 0.1,
+                  scale_mu_init::Float64 = 0.3,
 
                   init_penal::Float64 = 10.0,
                   init_tol::Float64 = 0.1,
@@ -73,8 +73,8 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   print_level_NCL::Int = 0,                  # Options for printing iterations of the NCL method : 0, nothing;
                                                                                                                     # 1, calls to functions and conclusion;
                                                                                                                     # 2, calls, little informations on iterations;
-                                                                                                                    # 3, calls, more information about iterations (and erors in KKT_check);
-                                                                                                                    # 4, calls, KKT_check, iterations, little information from the solver;                                                                                                                         # and so on until 7 (no further details)
+                                                                                                                    # 3, calls, more information about iterations (and erors in KKTCheck);
+                                                                                                                    # 4, calls, KKTCheck, iterations, little information from the solver;                                                                                                                         # and so on until 7 (no further details)
 
                  ) ::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
 
@@ -126,7 +126,11 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
     η_k = init_constr_viol_tol # sub problem infeasibility
     η_min = min_constr_viol_tol # smallest infeasibility authorized
 
-    ϵ_end = compl_inf_tol #global tolerance for complementarity conditions
+    ϵ_end = compl_inf_tol - η_end
+    if ϵ_end < 0
+        ϵ_end = compl_inf_tol
+        @warn "NCLSolve($(ncl.nlp.meta.name)): your tolerance compl_inf_tol is to low regarding to constr_viol_tol.\nYou should have compl_inf_tol >= constr_viol_tol if you want the solution to satisfy optimal KKT conditions with your level of tolerances."
+    end
     ϵ_k = init_compl_inf_tol
     ϵ_min = min_compl_inf_tol
 
@@ -227,7 +231,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
         norm_r_k_inf = norm(r_k, Inf) # update
 
         # Get multipliers
-        #! Warning, ipopt doesn't use our convention in KKT_check for constraint multipliers, so we took the opposite. For bound multiplier it seems to work though.
+        #! Warning, ipopt doesn't use our convention in KKTCheck for constraint multipliers, so we took the opposite. For bound multiplier it seems to work though.
         y_k = - solve_k.solver_specific[:multipliers_con]
         z_k_U = solve_k.solver_specific[:multipliers_U]
         z_k_L = solve_k.solver_specific[:multipliers_L]
@@ -263,10 +267,10 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                 @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum constraint violation η_min = " * string(η_min) * " reached at iteration k = " * string(k)
             end
             if ω_k == ω_min
-                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum tolerance ω_min = " * string(η_min) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum tolerance ω_min = " * string(ω_min) * " reached at iteration k = " * string(k)
             end
             if ϵ_k == ϵ_min
-                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum complementarity infeasibility ϵ_min = " * string(η_min) * " reached at iteration k = " * string(k)
+                @warn "\nin NCLSolve($(ncl.nlp.meta.name)): minimum complementarity infeasibility ϵ_min = " * string(ϵ_min) * " reached at iteration k = " * string(k)
             end
 
             #** II.2.2 Solution found ?
@@ -280,7 +284,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                     end
 
                     if KKT_checking
-                        D_solved = KKT_check(ncl.nlp,
+                        D_solved = KKTCheck(ncl.nlp,
                                              x_k,
                                              y_k,
                                              z_k_U[1:nx],
@@ -299,7 +303,7 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                             acc_count = 0 # if not, then go back to 0
                         end
                     else
-                        converged = true #Chose not to pass into KKT_check
+                        converged = true #Chose not to pass into KKTCheck
                     end
                 end
 
