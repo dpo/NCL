@@ -312,7 +312,7 @@ function print(ncl::NCLModel, io::IO = stdout)
 	for x in begin_y
 		@printf(io, "%7.1e, ", x)
 	end
-	@printf(io, "..(7.1e elements).., %7.1e]", len_y - length(begin_y) - 1, end_y)
+	@printf(io, "..(%7.1e elements).., %7.1e]", len_y - length(begin_y) - 1, end_y)
 	@printf(io, "]\nCurrent ρ = %7.1e\n", ncl.ρ)
 end
 
