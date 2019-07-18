@@ -82,9 +82,9 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 	nx = nlp.meta.nvar
 	nvar = nx + nr
 	meta = NLPModelMeta(nvar;
-						lvar = vcat(nlp.meta.lvar, fill!(Vector{<:Float64}(undef, nr), -Inf)), # No bounds upon residuals
-						uvar = vcat(nlp.meta.uvar, fill!(Vector{<:Float64}(undef, nr), Inf)),
-						x0   = vcat(nlp.meta.x0, fill!(Vector{<:Float64}(undef, nr), res_val_init)),
+						lvar = vcat(nlp.meta.lvar, fill!(Vector{Float64}(undef, nr), -Inf)), # No bounds upon residuals
+						uvar = vcat(nlp.meta.uvar, fill!(Vector{Float64}(undef, nr), Inf)),
+						x0   = vcat(nlp.meta.x0, fill!(Vector{Float64}(undef, nr), res_val_init)),
 						y0   = nlp.meta.y0,
 						name = nlp.meta.name * " (NCL subproblem)",
 						nnzj = nlp.meta.nnzj + nr, # we add nonzeros because of residuals
