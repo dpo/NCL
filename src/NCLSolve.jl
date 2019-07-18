@@ -2,13 +2,13 @@
 export NCLSolve
 
 # NCLSolve called with a string outputs to file
-#function NCLSolve(nlp::AbstractNLPModel, file::String; kwargs...)
-#    out = open(file, "w") do io
-#        NCLSolve(nlp; io=io, kwargs...)
-#    end
-#
-#    return out
-#end
+function NCLSolve(nlp::AbstractNLPModel, file::String; kwargs...)
+    out = open(file, "w") do io
+        NCLSolve(nlp, io; kwargs...)
+    end
+
+    return out
+end
 
 """
 #################################
@@ -35,7 +35,9 @@ Main function for the NCL method.
                 )
 #################################
 """
-function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be solved by this method
+function NCLSolve(nlp::AbstractNLPModel,                     # Problem to be solved by this method
+                  io::IO = stdout;                           # where to print iterations
+
                   #* Optimization parameters
                   tol::Float64 = 1e-6,                       # Tolerance for the gradient lagrangian norm
                   constr_viol_tol::Float64 = 1e-6,           # Tolerance for the infeasibility accepted for ncl
@@ -68,14 +70,13 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                   warm_start::Bool = true,     # "yes" to choose warm start in the subproblem solving. "no" for normal solving.
 
                   #* Options of NCL print
-                  io::IO = stdout,                             # where to print iterations
                   print_level_NCL::Int = 0,                  # Options for printing iterations of the NCL method : 0, nothing;
                                                                                                                     # 1, calls to functions and conclusion;
                                                                                                                     # 2, calls, little informations on iterations;
                                                                                                                     # 3, calls, more information about iterations (and erors in KKTCheck);
                                                                                                                     # 4, calls, KKTCheck, iterations, little information from the solver;                                                                                                                         # and so on until 7 (no further details)
 
-                 ) ::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
+                 ) #::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
 
     #** I.0 Solution with NCL
     if nlp isa NCLModel #no need to pass through NCLModel constructor
