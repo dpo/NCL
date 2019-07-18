@@ -216,7 +216,7 @@ function NCLSolve(nlp::AbstractNLPModel,                     # Problem to be sol
         #** II.1 Get subproblem's solution
         #** II.1.1 Solver
         solve_k = NLPModelsIpopt.ipopt(ncl;
-                        x0 = (k==0) ? xr_k,
+                        x0 = xr_k,
                         tol = ω_k,
                         constr_viol_tol = η_k,
                         compl_inf_tol = ϵ_k,
