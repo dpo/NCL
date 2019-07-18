@@ -158,6 +158,7 @@ function NCLSolve(nlp::AbstractNLPModel,                     # Problem to be sol
     output_file_name_solver = print_level_solver > 0 ? "$(output_dir_solver)_ncl_$(ncl.meta.name).log" : "$(output_dir_tmp_solver)_tmp_ncl_$(ncl.meta.name).log"
 
     #** I.4 Initial variables
+    xr_k = zeros(Float64, nx + nr)
     x_k = zeros(Float64, nx)
     r_k = zeros(Float64, nr)
     norm_r_k_inf = norm(r_k, Inf) #Pre-computation
@@ -199,12 +200,23 @@ function NCLSolve(nlp::AbstractNLPModel,                     # Problem to be sol
         end
 
         if warm_start
-            mu_init *= τ_mu_init
+          if (k == 2)
+            mu_init = 1e-4
+          elseif (k == 4)
+            mu_init = 1e-5
+          elseif (k == 6)
+            mu_init = 1e-6
+          elseif (k == 8)
+            mu_init = 1e-7
+          elseif (k == 10)
+            mu_init = 1e-8
+          end
         end
 
         #** II.1 Get subproblem's solution
         #** II.1.1 Solver
         solve_k = NLPModelsIpopt.ipopt(ncl;
+                        x0 = (k==0) ? xr_k,
                         tol = ω_k,
                         constr_viol_tol = η_k,
                         compl_inf_tol = ϵ_k,
@@ -223,9 +235,9 @@ function NCLSolve(nlp::AbstractNLPModel,                     # Problem to be sol
 
 
         # Get variables
-        xr_k = solve_k.solution #pre-access
-        x_k = xr_k[1:nx]
-        r_k = xr_k[nx+1 : nx+nr]
+        xr_k .= copy(solve_k.solution) #pre-access
+        x_k .= xr_k[1:nx]
+        r_k .= xr_k[nx+1 : nx+nr]
         norm_r_k_inf = norm(r_k, Inf) # update
 
         # Get multipliers
