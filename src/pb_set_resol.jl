@@ -516,6 +516,8 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						max_iter_solver::Int = 1000,
 
 						#* Files
+						profile::Bool = false,
+						latex_table::Bool = true,
 						profile_name = "default_profile_name",
 						latex_table_name = "default_latex_table_name.tex"
 						)::Nothing
@@ -881,80 +883,85 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 	n_pb = n_cutest + n_nlp + n_ampl
 
-	stats = Dict(Symbol(solver[i]) => DataFrame(:problem	=> [names[k] for k in 1:n_pb],
-												:id			=> [k for k in 1:n_pb],
-												:nvar 		=> [info[k, 1] for k in 1:n_pb],
-												:ncon		=> [info[k, 2] for k in 1:n_pb],
 
-												:niter 		=> [resolution.iter for resolution in resol[i, :]],
-												:f 			=> [resolution.objective for resolution in resol[i, :]],
+	if latex_table
+		stats = Dict(Symbol(solver[i]) => DataFrame(:problem	=> [names[k] for k in 1:n_pb],
+													:id			=> [k for k in 1:n_pb],
+													:nvar 		=> [info[k, 1] for k in 1:n_pb],
+													:ncon		=> [info[k, 2] for k in 1:n_pb],
 
-												:feval 		=> [time[i, k, 1] for k in 1:n_pb],
-												:ceval 		=> [time[i, k, 2] for k in 1:n_pb],
-												:time		=> [time[i, k, 3] for k in 1:n_pb],
-												:bytes		=> [time[i, k, 4] for k in 1:n_pb],
-												:gctime		=> [time[i, k, 5] for k in 1:n_pb],
+													:niter 		=> [resolution.iter for resolution in resol[i, :]],
+													:f 			=> [resolution.objective for resolution in resol[i, :]],
 
-												:feas 		=> [kkt_res["primal_feas"] for kkt_res in kkt[i, :]],
-												:compl 		=> [kkt_res["complementarity_feas"] for kkt_res in kkt[i, :]],
-												:mult_norm 	=> [norm(vcat(resolution.solver_specific[:multipliers_con], (resolution.solver_specific[:multipliers_L] - resolution.solver_specific[:multipliers_U])), Inf) for resolution in resol[i, :]],
-												:lag_norm 	=> [kkt_res["dual_feas"] for kkt_res in kkt[i, :]],
-												:r_norm 	=> [haskey(resolution.solver_specific, :residuals) ? norm(resolution.solver_specific[:residuals], Inf) : 0. for resolution in resol[i, :]],
+													:feval 		=> [time[i, k, 1] for k in 1:n_pb],
+													:ceval 		=> [time[i, k, 2] for k in 1:n_pb],
+													:time		=> [time[i, k, 3] for k in 1:n_pb],
+													:bytes		=> [time[i, k, 4] for k in 1:n_pb],
+													:gctime		=> [time[i, k, 5] for k in 1:n_pb],
 
-												:solve_succeeded => [Symbol(resolution.solver_specific[:internal_msg]) for resolution in resol[i, :]],
-												:r_opti 	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= tol) : true) for resolution in resol[i, :]],
-												:r_acc_opti	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= acc_factor * tol) : true) for resolution in resol[i, :]],
-												:kkt_opti 	=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
-												:kkt_acc_opti => [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]])
-				for i in 1:n_solver)
-  
-  
-	hdr_override = Dict(:problem => "\\textbf{Problem}",
-						:nvar => "\$n_{var}\$",
-						:ncon => "\$n_{con}\$",
-						:niter => "\$n_{iter}\$",
-						:f => "\$f\\left(x \\right)\$",
-						:feval => "\$f_{eval}\$",
-						:ceval => "\$c_{eval}\$",
-						:time => "\$time\$",
-						:bytes => "\$bytes\$",
-						:gctime => "\$gctime\$",
-						:feas => "\$feas\$",
-						:compl => "\$compl\$",
-						:mult_norm => "\$ \\left\\Vert \\lambda \\right\\Vert\$",
-						:lag_norm => "\$ \\left\\Vert \\nabla_{x} L \\right\\Vert\$",
-						:r_norm => "\$ \\left\\Vert r \\right\\Vert\$",
-						:solve_succeeded => "Succeeded ?",
-						:r_opti => "\$ \\left\\Vert r \\right\\Vert \\,\\leq ?\\, \\eta_\\infty\$",
-						:r_acc_opti => "\$ \\left\\Vert r \\right\\Vert \\,\\leq ?\\, \\eta_{acc}\$",
-						:kkt_opti => "\$KKT\$",
-						:kkt_acc_opti => "\$KKT_{acc}\$"
-					   )
-	N = [:niter, :f, :feval, :ceval, :time, :bytes, :gctime, :feas, :compl, :mult_norm, :lag_norm, :r_norm, :solve_succeeded, :r_opti, :r_acc_opti, :kkt_opti, :kkt_acc_opti]
-	df_res = join(stats, N ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
+													:feas 		=> [kkt_res["primal_feas"] for kkt_res in kkt[i, :]],
+													:compl 		=> [kkt_res["complementarity_feas"] for kkt_res in kkt[i, :]],
+													:mult_norm 	=> [norm(vcat(resolution.solver_specific[:multipliers_con], (resolution.solver_specific[:multipliers_L] - resolution.solver_specific[:multipliers_U])), Inf) for resolution in resol[i, :]],
+													:lag_norm 	=> [kkt_res["dual_feas"] for kkt_res in kkt[i, :]],
+													:r_norm 	=> [haskey(resolution.solver_specific, :residuals) ? norm(resolution.solver_specific[:residuals], Inf) : 0. for resolution in resol[i, :]],
+
+													:solve_succeeded => [Symbol(resolution.solver_specific[:internal_msg]) for resolution in resol[i, :]],
+													:r_opti 	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= tol) : true) for resolution in resol[i, :]],
+													:r_acc_opti	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= acc_factor * tol) : true) for resolution in resol[i, :]],
+													:kkt_opti 	=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
+													:kkt_acc_opti => [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]])
+					for i in 1:n_solver)
+	
+	
+		hdr_override = Dict(:problem => "\\textbf{Problem}",
+							:nvar => "\$n_{var}\$",
+							:ncon => "\$n_{con}\$",
+							:niter => "\$n_{iter}\$",
+							:f => "\$f\\left(x \\right)\$",
+							:feval => "\$f_{eval}\$",
+							:ceval => "\$c_{eval}\$",
+							:time => "\$time\$",
+							:bytes => "\$bytes\$",
+							:gctime => "\$gctime\$",
+							:feas => "\$feas\$",
+							:compl => "\$compl\$",
+							:mult_norm => "\$ \\left\\Vert \\lambda \\right\\Vert\$",
+							:lag_norm => "\$ \\left\\Vert \\nabla_{x} L \\right\\Vert\$",
+							:r_norm => "\$ \\left\\Vert r \\right\\Vert\$",
+							:solve_succeeded => "Succeeded ?",
+							:r_opti => "\$ \\left\\Vert r \\right\\Vert \\,\\leq ?\\, \\eta_\\infty\$",
+							:r_acc_opti => "\$ \\left\\Vert r \\right\\Vert \\,\\leq ?\\, \\eta_{acc}\$",
+							:kkt_opti => "\$KKT\$",
+							:kkt_acc_opti => "\$KKT_{acc}\$"
+						)
+		N = [:niter, :f, :feval, :ceval, :time, :bytes, :gctime, :feas, :compl, :mult_norm, :lag_norm, :r_norm, :solve_succeeded, :r_opti, :r_acc_opti, :kkt_opti, :kkt_acc_opti]
+		df_res = join(stats, N ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
 
 
-	#* V. Results
-	if !isdir("./res/")
-		mkdir("./res/")
+		#* V. Results
+		if !isdir("./res/")
+			mkdir("./res/")
+		end
+
+		ltx_file = open("./res/$latex_table_name", write = true)
+		latex_table(ltx_file, df_res)
+		close(ltx_file)
 	end
 
-	ltx_file = open("./res/$latex_table_name", write = true)
-	latex_table(ltx_file, df_res)
-	close(ltx_file)
+	if profile
+		solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded"))
+		kkt_opti(df) = (df.kkt_opti .== Symbol(true))
+		kkt_acc_opti(df) = (df.kkt_acc_opti .== Symbol(true))
+		compare = [df -> df.f, df -> df.feval + df.ceval, df -> .!kkt_opti(df) * 1000 + df.feval, df -> .!kkt_acc_opti(df) * 1000 + df.feval]
 
-	solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded"))
-	kkt_opti(df) = (df.kkt_opti .== Symbol(true))
-	kkt_acc_opti(df) = (df.kkt_acc_opti .== Symbol(true))
-	compare = [df -> df.f, df -> df.feval + df.ceval, df -> .!kkt_opti(df) * 1000 + df.feval, df -> .!kkt_acc_opti(df) * 1000 + df.feval]
+		#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
 
-	#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
+		comparison_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
+		p = profile_solvers(stats, compare, comparison_names)
 
-	comparison_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
-	p = profile_solvers(stats, compare, comparison_names)
-
-	
-	Plots.svg(p, "./res/$profile_name")
+		
+		Plots.svg(p, "./res/$profile_name")
+	end
 
 	return nothing
 end

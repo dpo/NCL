@@ -11,12 +11,7 @@ import Base.println
 #!!!!! ncl.minimize dans le gradient, à voir...
 
 ######### TODO #########
-######### TODO #########
-######### TODO #########
 	# TODO grad_check
-	# TODO (simple): terminer la fonction print et documentation
-######### TODO #########
-######### TODO #########
 ######### TODO #########
 
 #** I. Model and constructor
