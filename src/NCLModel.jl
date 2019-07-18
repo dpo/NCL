@@ -303,7 +303,7 @@ end
 #** III Print functions
 function print(ncl::NCLModel, io::IO = stdout)
 	@printf(io, "%s NLP original problem :\n", ncl.nlp.meta.name)
-	@printf(io, ncl.nlp)
+	print(io, ncl.nlp)
 	@printf(io, "\nAdded %d residuals to the previous %d variables.", ncl.nr, ncl.nx)
 	len_y = length(ncl.y)
 	begin_y = ncl.y[1 : min(3, len_y-1)]
