@@ -31,16 +31,16 @@ Subtype of AbstractNLPModel, adapted to the NCL method.
 mutable struct NCLModel <: AbstractNLPModel
 	#* I. Information about the residuals
 	nlp::AbstractNLPModel # The original problem
-	nx::Int # Number of variable of the nlp problem
-	nr::Int # Number of residuals for the nlp problem (in fact nr = length(nln), if there are no free/infeasible constraints)
+	nx::Integer # Number of variable of the nlp problem
+	nr::Integer # Number of residuals for the nlp problem (in fact nr = length(nln), if there are no free/infeasible constraints)
 	
 	#* II. Constant parameters
 	meta::AbstractNLPModelMeta # Informations for this problem
 	counters::Counters # Counters of calls to functions like obj, grad, cons, of the problem
 
 	#* III. Parameters for the objective function
-	y::Vector{<:Float64} # Multipliers for the nlp problem, used in the lagrangian
-	ρ::Float64 # Penalization of the simili lagrangian
+	y::AbstractVector{<:AbstractFloat} # Multipliers for the nlp problem, used in the lagrangian
+	ρ::AbstractFloat # Penalization of the simili lagrangian
 end
 
 """
@@ -59,9 +59,9 @@ NCLModel documentation
 ######################
 """
 function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
-				         	res_val_init::Float64 = 0., 														# Initial value for residuals
-				         	ρ::Float64 = 1., 																	# Initial penalty
-				         	y = zeros(Float64, nlp.meta.ncon)	# Initial multiplier, depending on the number of residuals considered
+				         	res_val_init::AbstractFloat = 0., 														# Initial value for residuals
+				         	ρ::AbstractFloat = 1., 																	# Initial penalty
+				         	y = zeros(AbstractFloat, nlp.meta.ncon)	# Initial multiplier, depending on the number of residuals considered
 				         ) #::NCLModel
 
 	#* I. First tests
@@ -89,14 +89,14 @@ function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 						ucon = nlp.meta.ucon,
 					   )
 
-	if nlp.meta.jinf != Int[]
+	if nlp.meta.jinf != Integer[]
 		error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jinf) * " infeasible")
 	end
-	if nlp.meta.jfree != Int[]
+	if nlp.meta.jfree != Integer[]
 		error("argument problem passed to NCLModel with constraint " * string(nlp.meta.jfree) * " free")
 	end
 
-	if nlp.meta.iinf != Int[]
+	if nlp.meta.iinf != Integer[]
 		error("argument problem passed to NCLModel with bound constraint " * string(nlp.meta.iinf) * " infeasible")
 	end
 
@@ -113,7 +113,7 @@ end
 #** II. Methods
 
 #** II.1 Objective function
-function NLPModels.obj(ncl::NCLModel, xr::AbstractVector{<:Float64})#::Float64
+function NLPModels.obj(ncl::NCLModel, xr::AbstractVector{<:AbstractFloat})#::AbstractFloat
 	increment!(ncl, :neval_obj)
 	x = xr[1 : ncl.nx]
 	r = xr[ncl.nx + 1 : ncl.nx + ncl.nr]
@@ -132,7 +132,7 @@ function NLPModels.obj(ncl::NCLModel, xr::AbstractVector{<:Float64})#::Float64
 end
 
 #** II.2 Gradient of the objective function
-function NLPModels.grad!(ncl::NCLModel, X::Vector{<:Float64}, gx::Vector{<:Float64}) #::Vector{<:Float64}
+function NLPModels.grad!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, gx::AbstractVector{<:AbstractFloat}) #::AbstractVector{<:AbstractFloat}
 	increment!(ncl, :neval_grad)
 
 	if length(gx) != ncl.meta.nvar
@@ -153,7 +153,7 @@ function NLPModels.grad!(ncl::NCLModel, X::Vector{<:Float64}, gx::Vector{<:Float
 end
 
 #** II.3 Hessian of the Lagrangian
-function NLPModels.hess(ncl::NCLModel, X::Vector{<:Float64} ; obj_weight=1.0, y=zeros) #::SparseMatrixCSC{<:Float64, Int}
+function NLPModels.hess(ncl::NCLModel, X::AbstractVector{<:AbstractFloat} ; obj_weight=1.0, y=zeros) #::SparseMatrixCSC{<:AbstractFloat, Integer}
 	increment!(ncl, :neval_hess)
 
 	H = sparse(hess_coord(ncl, X ; obj_weight=obj_weight, y=y)...)
@@ -161,7 +161,7 @@ function NLPModels.hess(ncl::NCLModel, X::Vector{<:Float64} ; obj_weight=1.0, y=
 	return H
 end
 
-function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Float64}, hrows::Vector{<:Int}, hcols::Vector{<:Int}, hvals::Vector{<:Float64} ; obj_weight=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) #::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
+function NLPModels.hess_coord!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, hrows::AbstractVector{<:Integer}, hcols::AbstractVector{<:Integer}, hvals::AbstractVector{<:AbstractFloat} ; obj_weight=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) #::Tuple{AbstractVector{Integer},AbstractVector{Integer},AbstractVector{<:AbstractFloat}}
 	increment!(ncl, :neval_hess)
 	#Pre computation
 	len_hcols = length(hcols)
@@ -174,12 +174,12 @@ function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Float64}, hrows::Vecto
 	end
 	
 	# New information (due to residuals)
-	hvals[orig_len + 1 : len_hcols] .= ncl.ρ # a vector full of ncl.ρ
+	hvals[orig_len + 1 : len_hcols] .= ncl.ρ # a Abstractvector full of ncl.ρ
 
 	return (hrows, hcols, hvals)
 end
 
-function NLPModels.hess_structure!(ncl::NCLModel, hrows::Vector{<:Int}, hcols::Vector{<:Int}) #::Tuple{Vector{Int},Vector{Int}}
+function NLPModels.hess_structure!(ncl::NCLModel, hrows::AbstractVector{<:Integer}, hcols::AbstractVector{<:Integer}) #::Tuple{AbstractVector{Integer},AbstractVector{Integer}}
 	increment!(ncl, :neval_hess)
 
 	# Original information
@@ -191,7 +191,7 @@ function NLPModels.hess_structure!(ncl::NCLModel, hrows::Vector{<:Int}, hcols::V
 	return (hrows, hcols)
 end
 
-function NLPModels.hprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64} , Hv::Vector{<:Float64} ; obj_weight::Float64=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) #::Vector{<:Float64}
+function NLPModels.hprod!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, v::AbstractVector{<:AbstractFloat} , Hv::AbstractVector{<:AbstractFloat} ; obj_weight::AbstractFloat=1.0, y=zeros(eltype(X[1]), ncl.meta.ncon)) #::AbstractVector{<:AbstractFloat}
 	increment!(ncl, :neval_hprod)
 	# Test feasibility
 	if length(v) != ncl.meta.nvar
@@ -212,7 +212,7 @@ function NLPModels.hprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float
 end
 
 #** II.4 Constraints
-function NLPModels.cons!(ncl::NCLModel, X::Vector{<:Float64}, cx::Vector{<:Float64}) #::Vector{<:Float64}
+function NLPModels.cons!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, cx::AbstractVector{<:AbstractFloat}) #::AbstractVector{<:AbstractFloat}
 	increment!(ncl, :neval_cons)
 	# Original information
 	cons!(ncl.nlp, X[1:ncl.nx], cx) # pre computation
@@ -224,14 +224,14 @@ function NLPModels.cons!(ncl::NCLModel, X::Vector{<:Float64}, cx::Vector{<:Float
 	return cx
 end
 
-#** II.5 Jacobian of the constraints vector
-function NLPModels.jac(ncl::NCLModel, X::Vector{<:Float64}) ::SparseMatrixCSC{<:Float64, Int}
+#** II.5 Jacobian of the constraints Abstractvector
+function NLPModels.jac(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}) ::SparseMatrixCSC{<:AbstractFloat, Integer}
 	increment!(ncl, :neval_jac)
 	J = sparse(jac_coord(ncl, X)...)
 	return J
 end
 
-function NLPModels.jac_coord!(ncl::NCLModel, X::Vector{<:Float64}, jrows::Vector{<:Int}, jcols::Vector{<:Int}, jvals::Vector{<:Float64}) #::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}
+function NLPModels.jac_coord!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, jrows::AbstractVector{<:Integer}, jcols::AbstractVector{<:Integer}, jvals::AbstractVector{<:AbstractFloat}) #::Tuple{AbstractVector{Integer},AbstractVector{Integer},AbstractVector{<:AbstractFloat}}
 	increment!(ncl, :neval_jac)
 
 	#Pre computation
@@ -240,7 +240,7 @@ function NLPModels.jac_coord!(ncl::NCLModel, X::Vector{<:Float64}, jrows::Vector
 
 	# Test feasability
 	if length(jvals) != len_jcols
-		error("wrong sizes of argument jvals passed to jac_coord!(ncl::NCLModel, X::Vector{<:Float64}, jrows::Vector{<:Int}, jcols::Vector{<:Int}, jvals::Vector{<:Float64}) ::Tuple{Vector{Int},Vector{Int},Vector{<:Float64}}")
+		error("wrong sizes of argument jvals passed to jac_coord!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, jrows::AbstractVector{<:Integer}, jcols::AbstractVector{<:Integer}, jvals::AbstractVector{<:AbstractFloat}) ::Tuple{AbstractVector{Integer},AbstractVector{Integer},AbstractVector{<:AbstractFloat}}")
 	end
 
 	# Original informations
@@ -252,7 +252,7 @@ function NLPModels.jac_coord!(ncl::NCLModel, X::Vector{<:Float64}, jrows::Vector
 	return (jrows, jcols, jvals)
 end
 
-function NLPModels.jac_structure!(ncl::NCLModel, jrows::Vector{Int}, jcols::Vector{Int}) #::Tuple{Vector{Int},Vector{Int}}
+function NLPModels.jac_structure!(ncl::NCLModel, jrows::AbstractVector{Integer}, jcols::AbstractVector{Integer}) #::Tuple{AbstractVector{Integer},AbstractVector{Integer}}
 	increment!(ncl, :neval_jac)
 	# Original information
 	NLPModels.jac_structure!(ncl.nlp, jrows, jcols)
@@ -264,11 +264,11 @@ function NLPModels.jac_structure!(ncl::NCLModel, jrows::Vector{Int}, jcols::Vect
 	return jrows, jcols
 end
 
-function NLPModels.jprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jv::Vector{<:Float64}) #::Vector{<:Float64}
+function NLPModels.jprod!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, v::AbstractVector{<:AbstractFloat}, Jv::AbstractVector{<:AbstractFloat}) #::AbstractVector{<:AbstractFloat}
 	increment!(ncl, :neval_jprod)
 	# Test feasability
 	if length(v) != ncl.meta.nvar
-		error("wrong sizes of argument v passed to jprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jv::Vector{<:Float64}) ::Vector{<:Float64}")
+		error("wrong sizes of argument v passed to jprod!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, v::AbstractVector{<:AbstractFloat}, Jv::AbstractVector{<:AbstractFloat}) ::AbstractVector{<:AbstractFloat}")
 	end
 
 	# Original information
@@ -282,11 +282,11 @@ function NLPModels.jprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float
 	return Jv
 end
 
-function NLPModels.jtprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jtv::Vector{<:Float64}) #::Vector{<:Float64}
+function NLPModels.jtprod!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, v::AbstractVector{<:AbstractFloat}, Jtv::AbstractVector{<:AbstractFloat}) #::AbstractVector{<:AbstractFloat}
 	increment!(ncl, :neval_jtprod)
 	# Test feasability
 	if length(v) != ncl.meta.ncon
-		error("wrong length of argument v passed to jtprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jtv::Vector{<:Float64}) ::Vector{<:Float64}")
+		error("wrong length of argument v passed to jtprod(ncl::NCLModel, X::AbstractVector{<:AbstractFloat}, v::AbstractVector{<:AbstractFloat}, Jtv::AbstractVector{<:AbstractFloat}) ::AbstractVector{<:AbstractFloat}")
 	end
 
 	Jtv .= append!(jtprod(ncl.nlp, X[1:ncl.nx], v), v)
