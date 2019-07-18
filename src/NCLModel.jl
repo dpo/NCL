@@ -305,7 +305,7 @@ function print(ncl::NCLModel, io::IO = stdout)
 	@printf(io, "$(ncl.nlp.meta.name) NLP original problem :\n")
 	@printf(io, ncl.nlp)
 	@printf(io, "\nAdded $(ncl.nr) residuals to the previous $(ncl.nx) variables.")
-	@printf(io, "\nCurrent y = [$(ncl.y[1 : min(3, length(ncl.y)-1)])...$(ncl.y[length(ncl.y))])]")
+	@printf(io, "\nCurrent y = [$(ncl.y[1 : min(3, length(ncl.y)-1)])...$(ncl.y[length(ncl.y)])]")
 	@printf(io, "\nCurrent ρ = $(ncl.ρ)\n")
 end
 
