@@ -252,7 +252,7 @@ function NLPModels.jac_coord!(ncl::NCLModel, X::AbstractVector{<:AbstractFloat},
 	return (jrows, jcols, jvals)
 end
 
-function jac_structure!(ncl::NCLModel, jrows::AbstractVector{Integer}, jcols::AbstractVector{Integer}) #::Tuple{AbstractVector{Integer},AbstractVector{Integer}}
+function NLPModels.jac_structure!(ncl::NCLModel, jrows::AbstractVector{Integer}, jcols::AbstractVector{Integer}) #::Tuple{AbstractVector{Integer},AbstractVector{Integer}}
 	increment!(ncl, :neval_jac)
 	# Original information
 	NLPModels.jac_structure!(ncl.nlp, jrows, jcols)
