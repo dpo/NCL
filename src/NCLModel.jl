@@ -184,7 +184,7 @@ function NLPModels.hess_coord!(ncl::NCLModel, X::Vector{<:Float64}, hrows::Vecto
 	return (hrows, hcols, hvals)
 end
 
-function NLPModels.hess_structure!(ncl::NCLModel, hrows::Vector{<:Int}, hcols::Vector{<:Int}) #::Tuple{Vector{Int},Vector{Int}}
+function NLPModels.hess_structure!(ncl::NCLModel, hrows::Vector{<:Integer}, hcols::Vector{<:Integer}) #::Tuple{Vector{Int},Vector{Int}}
 	increment!(ncl, :neval_hess)
 
 	# Original information
