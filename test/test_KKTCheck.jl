@@ -66,7 +66,7 @@ function test_KKTCheck(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
     @testset "KKTCheck function" begin
         @testset "KKTCheck(nlp) via ipopt" begin
             # Solution of NLP with NLPModelsIpopt
-            resol_nlp_ipopt = NLPModelsIpopt.ipopt(nlp ; print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ, ignore_time = true)
+            resol_nlp_ipopt = NLPModelsIpopt.ipopt(nlp ; print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ)
             x_nlp_ipopt = resol_nlp_ipopt.solution
 
             # Get multipliers
