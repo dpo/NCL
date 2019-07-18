@@ -630,8 +630,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																																		tol = tol,
 																																		constr_viol_tol = constr_viol_tol,
 																																		compl_inf_tol = compl_inf_tol,
-																																		print_level = print_level_iter,
-																																		ignore_time = true)
+																																		print_level = print_level_iter)
 
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
@@ -734,8 +733,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																																tol = tol,
 																																print_level = print_level_iter,
 																																constr_viol_tol = constr_viol_tol,
-																																compl_inf_tol = compl_inf_tol,
-																																ignore_time = true)
+																																compl_inf_tol = compl_inf_tol)
 
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
@@ -846,8 +844,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
-																													print_level = print_level_iter,
-																													ignore_time = true)
+																													print_level = print_level_iter)
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
