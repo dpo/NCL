@@ -44,17 +44,19 @@ function test_NCLSolve(test::Bool ; HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 
     nlc_cons_res = NCLModel(nlp)::NCLModel
 
     if test
-        @test NCLSolve(nlp).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
-        @test NCLSolve(nlc_cons_res).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+        @testset "NCLSolve on home made NLP and NCL" begin
+            @test NCLSolve(nlp).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+            @test NCLSolve(nlc_cons_res).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+        end
 
         @testset "NCLSolve HS (all residuals)" begin
             for name in probs_NCL # several tests
-                nlp = CUTEstModel(name)
+                hs = CUTEstModel(name)
                 test_name = name * " problem resolution"
                 @testset "$test_name" begin
-                    @test NCLSolve(nlp).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
+                    @test NCLSolve(hs).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
                 end
-                finalize(nlp)
+                finalize(hs)
             end
         end
 

@@ -212,7 +212,6 @@ function NCLSolve(nlp::AbstractNLPModel ;                    # Problem to be sol
                         acceptable_compl_inf_tol = acceptable_compl_inf_tol,
                         print_level = print_level_solver, #>= 1 ? print_level_solver : 2,
                         #output_file = output_file_name_solver,
-                        ignore_time = true,
                         warm_start_init_point = warm_start ? "yes" : "no",
                         mu_init = mu_init,
                         dual_inf_tol=1e-6,

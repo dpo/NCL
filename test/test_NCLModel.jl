@@ -45,11 +45,7 @@ function test_NCLModel(test::Bool) ::Test.DefaultTestSet
 
     name = "Unit test problem"
     nlp::ADNLPModel = ADNLPModel(f, x0 ; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])
-    ncl_nlin_res::NCLModel = NCLModel(nlp ; res_val_init = 1., res_lin_cons = false, y = [1.,1.])
-    ncl_nlin_res.y = y
-    ncl_nlin_res.ρ = ρ
-
-    ncl_cons_res::NCLModel = NCLModel(nlp ; res_val_init = 1., res_lin_cons = true, y = [1.,1.,1.,1.])
+    ncl_cons_res::NCLModel = NCLModel(nlp ; res_val_init = 1., y = [1.,1.,1.,1.])
     ncl_cons_res.ρ = ρ
 
     # Unit tests
@@ -143,12 +139,12 @@ function test_NCLModel(test::Bool) ::Test.DefaultTestSet
 
             #     @testset "NCLModel constraint" begin
             #         @testset "NCLModel constraint cons()" begin
-            #             @test size(cons(nlc_nlin_res, [1.,1.,0.,1.]), 1) == 4
+            #             @test length(cons(nlc_nlin_res, [1.,1.,0.,1.])) == 4
             #             @test cons(nlc_nlin_res, [1.,1.,0.,1.]) == [0.,2.,0.,2.]
             #             @test cons(nlc_nlin_res, [1.,0.5,1.,1.]) == [0.5,2.5,0.5,1.5]
             #         end
             #         @testset "NCLModel constraint cons!()" begin
-            #             @test size(cons!(nlc_nlin_res, [1.,1.,0.,1.], cx), 1) == 4
+            #             @test length(cons!(nlc_nlin_res, [1.,1.,0.,1.], cx)) == 4
             #             @test cons!(nlc_nlin_res, [1.,1.,0.,1.], cx) == [0.,2.,0.,2.]
             #             @test cons!(nlc_nlin_res, [1.,0.5,1.,1.], cx) == [0.5,2.5,0.5,1.5]
             #         end
@@ -300,12 +296,12 @@ function test_NCLModel(test::Bool) ::Test.DefaultTestSet
 
             @testset "NCLModel constraint" begin
                 @testset "NCLModel constraint cons()" begin
-                    @test size(cons(ncl_cons_res, [1.,1.,0.,1.,1.,1.]), 1) == 4
+                    @test length(cons(ncl_cons_res, [1.,1.,0.,1.,1.,1.])) == 4
                     @test cons(ncl_cons_res, [1.,1.,0.,1.,1.,1.]) == [0.,3.,1.,2.]
                     @test cons(ncl_cons_res, [1.,0.5,1.,1.,0.,-1.]) == [1.5,2.5,0.5,-0.5]
                 end
                 @testset "NCLModel constraint cons!()" begin
-                    @test size(cons!(ncl_cons_res, [1.,1.,0.,1.,1.,1.], cx), 1) == 4
+                    @test length(cons!(ncl_cons_res, [1.,1.,0.,1.,1.,1.], cx)) == 4
                     @test cons!(ncl_cons_res, [1.,1.,0.,1.,1.,1.], cx) == [0.,3.,1.,2.]
                     @test cons!(ncl_cons_res, [1.,0.5,1.,1.,0.,-1.], cx) == [1.5,2.5,0.5,-0.5]
                 end
