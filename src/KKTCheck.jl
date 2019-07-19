@@ -1,13 +1,5 @@
 export KKTCheck
 
-using LinearAlgebra
-using Printf
-
-using NLPModels
-
-
-
-
 """
 ###############################
 mult_format_check documentation
@@ -23,7 +15,7 @@ mult_format_check documentation
         ∇_{x}[lag(x, y)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * y - (z_L - z_U)
 ###############################
 """
-function mult_format_check(z_U::Vector{<:Float64}, z_L::Vector{<:Float64}, ϵ::Float64) ::Tuple{Vector{<:Float64}, Vector{<:Float64}}
+function mult_format_check(z_U::Vector{<:Float64}, z_L::Vector{<:Float64}, ϵ::Float64) #::Tuple{Vector{<:Float64}, Vector{<:Float64}}
     if (any(z_U .< -ϵ) & any(z_U .> ϵ))
         println("    z_U = ", z_U)
 
@@ -93,7 +85,8 @@ function KKTCheck(nlp::AbstractNLPModel,                          # Problem cons
                   x::Vector{<:Float64},                           # Potential solution
                   y::Vector{<:Float64},                           # Lagrangian multiplier for constraint
                   z_U::Vector{<:Float64},                         # Lagrangian multiplier for upper bound constraint
-                  z_L::Vector{<:Float64};                         # Lagrangian multiplier for lower bound constraint
+                  z_L::Vector{<:Float64},                         # Lagrangian multiplier for lower bound constraint
+                  io::IO=stdout;
 
 
                   #* Tolerances
@@ -103,13 +96,12 @@ function KKTCheck(nlp::AbstractNLPModel,                          # Problem cons
                   acc_factor::Float64 = 100.,
 
                   #* Print options
-                  io::IO=stdout,
                   print_level::Int = 0,                           # Verbosity level : 0 : nothing
                                                                                     # 1 : Function call and result
                                                                                     # 2 : Further information in case of failure
                                                                                     # 3... : Same, increasing information
                                                                                     # 6 & 7 : Shows full vectors, not advised if your problem has a big size
-                 ) ::Dict{String, Any} # dictionnary containing booleans optimality and acceptable optimality, and values of feasibility
+                 ) #::Dict{String, Any} # dictionnary containing booleans optimality and acceptable optimality, and values of feasibility
 
     #** 0. Initial settings
     #** 0.1 Notations

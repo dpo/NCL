@@ -1,6 +1,4 @@
-using Test
-using NLPModels
-using NCL
+#include("../src/NCLModel.jl")
 
 """
 ##############################

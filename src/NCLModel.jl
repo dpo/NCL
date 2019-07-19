@@ -5,12 +5,8 @@ export obj, grad, grad!, cons, cons!,
        hess_structure!, hess_coord!, hess_coord, hess, hprod, hprod!
 
 import NLPModels: increment!
-
-using NLPModels
-using LinearAlgebra
-using SparseArrays
-using Test
-using Printf
+import Base.print
+import Base.println
 
 #!!!!! ncl.minimize dans le gradient, à voir...
 
@@ -33,7 +29,7 @@ Subtype of AbstractNLPModel, adapted to the NCL method.
 
 	Process is as follows
 
-		(nlp) | min_{x} f(x)								         | min_{X = (x,r)} F(X) = f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
+		(nlp) | min_{x} f(x)								         | min_{xr = (x,r)} F(xr) = f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
 			  | subject to lvar <= x <= uvar		becomes: (ncl)   | subject to lvar <= x <= uvar, -Inf <= r <= Inf
 			  | 		   lcon <= c(x) <= ucon				         | 			lcon <= c(x) + r <= ucon
 """
@@ -48,8 +44,8 @@ mutable struct NCLModel <: AbstractNLPModel
 	counters::Counters # Counters of calls to functions like obj, grad, cons, of the problem
 
 	#* III. Parameters for the objective function
-	y::Vector{<:Float64} # Multipliers for the nlp problem, used in the lagrangian
-	ρ::Float64 # Penalization of the simili lagrangian
+	y::AbstractVector{<:AbstractFloat} # Multipliers for the nlp problem, used in the lagrangian
+	ρ::AbstractFloat # Penalization of the simili lagrangian
 end
 
 """
@@ -61,16 +57,17 @@ NCLModel documentation
 			  | 		   lcon <= c(x) <= ucon
 
 	we create and return :
-		(ncl) | min_{X = (x,r)} F(X) = f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
+		(ncl) | min_{xr = (x,r)} F(xr) = f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
 			  | subject to lvar <= x <= uvar, -Inf <= r <= Inf
 			  | 			lcon <= c(x) + r <= ucon
 
 ######################
 """
 function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
-				         	res_val_init::Float64 = 0., 														# Initial value for residuals
-				         	ρ::Float64 = 1., 																	# Initial penalty
-				         	y = zeros(Float64, nlp.meta.ncon)	# Initial multiplier, depending on the number of residuals considered
+
+				         	res_val_init::AbstractFloat = 0., 														# Initial value for residuals
+				         	ρ::AbstractFloat = 1., 																	# Initial penalty
+				         	y = zeros(AbstractFloat, nlp.meta.ncon)	# Initial multiplier, depending on the number of residuals considered
 				         ) #::NCLModel
 
 	#* I. First tests
@@ -150,13 +147,13 @@ function NLPModels.grad!(ncl::NCLModel, X::Vector{<:Float64}, gx::Vector{<:Float
 	end
 
 	# Original information
-	grad!(ncl.nlp, X[1:ncl.nx], gx)
+	grad!(ncl.nlp, xr[1:ncl.nx], gx)
 	if !(ncl.nlp.meta.minimize)
 		gx *= -1
 	end
 	
 	# New information (due to residuals)
-	gx[ncl.nx + 1 : ncl.nx + ncl.nr] .= ncl.ρ * X[ncl.nx + 1 : ncl.nx + ncl.nr] .+ ncl.y[1:ncl.nr]
+	gx[ncl.nx + 1 : ncl.nx + ncl.nr] .= ncl.ρ * xr[ncl.nx + 1 : ncl.nx + ncl.nr] .+ ncl.y[1:ncl.nr]
 
 	return gx
 end
@@ -165,7 +162,7 @@ end
 function NLPModels.hess(ncl::NCLModel, X::Vector{<:Float64} ; obj_weight=1.0, y=zeros) #::SparseMatrixCSC{<:Float64, <:Integer}
 	increment!(ncl, :neval_hess)
 
-	H = sparse(hess_coord(ncl, X ; obj_weight=obj_weight, y=y)...)
+	H = sparse(hess_coord(ncl, xr ; obj_weight=obj_weight, y=y)...)
 
 	return H
 end
@@ -214,7 +211,7 @@ function NLPModels.hprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float
 	end
 
 	# Original information
-	Hv[1:ncl.nx] .= hprod!(ncl.nlp, X[1:ncl.nx], v[1:ncl.nx], Hv[1:ncl.nx], obj_weight=obj_weight, y=y)
+	Hv[1:ncl.nx] .= hprod!(ncl.nlp, xr[1:ncl.nx], v[1:ncl.nx], Hv[1:ncl.nx], obj_weight=obj_weight, y=y)
 	if !(ncl.nlp.meta.minimize) 
 		Hv *= -1
 	end
@@ -229,7 +226,7 @@ end
 function NLPModels.cons!(ncl::NCLModel, X::Vector{<:Float64}, cx::Vector{<:Float64}) #::Vector{<:Float64}
 	increment!(ncl, :neval_cons)
 	# Original information
-	cons!(ncl.nlp, X[1:ncl.nx], cx) # pre computation
+	cons!(ncl.nlp, xr[1:ncl.nx], cx) # pre computation
 
 	# New information (due to residuals)
 	cx .+= X[ncl.nx+1:ncl.nx+ncl.nr] # residual for the i-th constraint
@@ -240,7 +237,7 @@ end
 #** II.5 Jacobian of the constraints vector
 function NLPModels.jac(ncl::NCLModel, X::Vector{<:Float64}) ::SparseMatrixCSC{<:Float64, <:Integer}
 	increment!(ncl, :neval_jac)
-	J = sparse(jac_coord(ncl, X)...)
+	J = sparse(jac_coord(ncl, xr)...)
 	return J
 end
 
@@ -287,11 +284,11 @@ function NLPModels.jprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float
 	increment!(ncl, :neval_jprod)
 	# Test feasability
 	if length(v) != ncl.meta.nvar
-		error("wrong sizes of argument v passed to jprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jv::Vector{<:Float64}) ::Vector{<:Float64}")
+		error("wrong sizes of argument v passed to jprod!(ncl::NCLModel, xr::AbstractVector{<:AbstractFloat}, v::AbstractVector{<:AbstractFloat}, Jv::AbstractVector{<:AbstractFloat}) ::AbstractVector{<:AbstractFloat}")
 	end
 
 	# Original information
-	jprod!(ncl.nlp, X[1:ncl.nx], v[1:ncl.nx], Jv)
+	jprod!(ncl.nlp, xr[1:ncl.nx], v[1:ncl.nx], Jv)
 
 	# New information (due to residuals)
 	Resv = zeros(typeof(Jv[1,1]), ncl.meta.ncon)
@@ -305,141 +302,32 @@ function NLPModels.jtprod!(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Floa
 	increment!(ncl, :neval_jtprod)
 	# Test feasability
 	if length(v) != ncl.meta.ncon
-		error("wrong length of argument v passed to jtprod(ncl::NCLModel, X::Vector{<:Float64}, v::Vector{<:Float64}, Jtv::Vector{<:Float64}) ::Vector{<:Float64}")
+		error("wrong length of argument v passed to jtprod(ncl::NCLModel, xr::AbstractVector{<:AbstractFloat}, v::AbstractVector{<:AbstractFloat}, Jtv::AbstractVector{<:AbstractFloat}) ::AbstractVector{<:AbstractFloat}")
 	end
 
-	Jtv .= append!(jtprod(ncl.nlp, X[1:ncl.nx], v), v)
+	Jtv .= append!(jtprod(ncl.nlp, xr[1:ncl.nx], v), v)
 
 	return Jtv
 end
 
 
-
-
-
-#** External function
-import Base.print
-
-"""
-###########################
-Print function for NCLModel
-	# TODO
-###########################
-"""
-function print(ncl::NCLModel;
-			         current_X::Vector{<:Float64} = ncl.meta.x0,
-			         current_λ::Vector{<:Float64} = zeros(Float64, ncl.meta.ncon),
-			         current_z::Vector{<:Float64} = zeros(Float64, ncl.meta.nvar),
-			         lag_norm::Float64 = -1.,
-			         print_level::Integer = 1,
-			         output_file_print::Bool = false,
-			         output_file_name::String = "NCLModel_display",
-			         output_file::IOStream = open("NCLModel_display", write=true)
-			        ) #::Nothing
-
-	file_to_close = false
-	if print_level >= 1 # If we are supposed to print something
-		if output_file_print # if it is in an output file
-			if output_file_name == "NCLModel_display" # if not specified by name, may be by IOStream, so we use this one
-				file = output_file
-			else # Otherwise, we open the file with the requested name and we will close it at the end
-				file = open(output_file_name, write=true)
-				file_to_close = true
-			end
-		else # or we print in stdout, if not specified.
-			file = stdout
-		end
-		@printf(file, "\n  ============= %s =============\n", ncl.meta.name)
-		@printf(file, "    Minimization problem, with %d constraints (%d linear, %d non linear)\n", ncl.meta.ncon, ncl.meta.nlin, ncl.meta.nnln)
-		@printf(file, "                               %d variables x and\n", ncl.nx)
-		@printf(file, "                               %d residuals r (considered as variables)\n", ncl.nr)
-
-		if print_level >= 2
-			@printf(file, "\n    Parameters\n")
-				@printf(file, "        ρ = %7.1e\n", ncl.ρ)
-				@printf(file, "        ||y|| = %7.1e\n", norm(ncl.y, Inf))
-
-			if print_level >= 3
-				@printf(file, "\n    Variables\n")
-					@printf(file, "        ||x|| = %7.1e\n", norm(current_X[1:ncl.nx], Inf))
-					@printf(file, "        ||r|| = %7.1e\n", norm(current_X[ncl.nx+1:ncl.nx+ncl.nr], Inf))
-
-				if print_level >= 4
-					@printf(file, "\n    Functions\n")
-						@printf(file, "        F(X) = %7.1e\n", obj(ncl, current_X))
-						x = current_X[1:ncl.nx]
-
-						if lag_norm >= 0.
-							@printf(file, "        ||∇Lag(x, λ)|| = %7.2e\n", lag_norm)
-						else
-							if ncl.meta.ncon != 0
-								@printf(file, "        ||∇Lag(x, λ)|| = %7.2e\n", norm(grad(ncl.nlp, x) - jtprod(ncl.nlp, x, current_λ) - current_z[1:ncl.nx], Inf))
-							else
-								@printf(file, "        ||∇Lag(x, λ)|| = %7.2e\n", norm(grad(ncl.nlp, x) - current_z[1:ncl.nx], Inf))
-							end
-						end
-
-					@printf(file, "\n    Details: \n")
-
-					@printf(file, "            x: \n")
-					for i in 1:ncl.nx
-						@printf(file, "                       lvar[%d] = %7.1e  <=?  x[%d] = %7.1e  <=?  uvar[%d] = %7.1e \n", i, ncl.meta.lvar[i], i, current_X[i], i, ncl.meta.uvar[i])
-					end
-
-					@printf(file, "            r: \n")
-					for i in ncl.nx+1:ncl.nx+ncl.nr
-						@printf(file, "                       lvar[%d] = %7.1e  <=?  r[%d] = %7.1e  <=?  uvar[%d] = %7.1e \n", i, ncl.meta.lvar[i], i, current_X[i], i, ncl.meta.uvar[i])
-					end
-
-					if print_level >= 5
-						cx = cons(ncl, current_X)
-						@printf(file, "\n            Constraint:\n")
-						for i in 1:ncl.meta.ncon
-							@printf(file, "                     lcon[%d] = %7.1e  <=?  c(X)[%d] = %7.1e  <=?  ucon[%d] = %7.1e \n", i, ncl.meta.lcon[i], i, cx[i], i, ncl.meta.ucon[i])
-						end
-					end
-				end
-			end
-		end
-
-		@printf(file, "  ============= end of NCLModel print =============\n")
-
-		if file_to_close
-			close(file)
-		end
+#** III Print functions
+function print(ncl::NCLModel, io::IO = stdout)
+	@printf(io, "%s NLP original problem :\n", ncl.nlp.meta.name)
+	print(io, ncl.nlp)
+	@printf(io, "\nAdded %d residuals to the previous %d variables.", ncl.nr, ncl.nx)
+	len_y = length(ncl.y)
+	begin_y = ncl.y[1 : min(3, len_y-1)]
+	end_y = ncl.y[len_y]
+	@printf(io, "\nCurrent y = [")
+	for x in begin_y
+		@printf(io, "%7.1e, ", x)
 	end
+	@printf(io, "..(%7.1e elements).., %7.1e]", len_y - length(begin_y) - 1, end_y)
+	@printf(io, "]\nCurrent ρ = %7.1e\n", ncl.ρ)
 end
 
-
-
-
-
-import Base.println
-
-function println(ncl::NCLModel;
-				 output_file_print::Bool = false,
-				 output_file_name::String = "NCLModel_display",
-				 output_file::IOStream = open("NCLModel_display", write=true),
-				 kwargs...
-				) #::Nothing
-
-	file_to_close = false
-
-	if output_file_print # if it is in an output file
-		if output_file_name == "NCLModel_display" # if not specified by name, may be by IOStream, so we use this one
-			file = output_file
-		else # Otherwise, we open the file with the requested name and we will close it at the end
-			file = open(output_file_name, write=true)
-			file_to_close = true
-		end
-	else # or we print in stdout, if not specified.
-		file = stdout
-	end
-
-	print(ncl ; output_file_print=output_file_print, output_file_name=output_file_name, output_file=output_file, kwargs...)
-	print(file, "\n")
-
-	if file_to_close
-		close(file)
-	end
+function println(ncl::NCLModel, io::IO = stdout)
+	print(ncl, io)
+	@printf(io, "\n")
 end

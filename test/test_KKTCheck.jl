@@ -1,6 +1,5 @@
-using NCL
-using CUTEst
-using NLPModelsIpopt
+#include("../src/KKTCheck.jl")
+
 """
 ##############################
 # Unit tests for NCLSolve.jl #

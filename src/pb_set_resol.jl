@@ -1,10 +1,5 @@
 export pb_set_resolution_data
 
-
-include("NCLModel.jl")
-include("NCLSolve.jl")
-include("KKTCheck.jl")
-
 function pb_set_resolution_files( ; #No arguments, only key-word arguments
 						#* Common arguments
 							path_res_folder::String = "/home/perselie/Bureau/projet/ncl/res/",
@@ -18,7 +13,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 						#* CUTEst arguments
 							cutest_generic_pb_name::String = "CUTEst_HS",
 							cutest_pb_set::Vector{String} = String[],
-							cutest_pb_index_set::Vector{Int} = Int[],
+							cutest_pb_index::Vector{Int} = Int[],
 
 						#* Solver arguments
 							solver::String = "ipopt",
@@ -28,7 +23,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 						#* NLP Arguments
 							nlp_generic_pb_name::String = "NLP_HS",
 							nlp_pb_set::Vector{<:AbstractNLPModel} = AbstractNLPModel[],
-							nlp_pb_index_set::Vector{Int} = Int[],
+							nlp_pb_index::Vector{Int} = Int[],
 
 						#* Latex ?
 							generate_latex::Bool = true
@@ -44,7 +39,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 
 			file_cutest = open(path_res_folder * cutest_generic_pb_name * "/" * cutest_generic_pb_name * ".log", write=true)
 
-		for i in cutest_pb_index_set
+		for i in cutest_pb_index
 			#** I.1 Problem
 				nlp = CUTEstModel(cutest_pb_set[i])
 
@@ -164,7 +159,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 
 			file_nlp = open(path_res_folder *  nlp_generic_pb_name * "/" * nlp_generic_pb_name * ".log", write=true)
 
-		for i in nlp_pb_index_set
+		for i in nlp_pb_index
 			#** II.1 Problem
 				nlp = nlp_pb_set[i]
 
@@ -499,15 +494,15 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 						#* CUTEst arguments
 						cutest_pb_set::Vector{String} = String[],
-						cutest_pb_index_set::Vector{Int} = [i for i in 1:length(cutest_pb_set)],
+						cutest_pb_index::Vector{Int} = [i for i in 1:length(cutest_pb_set)],
 
 						#* NLP Arguments
 						nlp_pb_set::Vector{<:AbstractNLPModel} = AbstractNLPModel[],
-						nlp_pb_index_set::Vector{Int} = [i for i in 1:length(nlp_pb_set)],
+						nlp_pb_index::Vector{Int} = [i for i in 1:length(nlp_pb_set)],
 
 						#* AmplNLReader Arguments
 						ampl_pb_set::Vector{String} = String[],
-						ampl_pb_index_set::Vector{Int} = [i for i in 1:length(ampl_pb_set)],
+						ampl_pb_index::Vector{Int} = [i for i in 1:length(ampl_pb_set)],
 
 						#* Solver arguments
 						solver::Vector{String} = ["ipopt", "nclres", "nclkkt"], #can contain ipopt
@@ -518,13 +513,19 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						print_level_iter::Int = 0,
 						print_level_checks::Int = 0,
 						print_level_NCL_solver::Int = 0,
-						max_iter_solver::Int = 1000
+						max_iter_solver::Int = 1000,
+
+						#* Files
+						profile::Bool = false,
+						latex_table::Bool = true,
+						profile_name = "default_profile_name",
+						latex_table_name = "default_latex_table_name.tex"
 						)::Nothing
 
 	n_solver = length(solver)
-	n_cutest = length(cutest_pb_index_set)
-	n_nlp = length(nlp_pb_index_set)
-	n_ampl = length(ampl_pb_index_set)
+	n_cutest = length(cutest_pb_index)
+	n_nlp = length(nlp_pb_index)
+	n_ampl = length(ampl_pb_index)
 
 
 	info_cutest::Array{Int, 2} = Array{Int, 2}(undef, n_cutest, 2) # 1: nvar, 2: ncon
@@ -549,7 +550,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	#** I. CUTEst problem set
 
 	k = 0
-	for i in cutest_pb_index_set
+	for i in cutest_pb_index
 		k += 1
 		#** I.1 Problem
 		nlp = CUTEstModel(cutest_pb_set[i])
@@ -656,7 +657,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	#** II. NLP problem set
 
 	k = 0
-	for i in nlp_pb_index_set
+	for i in nlp_pb_index
 		k += 1
 		#** II.1 Problem
 		nlp = nlp_pb_set[i]
@@ -735,7 +736,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																																constr_viol_tol = constr_viol_tol,
 																																compl_inf_tol = compl_inf_tol,
 																															   )
-
+																															   
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
 
@@ -759,7 +760,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	#** III. AMPL problem set
 
 	k = 0
-	for i in ampl_pb_index_set
+	for i in ampl_pb_index
 		k += 1
     
 		#** III.1 Problem
@@ -882,73 +883,85 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 	n_pb = n_cutest + n_nlp + n_ampl
 
-	stats = Dict(Symbol(solver[i]) => DataFrame(:problem	=> [names[k] for k in 1:n_pb],
-												:id			=> [k for k in 1:n_pb],
-												:nvar 		=> [info[k, 1] for k in 1:n_pb],
-												:ncon		=> [info[k, 2] for k in 1:n_pb],
 
-												:niter 		=> [resolution.iter for resolution in resol[i, :]],
-												:f 			=> [resolution.objective for resolution in resol[i, :]],
+	if latex_table
+		stats = Dict(Symbol(solver[i]) => DataFrame(:problem	=> [names[k] for k in 1:n_pb],
+													:id			=> [k for k in 1:n_pb],
+													:nvar 		=> [info[k, 1] for k in 1:n_pb],
+													:ncon		=> [info[k, 2] for k in 1:n_pb],
 
-												:feval 		=> [time[i, k, 1] for k in 1:n_pb],
-												:ceval 		=> [time[i, k, 2] for k in 1:n_pb],
-												:time		=> [time[i, k, 3] for k in 1:n_pb],
-												:bytes		=> [time[i, k, 4] for k in 1:n_pb],
-												:gctime		=> [time[i, k, 5] for k in 1:n_pb],
+													:niter 		=> [resolution.iter for resolution in resol[i, :]],
+													:f 			=> [resolution.objective for resolution in resol[i, :]],
 
-												:feas 		=> [kkt_res["primal_feas"] for kkt_res in kkt[i, :]],
-												:compl 		=> [kkt_res["complementarity_feas"] for kkt_res in kkt[i, :]],
-												:mult_norm 	=> [norm(vcat(resolution.solver_specific[:multipliers_con], (resolution.solver_specific[:multipliers_L] - resolution.solver_specific[:multipliers_U])), Inf) for resolution in resol[i, :]],
-												:lag_norm 	=> [kkt_res["dual_feas"] for kkt_res in kkt[i, :]],
-												:r_norm 	=> [haskey(resolution.solver_specific, :residuals) ? norm(resolution.solver_specific[:residuals], Inf) : 0. for resolution in resol[i, :]],
+													:feval 		=> [time[i, k, 1] for k in 1:n_pb],
+													:ceval 		=> [time[i, k, 2] for k in 1:n_pb],
+													:time		=> [time[i, k, 3] for k in 1:n_pb],
+													:bytes		=> [time[i, k, 4] for k in 1:n_pb],
+													:gctime		=> [time[i, k, 5] for k in 1:n_pb],
 
-												:solve_succeeded => [Symbol(resolution.solver_specific[:internal_msg]) for resolution in resol[i, :]],
-												:r_opti 	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= tol) : true) for resolution in resol[i, :]],
-												:r_acc_opti	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= acc_factor * tol) : true) for resolution in resol[i, :]],
-												:kkt_opti 	=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
-												:kkt_acc_opti => [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]])
-				for i in 1:n_solver)
-  
-  
-	hdr_override = Dict(:problem => "\\textbf{Problem}",
-						:nvar => "\$n_{var}\$",
-						:ncon => "\$n_{con}\$",
-						:niter => "\$n_{iter}\$",
-						:f => "\$f\\left(x \\right)\$",
-						:feval => "\$f_{eval}\$",
-						:ceval => "\$c_{eval}\$",
-						:time => "\$time\$",
-						:bytes => "\$bytes\$",
-						:gctime => "\$gctime\$",
-						:feas => "\$feas\$",
-						:compl => "\$compl\$",
-						:mult_norm => "\$ \\left\\Vert \\lambda \\right\\Vert\$",
-						:lag_norm => "\$ \\left\\Vert \\nabla_{x} L \\right\\Vert\$",
-						:r_norm => "\$ \\left\\Vert r \\right\\Vert\$",
-						:solve_succeeded => "Succeeded ?",
-						:r_opti => "\$ \\left\\Vert r \\right\\Vert \\,\\leq ?\\, \\eta_\\infty\$",
-						:r_acc_opti => "\$ \\left\\Vert r \\right\\Vert \\,\\leq ?\\, \\eta_{acc}\$",
-						:kkt_opti => "\$KKT\$",
-						:kkt_acc_opti => "\$KKT_{acc}\$"
-					   )
-	N = [:niter, :f, :feval, :ceval, :time, :bytes, :gctime, :feas, :compl, :mult_norm, :lag_norm, :r_norm, :solve_succeeded, :r_opti, :r_acc_opti, :kkt_opti, :kkt_acc_opti]
-	df_res = join(stats, N ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
+													:feas 		=> [kkt_res["primal_feas"] for kkt_res in kkt[i, :]],
+													:compl 		=> [kkt_res["complementarity_feas"] for kkt_res in kkt[i, :]],
+													:mult_norm 	=> [norm(vcat(resolution.solver_specific[:multipliers_con], (resolution.solver_specific[:multipliers_L] - resolution.solver_specific[:multipliers_U])), Inf) for resolution in resol[i, :]],
+													:lag_norm 	=> [kkt_res["dual_feas"] for kkt_res in kkt[i, :]],
+													:r_norm 	=> [haskey(resolution.solver_specific, :residuals) ? norm(resolution.solver_specific[:residuals], Inf) : 0. for resolution in resol[i, :]],
 
-  
-	ltx_file = open("./res/ltx_table.tex", write = true)
-	latex_table(ltx_file, df_res)
-	close(ltx_file)
+													:solve_succeeded => [Symbol(resolution.solver_specific[:internal_msg]) for resolution in resol[i, :]],
+													:r_opti 	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= tol) : true) for resolution in resol[i, :]],
+													:r_acc_opti	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= acc_factor * tol) : true) for resolution in resol[i, :]],
+													:kkt_opti 	=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
+													:kkt_acc_opti => [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]])
+					for i in 1:n_solver)
+	
+	
+		hdr_override = Dict(:problem => "\\textbf{Problem}",
+							:nvar => "\$n_{var}\$",
+							:ncon => "\$n_{con}\$",
+							:niter => "\$n_{iter}\$",
+							:f => "\$f\\left(x \\right)\$",
+							:feval => "\$f_{eval}\$",
+							:ceval => "\$c_{eval}\$",
+							:time => "\$time\$",
+							:bytes => "\$bytes\$",
+							:gctime => "\$gctime\$",
+							:feas => "\$feas\$",
+							:compl => "\$compl\$",
+							:mult_norm => "\$ \\left\\Vert \\lambda \\right\\Vert\$",
+							:lag_norm => "\$ \\left\\Vert \\nabla_{x} L \\right\\Vert\$",
+							:r_norm => "\$ \\left\\Vert r \\right\\Vert\$",
+							:solve_succeeded => "Succeeded ?",
+							:r_opti => "\$ \\left\\Vert r \\right\\Vert \\,\\leq ?\\, \\eta_\\infty\$",
+							:r_acc_opti => "\$ \\left\\Vert r \\right\\Vert \\,\\leq ?\\, \\eta_{acc}\$",
+							:kkt_opti => "\$KKT\$",
+							:kkt_acc_opti => "\$KKT_{acc}\$"
+						)
+		N = [:niter, :f, :feval, :ceval, :time, :bytes, :gctime, :feas, :compl, :mult_norm, :lag_norm, :r_norm, :solve_succeeded, :r_opti, :r_acc_opti, :kkt_opti, :kkt_acc_opti]
+		df_res = join(stats, N ; invariant_cols = [:problem, :nvar, :ncon], hdr_override = hdr_override)
 
-	solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded"))
-	kkt_opti(df) = (df.kkt_opti .== Symbol(true))
-	kkt_acc_opti(df) = (df.kkt_acc_opti .== Symbol(true))
-	compare = [df -> df.f, df -> df.feval + df.ceval, df -> .!kkt_opti(df) * 1000 + df.feval, df -> .!kkt_acc_opti(df) * 1000 + df.feval]
 
-	#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
+		#* V. Results
+		if !isdir("./res/")
+			mkdir("./res/")
+		end
 
-	compare_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
-	p = profile_solvers(stats, compare, compare_names)
-	Plots.svg(p, "profilewall1000")
+		ltx_file = open("./res/$latex_table_name", write = true)
+		latex_table(ltx_file, df_res)
+		close(ltx_file)
+	end
+
+	if profile
+		solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded"))
+		kkt_opti(df) = (df.kkt_opti .== Symbol(true))
+		kkt_acc_opti(df) = (df.kkt_acc_opti .== Symbol(true))
+		compare = [df -> df.f, df -> df.feval + df.ceval, df -> .!kkt_opti(df) * 1000 + df.feval, df -> .!kkt_acc_opti(df) * 1000 + df.feval]
+
+		#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
+
+		comparison_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
+		p = profile_solvers(stats, compare, comparison_names)
+
+		
+		Plots.svg(p, "./res/$profile_name")
+	end
 
 	return nothing
 end
