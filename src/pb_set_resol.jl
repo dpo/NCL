@@ -517,7 +517,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 						#* Files
 						profile::Bool = false,
-						latex_table::Bool = true,
+						create_latex_table::Bool = true,
 						profile_name = "default_profile_name",
 						latex_table_name = "default_latex_table_name.tex"
 						)::Nothing
@@ -884,7 +884,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	n_pb = n_cutest + n_nlp + n_ampl
 
 
-	if latex_table
+	if create_latex_table
 		stats = Dict(Symbol(solver[i]) => DataFrame(:problem	=> [names[k] for k in 1:n_pb],
 													:id			=> [k for k in 1:n_pb],
 													:nvar 		=> [info[k, 1] for k in 1:n_pb],
