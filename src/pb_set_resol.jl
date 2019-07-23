@@ -871,7 +871,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 	end
   
-	cd("/home/perselie/Bureau/projet/ncl/")
+	length(ampl_pb_index) == 0 || cd("/home/perselie/Bureau/projet/ncl/")
 
 	#** IV. Data frames
 	info = vcat(info_cutest, info_nlp, info_ampl)
