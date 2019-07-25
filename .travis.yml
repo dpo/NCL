@@ -16,8 +16,9 @@ matrix:
     - julia: nightly
 
 addons:
-  apt_packages:
-    - gfortran
+  apt:
+    packages:
+      - gfortran
 
 branches:
   only:
