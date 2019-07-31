@@ -137,6 +137,26 @@ function NLPModels.obj(ncl::NCLModel, xr::AbstractVector{<:Float64})#::Float64
 	return obj_nlp + obj_res
 end
 
+#to return both objective functions :
+function objnlp_objncl(ncl::NCLModel, xr::AbstractVector{<:Float64})#::Float64
+	increment!(ncl, :neval_obj)
+	x = xr[1 : ncl.nx]
+	r = xr[ncl.nx + 1 : ncl.nx + ncl.nr]
+	y = ncl.y[1:ncl.nr]
+
+	#Original information
+	obj_nlp = obj(ncl.nlp, x)
+	real_obj_nlp = obj_nlp
+	if !(ncl.nlp.meta.minimize) 
+		obj_nlp *= -1
+	end
+
+	# New information (due to residuals)
+	obj_res = y' * r + 0.5 * ncl.ρ * dot(r, r)
+
+	return real_obj_nlp, obj_nlp + obj_res
+end
+
 #** II.2 Gradient of the objective function
 function NLPModels.grad!(ncl::NCLModel, xr::Vector{<:Float64}, gx::Vector{<:Float64}) #::Vector{<:Float64}
 	increment!(ncl, :neval_grad)
@@ -312,22 +332,44 @@ end
 
 
 #** III Print functions
-function print(ncl::NCLModel, io::IO = stdout)
-	@printf(io, "%s NLP original problem :\n", ncl.nlp.meta.name)
+function print(io::IO, ncl::NCLModel)
+	print(io, "$(ncl.nlp.meta.name) NLP original problem :\n")
 	print(io, ncl.nlp)
-	@printf(io, "\nAdded %d residuals to the previous %d variables.", ncl.nr, ncl.nx)
-	len_y = length(ncl.y)
-	begin_y = ncl.y[1 : min(3, len_y-1)]
-	end_y = ncl.y[len_y]
-	@printf(io, "\nCurrent y = [")
-	for x in begin_y
-		@printf(io, "%7.1e, ", x)
+	print(io, "\nNCLModel new information")
+	print(io, "\nnr = $(ncl.nr) residuals")
+	
+	if ncl.nr > 0
+	  if ncl.nr < 5
+		print(io, "\nCurrent y = ", ncl.y)
+	  else
+		len_y = length(ncl.y)
+		begin_y = ncl.y[1 : min(3, len_y-1)]
+		end_y = ncl.y[len_y]
+		print(io, "\nCurrent y = [")
+		
+		for x in begin_y
+		  print(io, "$x, ")
+		end
+		
+		print(io, "...($(len_y - length(begin_y)-1) elements)..., $end_y]")
+	  end
+	else
+	  print(io, "\nncl.y = ∅")
 	end
-	@printf(io, "..(%7.1e elements).., %7.1e]", len_y - length(begin_y) - 1, end_y)
-	@printf(io, "]\nCurrent ρ = %7.1e\n", ncl.ρ)
+  
+	print(io, "\nCurrent ρ = $(ncl.ρ)\n")
 end
-
-function println(ncl::NCLModel, io::IO = stdout)
-	print(ncl, io)
-	@printf(io, "\n")
+  
+  # Dispatch and related print functions
+function println(io::IO, ncl::NCLModel)
+	print(io, ncl)
+	print(io, "\n")
+end
+  
+function print(ncl::NCLModel)
+	print(stdout, ncl)
+end
+  
+function println(ncl::NCLModel)
+	println(stdout, ncl)
 end
