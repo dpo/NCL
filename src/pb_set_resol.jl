@@ -516,7 +516,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						#* Files
 						profile::Bool = false,
 						create_latex_table::Bool = true,
-						profile_name = "default_profile_name",
+						profile_name = "default_profile_name.svg",
 						latex_table_name = "default_latex_table_name.tex"
 						)::Nothing
 
