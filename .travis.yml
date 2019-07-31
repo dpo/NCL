@@ -1,5 +1,7 @@
 language: julia
 
+dist: bionic
+
 os:
   #- linux
   - osx
@@ -13,7 +15,17 @@ matrix:
   allow_failures:
     - julia: nightly
 
+addons:
+  apt:
+    packages:
+      - gfortran
+
 branches:
   only:
     - master
     - /^v\d+\.\d+(\.\d+)?(-\S*)?$/ # tags
+
+before_install:
+  - if [ `uname` == "Linux" ]; then unset DY_LIBRARY_PATH; fi
+  - if [ `uname` == "Darwin" ]; then brew update; brew cask uninstall oclint; brew install gcc; brew tap optimizers/cutest; brew install cutest; brew install mastsif; for f in "archdefs" "sifdecode" "mastsif" "cutest"; do source $(brew --prefix $f)/$f.bashrc; done; fi
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
