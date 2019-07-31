@@ -114,8 +114,8 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
 
     ϵ_end = compl_inf_tol - η_end
     if ϵ_end < 0
-        ϵ_end = compl_inf_tol
-        @warn "NCLSolve($(ncl.nlp.meta.name)): your tolerance compl_inf_tol is to low regarding to constr_viol_tol. \nYou should have compl_inf_tol >= constr_viol_tol * 0.5 if you want the solution to satisfy optimal KKT conditions with your level of tolerances."
+      ϵ_end = compl_inf_tol
+      @warn "NCLSolve($(ncl.nlp.meta.name)): your tolerance compl_inf_tol is to low regarding to constr_viol_tol. \nYou should have compl_inf_tol >= constr_viol_tol * 0.5 if you want the solution to satisfy optimal KKT conditions with your level of tolerances."
     end
     ϵ_k = init_compl_inf_tol
     ϵ_min = min_compl_inf_tol
@@ -154,8 +154,8 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
     best_z_L_k = z_L_k
 
     #** I.5 Initial print
-    print_level_NCL >= 1 &&	@info println("\nNCL resolution of %s", ncl.nlp.meta.name)
-    print_level_NCL >= 2 &&	@info println(ncl)
+    print_level_NCL >= 1 &&	@info @sprintf("\nNCL resolution of %s", ncl.nlp.meta.name)
+    print_level_NCL >= 2 &&	println(ncl)
     print_level_NCL >= 1 &&	@info @sprintf("NCLSolve(%s) iterations :", ncl.nlp.meta.name)
     print_level_NCL >= 1 &&	@info @sprintf("%4s  %12s  %34s  %7s  %7s  %7s  %7s  %8s  %9s  %9s  %7s  %7s",
                                           "Iter", "Iter_solver", "Success ?", "‖rₖ‖∞", "ηₖ", "ωₖ", "ρₖ", "μ init", "NCL obj", "NLP obj", "‖yₖ‖", "‖xₖ‖")
