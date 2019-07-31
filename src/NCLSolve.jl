@@ -167,7 +167,7 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
     solved = false
 
     local solve_k
-    NCL_exit = solver_exit = :Solve_Succeeded #For exit message
+    NCL_exit = solver_exit = :Default_Exit_Message #For exit message
 
     while (k ≤ max_iter_NCL) & !converged
       #** II.0 Iteration counter and mu_init
@@ -193,6 +193,7 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
                                     print_level = print_level_solver,
                                     warm_start_init_point = "yes",
                                     mu_init = mu_init,
+                                    mumps_mem_percent = 5,
                                     dual_inf_tol = 1e-6,
                                     max_iter = max_iter_solver)
 
@@ -218,6 +219,18 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
       if (norm_r_k_inf <= best_rNorm) & solved #eventually update best point
         best_xr_k .= xr_k
         best_rNorm = norm_r_k_inf
+      end
+
+      # Checks about the solver's resolution
+      if solver_exit == :Restoration_Failed
+        NCL_exit = :Loop_Due_To_Restauration_Fail
+        if solve_k.iter <= 1 # because it will return its arguments, and create a loop...
+          break
+        end
+      end
+      if solver_exit == :Infeasible_Problem_Detected
+        NCL_exit = :Infeasible_Problem_Detected
+        break
       end
 
 
@@ -298,12 +311,15 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
 	zU = solve_k.solver_specific[:multipliers_U][1:nx]
 	
   # Determination of the exit message
-  NCL_exit = solver_exit
-	if (k >= max_iter_NCL) & solved
-    NCL_exit = :Maximum_Iterations_Exceeded
-  elseif !converged
-		NCL_exit = :Solve_Failed
-	end
+  if NCL_exit == :Default_Exit_Message
+    NCL_exit = :Solve_Succeeded
+    if (k >= max_iter_NCL) & solved
+      NCL_exit = :Maximum_Iterations_Exceeded
+    elseif !converged
+      NCL_exit = :Solve_Failed
+    end
+  end
+
 
 	print_level_NCL < 1 || @info @sprintf("NCLSolve(%s) EXIT: %s", ncl.nlp.meta.name, string(NCL_exit))
 
