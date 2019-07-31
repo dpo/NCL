@@ -83,7 +83,6 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
                  ) #::GenericExecutionStats                   # See NLPModelsIpopt / NLPModelsKnitro and SolverTools for further details on this structure
 
     #** I.0 Solution with NCL
-    no_res = false
     nr = ncl.nr
     nx = ncl.nx
 
