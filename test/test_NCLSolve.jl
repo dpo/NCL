@@ -47,7 +47,7 @@ function test_NCLSolve(test::Bool ; HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 
             @test NCLSolve(nlc_cons_res).solver_specific[:internal_msg] == Symbol("Solve_Succeeded")
         end
 
-        @testset "NCLSolve HS (all residuals)" begin
+        @testset "NCLSolve HS" begin
             for name in probs_NCL # several tests
                 hs = CUTEstModel(name)
                 test_name = name * " problem resolution"
