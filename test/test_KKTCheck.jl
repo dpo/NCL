@@ -38,32 +38,31 @@ function test_KKTCheck(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
     name = "Unit test problem"
     nlp = ADNLPModel(f, x0; lvar=lvar, uvar=uvar, c=c, lcon=lcon, ucon=ucon, name=name, lin = [1,3])::ADNLPModel
 
+    if test
+        @testset "KKTCheck function on HS problems" begin
+            for name in probs_KKT # several tests
+                hs = CUTEstModel(name)
+                test_name = name * " problem resolution"
 
-    @testset "KKTCheck function" begin
-        for name in probs_KKT # several tests
-            hs = CUTEstModel(name)
-            test_name = name * " problem resolution"
+                @testset "$test_name optimality via ipopt" begin
 
-            @testset "$test_name optimality via ipopt" begin
+                    resol = NLPModelsIpopt.ipopt(hs, print_level=0)
 
-                resol = NLPModelsIpopt.ipopt(hs, print_level=0)
+                    if (name == "HS13") | (name == "HS55")
+                        D = KKTCheck(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
+                        @test_broken D["optimal"]
+                        @test_broken D["acceptable"]
+                    else
+                        D = KKTCheck(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
+                        @test D["optimal"]
+                        @test D["acceptable"]
+                    end
 
-                if (name == "HS13") | (name == "HS55")
-                    D = KKTCheck(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
-                    @test_broken D["optimal"]
-                    @test_broken D["acceptable"]
-                else
-                    D = KKTCheck(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
-                    @test D["optimal"]
-                    @test D["acceptable"]
                 end
-
+                finalize(hs)
             end
-            finalize(hs)
         end
-    end
 
-    @testset "KKTCheck function" begin
         @testset "KKTCheck(nlp) via ipopt" begin
             # Solution of NLP with NLPModelsIpopt
             resol_nlp_ipopt = NLPModelsIpopt.ipopt(nlp ; print_level = 0, tol = ω, constr_viol_tol = η, compl_inf_tol = ϵ)
@@ -77,6 +76,10 @@ function test_KKTCheck(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
             D = KKTCheck(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt)
             @test D["optimal"]
             @test D["acceptable"]
+        end
+    else
+        @testset "Empty test" begin
+            @test true
         end
     end
 end
