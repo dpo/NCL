@@ -183,6 +183,9 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
       #** II.1.1 Solver
       solve_k = NLPModelsIpopt.ipopt(ncl;
                                     x0 = best_xr_k,
+                                    y0 = best_y_k,
+                                    zL = best_z_L_k,
+                                    zU = best_z_U_k,
                                     tol = ω_k,
                                     constr_viol_tol = η_k,
                                     compl_inf_tol = ϵ_k,
@@ -217,10 +220,21 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
 
       if (norm_r_k_inf <= best_rNorm) & solved #eventually update best point
         best_xr_k .= xr_k
+        best_y_k .= y_k
+        best_z_U_k .= z_U_k
+        best_z_L_k .= z_L_k
         best_rNorm = norm_r_k_inf
       end
 
-      # Checks about the solver's resolution
+
+
+
+      #** II.1.2 Output print
+      print_level_NCL >= 1 &&	((objnlp, objncl) = objnlp_objncl(ncl, xr_k))
+      print_level_NCL >= 1 &&	@info @sprintf("%4d  %12d  %34s  %7.1e  %7.1e  %7.1e  %7.1e   %7.1e  %9.2e  %9.2e  %7.1e  %7.1e",
+                                                k, solve_k.iter, solver_exit, norm_r_k_inf, η_k, ω_k, ncl.ρ, mu_init, objncl, objnlp, norm(ncl.y, Inf), norm(x_k))
+
+      #** II.1.3 Checks about the solver's resolution
       if solver_exit == :Restoration_Failed
         NCL_exit = :Loop_Due_To_Restauration_Fail
         if solve_k.iter <= 1 # because it will return its arguments, and create a loop...
@@ -233,12 +247,6 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
       end
 
 
-
-
-      #** II.1.2 Output print
-      print_level_NCL >= 1 &&	((objnlp, objncl) = objnlp_objncl(ncl, xr_k))
-      print_level_NCL >= 1 &&	@info @sprintf("%4d  %12d  %34s  %7.1e  %7.1e  %7.1e  %7.1e   %7.1e  %9.2e  %9.2e  %7.1e  %7.1e",
-                                                k, solve_k.iter, solver_exit, norm_r_k_inf, η_k, ω_k, ncl.ρ, mu_init, objncl, objnlp, norm(ncl.y, Inf), norm(x_k))
 
       #** II.2 Treatment & update
       if (norm_r_k_inf ≤ max(η_k, η_end)) # The residual has decreased enough
