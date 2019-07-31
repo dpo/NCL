@@ -940,14 +940,13 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	end
 
 	if create_profile
-		solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded"))
+		solved(df) = (df.solve_succeeded .== :Solve_Succeeded)
+		acc_solved(df) = ((df.solve_succeeded .== :Solve_Succeeded) .| (df.solve_succeeded .== :Solved_To_Acceptable_Level))
 		kkt_opti(df) = (df.kkt_opti .== Symbol(true))
 		kkt_acc_opti(df) = (df.kkt_acc_opti .== Symbol(true))
-		compare = [df -> df.f, df -> df.feval + df.ceval, df -> .!kkt_opti(df) * 1000 + df.feval, df -> .!kkt_acc_opti(df) * 1000 + df.feval]
+		compare = [df -> .!solved(df)*Inf + df.feval + df.ceval, df -> .!solved(df)*Inf + .!acc_solved(df)*Inf + df.feval + df.ceval, df -> .!kkt_opti(df) * Inf + df.feval + df.ceval, df -> .!kkt_opti(df) * Inf + .!kkt_acc_opti(df) * Inf + df.feval + df.ceval]
 
-		#println([stats[Symbol("ipopt")].f, .!solved(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval, .!kkt_acc_opti(stats[Symbol("ipopt")]) * 10 + stats[Symbol("ipopt")].feval])
-
-		comparison_names = ["Obj value", "Succeeded + f_eval", "Optimal KKT + f_eval", "Acceptable KKT + f_eval"]
+		comparison_names = ["optimal + f_eval + c_eval", "acceptable + f_eval + c_eval", "KKToptimal + f_eval + c_eval", "KKTacceptable + f_eval + c_eval"]
 		p = profile_solvers(stats, compare, comparison_names)
 
 		
