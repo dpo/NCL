@@ -137,6 +137,26 @@ function NLPModels.obj(ncl::NCLModel, xr::AbstractVector{<:Float64})#::Float64
 	return obj_nlp + obj_res
 end
 
+#to return both objective functions :
+function objnlp_objncl(ncl::NCLModel, xr::AbstractVector{<:Float64})#::Float64
+	increment!(ncl, :neval_obj)
+	x = xr[1 : ncl.nx]
+	r = xr[ncl.nx + 1 : ncl.nx + ncl.nr]
+	y = ncl.y[1:ncl.nr]
+
+	#Original information
+	obj_nlp = obj(ncl.nlp, x)
+	real_obj_nlp = obj_nlp
+	if !(ncl.nlp.meta.minimize) 
+		obj_nlp *= -1
+	end
+
+	# New information (due to residuals)
+	obj_res = y' * r + 0.5 * ncl.ρ * dot(r, r)
+
+	return real_obj_nlp, obj_nlp + obj_res
+end
+
 #** II.2 Gradient of the objective function
 function NLPModels.grad!(ncl::NCLModel, xr::Vector{<:Float64}, gx::Vector{<:Float64}) #::Vector{<:Float64}
 	increment!(ncl, :neval_grad)
