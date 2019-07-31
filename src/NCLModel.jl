@@ -332,22 +332,44 @@ end
 
 
 #** III Print functions
-function print(ncl::NCLModel, io::IO = stdout)
-	@printf(io, "%s NLP original problem :\n", ncl.nlp.meta.name)
+function print(io::IO, ncl::NCLModel)
+	print(io, "$(ncl.nlp.meta.name) NLP original problem :\n")
 	print(io, ncl.nlp)
-	@printf(io, "\nAdded %d residuals to the previous %d variables.", ncl.nr, ncl.nx)
-	len_y = length(ncl.y)
-	begin_y = ncl.y[1 : min(3, len_y-1)]
-	end_y = ncl.y[len_y]
-	@printf(io, "\nCurrent y = [")
-	for x in begin_y
-		@printf(io, "%7.1e, ", x)
+	print(io, "\nNCLModel new information")
+	print(io, "\nnr = $(ncl.nr) residuals")
+	
+	if ncl.nr > 0
+	  if ncl.nr < 5
+		print(io, "\nCurrent y = ", ncl.y)
+	  else
+		len_y = length(ncl.y)
+		begin_y = ncl.y[1 : min(3, len_y-1)]
+		end_y = ncl.y[len_y]
+		print(io, "\nCurrent y = [")
+		
+		for x in begin_y
+		  print(io, "$x, ")
+		end
+		
+		print(io, "...($(len_y - length(begin_y)-1) elements)..., $end_y]")
+	  end
+	else
+	  print(io, "\nncl.y = ∅")
 	end
-	@printf(io, "..(%7.1e elements).., %7.1e]", len_y - length(begin_y) - 1, end_y)
-	@printf(io, "]\nCurrent ρ = %7.1e\n", ncl.ρ)
+  
+	print(io, "\nCurrent ρ = $(ncl.ρ)\n")
 end
-
-function println(ncl::NCLModel, io::IO = stdout)
-	print(ncl, io)
-	@printf(io, "\n")
+  
+  # Dispatch and related print functions
+function println(io::IO, ncl::NCLModel)
+	print(io, ncl)
+	print(io, "\n")
+end
+  
+function print(ncl::NCLModel)
+	print(stdout, ncl)
+end
+  
+function println(ncl::NCLModel)
+	println(stdout, ncl)
 end
