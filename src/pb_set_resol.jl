@@ -514,7 +514,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						max_iter_solver::Int = 1000,
 
 						#* Files
-						profile::Bool = false,
+						create_profile::Bool = true,
 						create_latex_table::Bool = true,
 						profile_name = "default_profile_name",
 						latex_table_name = "default_latex_table_name.tex"
@@ -939,7 +939,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		close(ltx_file)
 	end
 
-	if profile
+	if create_profile
 		solved(df) = (df.solve_succeeded .== Symbol("Solve_Succeeded"))
 		kkt_opti(df) = (df.kkt_opti .== Symbol(true))
 		kkt_acc_opti(df) = (df.kkt_acc_opti .== Symbol(true))
