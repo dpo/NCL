@@ -57,8 +57,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							KKT_checking = KKT_checking,
 							output_file_print_NCL = true,
 							output_file_print_solver = false,
-							output_file_NCL = file_cutest,
-							warm_start = true)
+							output_file_NCL = file_cutest)
 
 					@printf(file_cutest, "\n=================\n")
 
@@ -177,8 +176,7 @@ function pb_set_resolution_files( ; #No arguments, only key-word arguments
 							KKT_checking = KKT_checking,
 							output_file_print_NCL = true,
 							output_file_print_solver = false,
-							output_file_NCL = file_nlp,
-							warm_start = true)
+							output_file_NCL = file_nlp)
 
 					D = KKTCheck(nlp,
 							resol.solution,
@@ -573,8 +571,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															print_level_NCL = print_level_iter,
 																															#
 																															max_iter_NCL = max_iter_NCL,
-																															KKT_checking = false,
-																															warm_start = true)
+																															KKT_checking = false)
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
@@ -603,9 +600,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																															compl_inf_tol = compl_inf_tol,
 																															acc_factor = acc_factor,
 																															max_iter_solver = max_iter_solver,
-																															KKT_checking = true,
-
-																															warm_start = true)
+																															KKT_checking = true)
 
 				time_cutest[i, k, 1] = nlp.counters.neval_obj
 				time_cutest[i, k, 2] = nlp.counters.neval_cons
@@ -679,8 +674,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
 																													max_iter_solver = max_iter_solver,
-																													KKT_checking = false,
-																													warm_start = true)
+																													KKT_checking = false)
 
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
@@ -708,8 +702,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
 																													max_iter_solver = max_iter_solver,
-																													KKT_checking = true,
-																													warm_start = true)
+																													KKT_checking = true)
 
 				time_nlp[i, k, 1] = nlp.counters.neval_obj
 				time_nlp[i, k, 2] = nlp.counters.neval_cons
@@ -791,8 +784,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
 																													max_iter_solver = max_iter_solver,
-																													KKT_checking = false,
-																													warm_start = true)
+																													KKT_checking = false)
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons
@@ -820,8 +812,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													compl_inf_tol = compl_inf_tol,
 																													acc_factor = acc_factor,
 																													max_iter_solver = max_iter_solver,
-																													KKT_checking = true,
-																													warm_start = true)
+																													KKT_checking = true)
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
 				time_ampl[i, k, 2] = ampl_model.counters.neval_cons

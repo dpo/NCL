@@ -82,10 +82,10 @@ KKTCheck Documentation
 """
 function KKTCheck(nlp::AbstractNLPModel,                          # Problem considered
                   #* Position and multipliers
-                  x::Vector{<:Float64},                           # Potential solution
-                  y::Vector{<:Float64},                           # Lagrangian multiplier for constraint
-                  z_U::Vector{<:Float64},                         # Lagrangian multiplier for upper bound constraint
-                  z_L::Vector{<:Float64},                         # Lagrangian multiplier for lower bound constraint
+                  x::Vector{<:AbstractFloat},                           # Potential solution
+                  y::Vector{<:AbstractFloat},                           # Lagrangian multiplier for constraint
+                  z_U::Vector{<:AbstractFloat},                         # Lagrangian multiplier for upper bound constraint
+                  z_L::Vector{<:AbstractFloat},                         # Lagrangian multiplier for lower bound constraint
                   io::IO=stdout;
 
 
