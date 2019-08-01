@@ -505,7 +505,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 						#* Solver arguments
 						solver::Vector{String} = ["ipopt", "nclres", "nclkkt"], #can contain ipopt
-																						   # knitro
+																						   # knitro (not yet, to be updated later...)
 																						   # nclres (stops when norm(r) is small enough, not checking kkt conditions during iterations)
 																						   # nclkkt (stops when fitting KKT conditions, or fitting to acceptable level)
     
@@ -749,7 +749,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 				resol_solver, time_nlp[i, k, 3], time_nlp[i, k, 4], time_nlp[i, k, 5], memallocs = @timed NLPModelsIpopt.ipopt(nlp ; 
 																																max_iter = max_iter_solver,
 																																tol = tol,
-																																print_level = print_level_iter,
+																																print_level = 0,#print_level_iter,
 																																constr_viol_tol = constr_viol_tol,
 																																compl_inf_tol = compl_inf_tol,
 																															   )
@@ -876,7 +876,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																													tol = tol,
 																													constr_viol_tol = constr_viol_tol,
 																													compl_inf_tol = compl_inf_tol,
-																													print_level = print_level_iter,
+																													print_level = 0#print_level_iter,
 																												   )
 
 				time_ampl[i, k, 1] = ampl_model.counters.neval_obj
