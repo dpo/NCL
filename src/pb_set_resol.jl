@@ -501,7 +501,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						#* AmplNLReader Arguments
 						ampl_pb_set::Vector{String} = String[],
 						ampl_pb_index::Vector{Int} = [i for i in 1:length(ampl_pb_set)],
-						ampl_pbdir_path::String = "./",
+						ampl_pb_dir_path::String = "./",
 
 						#* Solver arguments
 						solver::Vector{String} = ["ipopt", "nclres", "nclkkt"], #can contain ipopt
@@ -786,7 +786,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
     
 		#** III.1 Problem
 		tax_name = ampl_pb_set[i]
-		cd(ampl_pbdir_path)
+		cd(ampl_pb_dir_path)
 		
 		if !isfile(tax_name * ".nl")
 			run(Cmd(["ampl", "-og" * tax_name, tax_name * ".mod", tax_name * ".dat"]))
