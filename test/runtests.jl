@@ -13,9 +13,7 @@ include("test_NCLSolve.jl")
 include("test_pb_set_resol.jl")
 
 """
-##########################
-# Run every test for NCL #
-##########################
+Run every test for `NCL`
 """
 function test_main(test_NCLModel_command::Bool, test_KKTCheck_command::Bool, test_NCLSolve_command::Bool, test_pb_set_resol_command::Bool) ::Test.DefaultTestSet
     test_NCLModel(test_NCLModel_command)

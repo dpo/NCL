@@ -1,19 +1,22 @@
 export KKTCheck
 
 """
-###############################
-mult_format_check documentation
-    mult_format_check verifys that z_U and z_L are given in the right format to KKTCheck.
+`mult_format_check` verifies that `z_U` and `z_L` are given in the right format to `KKTCheck`.
 
-    !!! Important note !!! The convention is :
-    (P) min f(x)
-        s.t. c(x) ≥ 0
+!!! Important note !!! The convention is :
+```math
+min f(x)
+s.t. c(x) ≥ 0
+```
 
-    And then
-        multipliers y ≥ 0
-        Lagrangien(x, y) = f(x) - y' * c(x)
-        ∇_{x}[lag(x, y)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * y - (z_L - z_U)
-###############################
+And then
+```math
+multipliers y ≥ 0
+Lagrangian(x, y) = f(x) - y' * c(x)
+∇_{x}[lag(x, y)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * y - (z_L - z_U)
+```
+
+Note the `-` in the `lagrangian` expression !
 """
 function mult_format_check(z_U::Vector{<:Float64}, z_L::Vector{<:Float64}, ϵ::Float64) #::Tuple{Vector{<:Float64}, Vector{<:Float64}}
     if (any(z_U .< -ϵ) & any(z_U .> ϵ))
@@ -56,29 +59,30 @@ function KKTCheck(nlp, x, y, z_U, z_L, file::String; kwargs...)
 end
 
 """
-#######################
-KKTCheck Documentation
-    KKTCheck tests if (x, y, z_U, z_L) is a solution of the KKT conditions of the nlp problem (nlp follows the NLPModels.jl formalism, it is suposed to be an AbstractNLPModel), within
-        ω as a tolerance for the lagrangian gradient norm
-        η as a tolerance for constraint infeasibility
-        ϵ as a tolerance for complementarity checking
-    the print_level parameter control the verbosity of the function : 0 : nothing
-                                                                    # 1 : Function call and result
-                                                                    # 2 : Further information in case of failure
-                                                                    # 3... : Same, increasing information
-                                                                    # 6 & 7 : Shows full vectors, not advised if your problem has a big size
+`KKTCheck` tests if `(x, y, z_U, z_L)` is a solution of the `KKT` conditions of the `nlp` problem (`nlp` follows the `NLPModels.jl` formalism, it is suposed to be an `AbstractNLPModel`), within
+- `ω` as a tolerance for the lagrangian gradient norm
+- `η` as a tolerance for constraint infeasibility
+- `ϵ` as a tolerance for complementarity checking
+- The print_level parameter control the verbosity of the function : 
+  - 0 : nothing (faster check if you don't ask for printing)
+  - 1 : Function call and result
+  - 2 : Further information in case of failure
+  - 3... : Same, increasing information
 
-    !!! Important note !!! the lagrangian is considered as :
-        l(x, y) = f(x) - y' * c(x)
-        with c(x) ≥ 0
-                y ≥ 0
-    And then
-        multipliers y ≥ 0
-        Lagrangien(x, y) = f(x) - y' * c(x)
-        ∇_{x}[lag(x, y)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * y - (z_L - z_U)
+!!! Important note !!! the lagrangian is considered as :
+```math
+min f(x)
+s.t. c(x) ≥ 0
+```
 
-    Another remark: If z_U is not given (empty), we treat in two different ways complementarity. We can check everything as a range bound constraint in this cae, and when z_L and z_U are given separately,
-#######################
+And then
+```math
+multipliers y ≥ 0
+Lagrangian(x, y) = f(x) - y' * c(x)
+∇_{x}[lag(x, y)] = ∇_{x}[f(x)] - t(Jac_{c(x)}) * y - (z_L - z_U)
+```
+
+Note the `-` in the `lagrangian` expression !
 """
 function KKTCheck(nlp::AbstractNLPModel,                          # Problem considered
                   #* Position and multipliers

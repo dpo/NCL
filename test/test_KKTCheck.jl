@@ -1,9 +1,5 @@
-#include("../src/KKTCheck.jl")
-
 """
-##############################
-# Unit tests for NCLSolve.jl #
-##############################
+Unit tests for `KKTCheck.jl`
 """
 function test_KKTCheck(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 = 8) ::Test.DefaultTestSet
     # Test parameters

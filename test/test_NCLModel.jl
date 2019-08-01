@@ -1,9 +1,5 @@
-#include("../src/NCLModel.jl")
-
 """
-##############################
-# Unit tests for NLCModel.jl #
-##############################
+Unit tests for `NLCModel.jl`
 """
 function test_NCLModel(test::Bool) ::Test.DefaultTestSet
     # Test parameters

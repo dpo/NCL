@@ -36,7 +36,7 @@ include("pb_set_resol.jl")
 
 ######### TODO #########
     # TODO (feature)   : Créer un vrai statut
-    # TODO KKT_check output in file to fix
+    # TODO KKTCheck output to make uniform with NCLSolve
 ########## TODO ########
 
 

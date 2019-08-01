@@ -20,18 +20,47 @@ import Base.println
 ######### TODO #########
 
 #** I. Model and constructor
+
+# For documentation :
+const nlp_doc = raw"""
+```math
+min_{x} f(x)								      
+subject to lvar <= x <= uvar, 
+           lcon <= c(x) <= ucon	
+```
 """
-Subtype of AbstractNLPModel, adapted to the NCL method.
-	Keeps some informations from the original AbstractNLPModel,
-	and creates a new problem, modifying
-		the objective function (sort of augmented lagrangian, with residuals instead of constraints)
-		the constraints (with residuals)
 
-	Process is as follows
+const ncl_doc = raw"""
+```math
+min_{x} f(x) + y^T r + (ρ/2) * dot(r,r)
+subject to lvar <= x <= uvar, 
+           -Inf <= r <= Inf 
+           lcon <= c(x) + r <= ucon
+```
+"""
 
-		(nlp) | min_{x} f(x)								         | min_{xr = (x,r)} F(xr) = f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
-			  | subject to lvar <= x <= uvar		becomes: (ncl)   | subject to lvar <= x <= uvar, -Inf <= r <= Inf
-			  | 		   lcon <= c(x) <= ucon				         | 			lcon <= c(x) + r <= ucon
+
+"""
+Subtype of `AbstractNLPModel`, adapted to the NCL method (See https://www.researchgate.net/publication/325480151_Stabilized_Optimization_Via_an_NCL_Algorithm for further explications on the method).
+
+It contains the following fields :
+- `nlp::AbstractNLPModel` # The original problem
+- `nx::Integer` # Number of variable of the nlp problem
+- `nr::Integer` # Number of residuals for the nlp problem (in fact nr = length(nlp.meta.nln), if there are no free/infeasible constraints)
+
+- `meta::AbstractNLPModelMeta` # Informations for this problem
+- `counters::Counters` # Counters of calls to functions like obj, grad, cons, of the problem
+
+- `y::AbstractVector{<:AbstractFloat}` # Multipliers for the nlp problem, used in the lagrangian
+- `ρ::AbstractFloat` # Penalization of the simili lagrangian	
+
+It creates a new problem. This `ncl` problem is an `NCLModel` :
+
+$ncl_doc
+
+And you have `ncl.nlp`, the original `NLPModel` :
+
+$nlp_doc
 """
 mutable struct NCLModel <: AbstractNLPModel
 	#* I. Information about the residuals
@@ -49,19 +78,15 @@ mutable struct NCLModel <: AbstractNLPModel
 end
 
 """
-######################
-NCLModel documentation
-	Creates the NCL problem associated to the nlp in argument: from
-		(nlp) | min_{x} f(x)
-		      | subject to lvar <= x <= uvar
-			  | 		   lcon <= c(x) <= ucon
+Constructor for NCLModel.
 
-	we create and return :
-		(ncl) | min_{xr = (x,r)} F(xr) = f(x) + λ' * r + ρ * ||r||²		     	(λ and ρ are parameters)
-			  | subject to lvar <= x <= uvar, -Inf <= r <= Inf
-			  | 			lcon <= c(x) + r <= ucon
+Given an `NLPModel` (see `NLPModels.jl` documentation for details) problem such as
 
-######################
+$nlp_doc
+
+it returns the corresponding `NCLModel`
+
+$ncl_doc
 """
 function NCLModel(nlp::AbstractNLPModel;  																		# Initial model
 

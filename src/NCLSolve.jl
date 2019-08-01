@@ -10,35 +10,13 @@ function NCLSolve(nlp::AbstractNLPModel, file::String; kwargs...)
     return out
 end
 
-#NCLSolve called with an NLPModel
+# NCLSolve called with an NLPModel
 function NCLSolve(nlp::AbstractNLPModel ; kwargs...)
   return NCLSolve(NCLModel(nlp) ; kwargs...)
 end
 
 """
-#################################
-Main function for the NCL method.
-    Takes an AbstractNLPModel as initial problem,
-    Converts it to a NCLModel,
-    Runs the following NCL method on it
-        See https://www.researchgate.net/publication/325480151_Stabilized_Optimization_Via_an_NCL_Algorithm for further explications on the method
-        Arguments:
-            nlp: optimization problem described by the modelization NLPModels.jl (voir https://github.com/JuliaSmoothOptimizers/NLPModels.jl)
-            nlp is the generic problem you want to solve
-        Returns:
-            a GenericExecutionStats, based on the NLPModelsIpopt/Knitro return :
-                SolverTools.status                              # of the last solve
-                ncl                                             # the problem in argument,
-                solution = sol,                                 # solution found
-                iter = k,                                       # number of iteration of the ncl method (not iteration to solve subproblems)
-                objective=obj(ncl, sol),                        # objective value
-                elapsed_time=0,                                 # time of computation of the whole solve
-                solver_specific=Dict(:multipliers_con => y_k,   # lagrangian multipliers for : constraints
-                                    :multipliers_L => z_L_k,    #                              upper bounds
-                                    :multipliers_U => z_U_k     #                              lower bounds
-                                    )
-                )
-#################################
+Main function for the `NCL` method.
 """
 function NCLSolve(ncl::NCLModel,                             # Problem to be solved by this method
                   io::IO = stdout;                           # where to print iterations
@@ -153,7 +131,7 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
     best_z_L_k = z_L_k
 
     #** I.5 Initial print
-    print_level_NCL >= 1 &&	@sprintf("\n")
+    print_level_NCL >= 1 &&	@sprintf("\n\n")
     print_level_NCL >= 1 &&	@info @sprintf("NCL resolution of %s", ncl.nlp.meta.name)
     print_level_NCL >= 2 &&	println(ncl)
     print_level_NCL >= 1 &&	@info @sprintf("NCLSolve(%s) iterations :", ncl.nlp.meta.name)

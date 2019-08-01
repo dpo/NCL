@@ -1,9 +1,5 @@
-#include("../src/NCLSolve.jl")
-
 """
-##############################
-# Unit tests for NCLSolve.jl #
-##############################
+Unit tests for `NCLSolve.jl`
 """
 function test_NCLSolve(test::Bool ; HS_begin_NCL::Int64 = 1,  HS_end_NCL::Int64 = 12) ::Test.DefaultTestSet
     # Test parameters
