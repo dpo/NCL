@@ -243,8 +243,7 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
         end
       end
       if solver_exit == :Infeasible_Problem_Detected
-        NCL_exit = :Infeasible_Problem_Detected
-        break
+        @warn "\nin NCLSolve($(ncl.nlp.meta.name)): an NCLModel is always feasible, your solver is probably having trouble to solve it..."
       end
 
 
