@@ -4,3 +4,4 @@ solver_log
 *.tex
 my*
 *knitro*
+*profil*
