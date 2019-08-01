@@ -1,6 +1,7 @@
 using NCL
 using Test
 using NLPModels
+using AmplNLReader
 using CUTEst
 using SolverTools
 using NLPModelsIpopt

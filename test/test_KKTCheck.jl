@@ -50,12 +50,12 @@ function test_KKTCheck(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
 
                     if (name == "HS13") | (name == "HS55")
                         D = KKTCheck(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
-                        @test_broken D["optimal"]
-                        @test_broken D["acceptable"]
+                        @test_broken D[:optimal]
+                        @test_broken D[:acceptable]
                     else
                         D = KKTCheck(hs, resol.solution, - resol.solver_specific[:multipliers_con] , resol.solver_specific[:multipliers_U] , resol.solver_specific[:multipliers_L])
-                        @test D["optimal"]
-                        @test D["acceptable"]
+                        @test D[:optimal]
+                        @test D[:acceptable]
                     end
 
                 end
@@ -74,8 +74,8 @@ function test_KKTCheck(test::Bool ; HS_begin_KKT::Int64 = 1, HS_end_KKT::Int64 =
             z_L_nlp_ipopt = resol_nlp_ipopt.solver_specific[:multipliers_L]
 
             D = KKTCheck(nlp, x_nlp_ipopt, λ_nlp_ipopt, z_U_nlp_ipopt, z_L_nlp_ipopt)
-            @test D["optimal"]
-            @test D["acceptable"]
+            @test D[:optimal]
+            @test D[:acceptable]
         end
     else
         @testset "Empty test" begin
