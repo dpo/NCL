@@ -1,6 +1,6 @@
 name = "NCL"
 uuid = "654a88b0-a25c-11e9-a2a3-2a2ae2dbcce4"
-version = "0.3.1"
+version = "0.4.0"
 
 [deps]
 AmplNLReader = "77dd3d4c-cb1d-5e09-9340-85030ff7ba66"
