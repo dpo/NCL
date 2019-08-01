@@ -34,8 +34,9 @@ function test_pb_set_resol(test::Bool) ::Test.DefaultTestSet
     @testset "pb_set_resol" begin
 			pb_set_resolution_data(cutest_pb_set = ["HS1", "HS12"], 
 														 nlp_pb_set = [nlp], 
+														 ampl_pb_dir_path = "./test/",
 														 ampl_pb_set = ["hs13"], 
-														 solver = ["nclres", "ipopt"], 
+														 solver = ["nclres", "nclkkt", "ipopt"], 
 														 create_latex_table=true, 
 														 latex_table_name = "test_latex.tex", 
 														 create_profile = true, 

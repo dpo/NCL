@@ -257,8 +257,8 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
                               x_k,
                               y_k,
                               z_U_k[1:nx],
-                              z_L_k[1:nx] ;
-                              io = io,
+                              z_L_k[1:nx],
+                              io ;
                               tol = tol,
                               constr_viol_tol = constr_viol_tol,
                               compl_inf_tol = compl_inf_tol,
