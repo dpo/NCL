@@ -286,9 +286,9 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
                               compl_inf_tol = compl_inf_tol,
                               print_level = print_level_NCL)
 
-          converged = D_solved["optimal"]
+          converged = D_solved[:optimal]
 
-          if D_solved["acceptable"]
+          if D_solved[:acceptable]
             acc_count += 1 # if we are still on an acceptable level
           else
             acc_count = 0 # if not, then go back to 0

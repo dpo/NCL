@@ -530,19 +530,19 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	names_cutest::Vector{String} = Vector{String}(undef, n_cutest)
 	time_cutest::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_cutest, 5) # (n_solver rows, n_cutest cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
 	resol_cutest::Array{Dict{Symbol,Any}, 2} = Array{Dict{Symbol,Any}, 2}(undef, n_solver, n_cutest) # contains : iter, obj_val, mult_norm, r_norm, internal_msg
-	kkt_cutest::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_cutest)
+	kkt_cutest::Array{Dict{Symbol,Any}, 2} = Array{Dict{Symbol,Any}, 2}(undef, n_solver, n_cutest)
 
 	info_nlp::Array{Int, 2} = Array{Int, 2}(undef, n_nlp, 2) # 1: nvar, 2: ncon
 	names_nlp::Vector{String} = Vector{String}(undef, n_nlp)
 	time_nlp::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_nlp, 5) # (n_solver rows, n_nlp cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
 	resol_nlp::Array{Dict{Symbol,Any}, 2} = Array{Dict{Symbol,Any}, 2}(undef, n_solver, n_nlp)
-	kkt_nlp::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_nlp)
+	kkt_nlp::Array{Dict{Symbol,Any}, 2} = Array{Dict{Symbol,Any}, 2}(undef, n_solver, n_nlp)
 
 	info_ampl::Array{Int, 2} = Array{Int, 2}(undef, n_ampl, 2) # 1: nvar, 2: ncon
 	names_ampl::Vector{String} = Vector{String}(undef, n_ampl)
 	time_ampl::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_ampl, 5) # (n_solver rows, n_nlp cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
 	resol_ampl::Array{Dict{Symbol,Any}, 2} = Array{Dict{Symbol,Any}, 2}(undef, n_solver, n_ampl)
-	kkt_ampl::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_ampl)
+	kkt_ampl::Array{Dict{Symbol,Any}, 2} = Array{Dict{Symbol,Any}, 2}(undef, n_solver, n_ampl)
 
 
 	#** I. CUTEst problem set
@@ -932,17 +932,17 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 													:bytes		=> [time[i, k, 4] for k in 1:n_pb],
 													:gctime		=> [time[i, k, 5] for k in 1:n_pb],
 
-													:feas 		=> [kkt_res["primal_feas"] for kkt_res in kkt[i, :]],
-													:compl 		=> [kkt_res["complementarity_feas"] for kkt_res in kkt[i, :]],
+													:feas 		=> [kkt_res[:primal_feas] for kkt_res in kkt[i, :]],
+													:compl 		=> [kkt_res[:complementarity_feas] for kkt_res in kkt[i, :]],
 													:mult_norm 	=> [resolution[:mult_norm] for resolution in resol[i, :]],
-													:lag_norm 	=> [kkt_res["dual_feas"] for kkt_res in kkt[i, :]],
+													:lag_norm 	=> [kkt_res[:dual_feas] for kkt_res in kkt[i, :]],
 													:r_norm 	=> [resolution[:r_norm] for resolution in resol[i, :]],
 
 													:solve_succeeded => [resolution[:internal_msg] for resolution in resol[i, :]],
 													:r_opti 	=> [Symbol(resolution[:r_norm] <= tol) for resolution in resol[i, :]],
 													:r_acc_opti	=> [Symbol(resolution[:r_norm] <= acc_factor * tol) for resolution in resol[i, :]],
-													:kkt_opti 	=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
-													:kkt_acc_opti => [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]])
+													:kkt_opti 	=> [Symbol(kkt_res[:optimal]) for kkt_res in kkt[i, :]],
+													:kkt_acc_opti => [Symbol(kkt_res[:acceptable]) for kkt_res in kkt[i, :]])
 					for i in 1:n_solver)
 	
 	
