@@ -635,7 +635,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 																																		tol = tol,
 																																		constr_viol_tol = constr_viol_tol,
 																																		compl_inf_tol = compl_inf_tol,
-																																		print_level = print_level_iter,
+																																		print_level = 0,
 																																	   )
 
 
@@ -781,12 +781,13 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 	#** III. AMPL problem set
 	k = 0
+	actual_dir = pwd()
+	cd(ampl_pb_dir_path)
 	for i in ampl_pb_index
 		k += 1
     
 		#** III.1 Problem
 		tax_name = ampl_pb_set[i]
-		cd(ampl_pb_dir_path)
 		
 		if !isfile(tax_name * ".nl")
 			run(Cmd(["ampl", "-og" * tax_name, tax_name * ".mod", tax_name * ".dat"]))
@@ -901,11 +902,9 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 		end
 
 		finalize(ampl_model)
-		#rm(tax_name * ".nl")
-
 	end
-  
-	length(ampl_pb_index) == 0 || cd("../../")
+	(length(ampl_pb_index) >= 1) & (ampl_pb_dir_path != "./") && cd(actual_dir) # goes back to actual directory if needed
+
 
 	#** IV. Data frames
 	info = vcat(info_cutest, info_nlp, info_ampl)
