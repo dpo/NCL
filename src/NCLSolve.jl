@@ -247,12 +247,12 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
       end
 
 
-
       #** II.2 Treatment & update
+      warn_count = 0
+      
       if (norm_r_k_inf ≤ max(η_k, η_end)) # The residual has decreased enough
         #** II.2.1 Update
         ncl.y .+= ncl.ρ * r_k # Updating multiplier
-        warn_count = 0
 
         η_k *= τ_η
         if η_k == η_min
