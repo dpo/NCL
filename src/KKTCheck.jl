@@ -101,7 +101,7 @@ function KKTCheck(nlp::AbstractNLPModel,                          # Problem cons
                                                                                     # 2 : Further information in case of failure
                                                                                     # 3... : Same, increasing information
                                                                                     # 6 & 7 : Shows full vectors, not advised if your problem has a big size
-                 ) #::Dict{String, Any} # dictionnary containing booleans optimality and acceptable optimality, and values of feasibility
+                 ) #::Dict{Symbol, Any} # dictionnary containing booleans optimality and acceptable optimality, and values of feasibility
 
     #** 0. Initial settings
     #** 0.1 Notations
@@ -179,11 +179,11 @@ function KKTCheck(nlp::AbstractNLPModel,                          # Problem cons
             if dual_feas ≥ acc_ω
                 acceptable = false
 
-                KKT_res = Dict("optimal" => optimal,
-                               "acceptable" => acceptable,
-                               "primal_feas" => primal_feas,
-                               "dual_feas" => dual_feas,
-                               "complementarity_feas" => complementarity_feas)
+                KKT_res = Dict(:optimal => optimal,
+                               :acceptable => acceptable,
+                               :primal_feas => primal_feas,
+                               :dual_feas => dual_feas,
+                               :complementarity_feas => complementarity_feas)
 
                 return KKT_res
             end
@@ -195,11 +195,11 @@ function KKTCheck(nlp::AbstractNLPModel,                          # Problem cons
             if primal_feas ≤ - acc_η
                 acceptable = false
 
-                KKT_res = Dict("optimal" => optimal,
-                               "acceptable" => acceptable,
-                               "primal_feas" => primal_feas,
-                               "dual_feas" => dual_feas,
-                               "complementarity_feas" => complementarity_feas)
+                KKT_res = Dict(:optimal => optimal,
+                               :acceptable => acceptable,
+                               :primal_feas => primal_feas,
+                               :dual_feas => dual_feas,
+                               :complementarity_feas => complementarity_feas)
 
                 return KKT_res
             end
@@ -211,11 +211,11 @@ function KKTCheck(nlp::AbstractNLPModel,                          # Problem cons
             if any(.!(-acc_ϵ .≤ compl_bound_low .≤ acc_ϵ)  .&  .!(-acc_ϵ .≤ compl_bound_upp .≤ acc_ϵ))
                 acceptable = false
 
-                KKT_res = Dict("optimal" => optimal,
-                               "acceptable" => acceptable,
-                               "primal_feas" => primal_feas,
-                               "dual_feas" => dual_feas,
-                               "complementarity_feas" => complementarity_feas)
+                KKT_res = Dict(:optimal => optimal,
+                               :acceptable => acceptable,
+                               :primal_feas => primal_feas,
+                               :dual_feas => dual_feas,
+                               :complementarity_feas => complementarity_feas)
 
                 return KKT_res
             end
@@ -227,22 +227,22 @@ function KKTCheck(nlp::AbstractNLPModel,                          # Problem cons
             if any(.!(-acc_ϵ .≤ compl_var_low .≤ acc_ϵ)  .&  .!(-acc_ϵ .≤ compl_var_upp .≤ acc_ϵ))
                 acceptable = false
 
-                KKT_res = Dict("optimal" => optimal,
-                               "acceptable" => acceptable,
-                               "primal_feas" => primal_feas,
-                               "dual_feas" => dual_feas,
-                               "complementarity_feas" => complementarity_feas)
+                KKT_res = Dict(:optimal => optimal,
+                               :acceptable => acceptable,
+                               :primal_feas => primal_feas,
+                               :dual_feas => dual_feas,
+                               :complementarity_feas => complementarity_feas)
 
                 return KKT_res
             end
         end
 
 
-        KKT_res = Dict("optimal" => optimal,
-                       "acceptable" => acceptable,
-                       "primal_feas" => primal_feas,
-                       "dual_feas" => dual_feas,
-                       "complementarity_feas" => complementarity_feas)
+        KKT_res = Dict(:optimal => optimal,
+                       :acceptable => acceptable,
+                       :primal_feas => primal_feas,
+                       :dual_feas => dual_feas,
+                       :complementarity_feas => complementarity_feas)
 
         return KKT_res
 
@@ -522,11 +522,11 @@ function KKTCheck(nlp::AbstractNLPModel,                          # Problem cons
             end
         end
 
-        KKT_res = Dict("optimal" => optimal,
-                       "acceptable" => acceptable,
-                       "primal_feas" => primal_feas,
-                       "dual_feas" => dual_feas,
-                       "complementarity_feas" => complementarity_feas)
+        KKT_res = Dict(:optimal => optimal,
+                       :acceptable => acceptable,
+                       :primal_feas => primal_feas,
+                       :dual_feas => dual_feas,
+                       :complementarity_feas => complementarity_feas)
 
         return KKT_res
     end
