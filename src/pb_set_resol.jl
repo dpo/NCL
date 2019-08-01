@@ -518,7 +518,7 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 						create_latex_table::Bool = true,
 						profile_name = "default_profile_name",
 						latex_table_name = "default_latex_table_name.tex"
-						)::Nothing
+						)#::Nothing
 
 	n_solver = length(solver)
 	n_cutest = length(cutest_pb_index)
@@ -529,24 +529,23 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 	info_cutest::Array{Int, 2} = Array{Int, 2}(undef, n_cutest, 2) # 1: nvar, 2: ncon
 	names_cutest::Vector{String} = Vector{String}(undef, n_cutest)
 	time_cutest::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_cutest, 5) # (n_solver rows, n_cutest cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
-	resol_cutest::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_cutest)
+	resol_cutest::Array{Dict{Symbol,Any}, 2} = Array{Dict{Symbol,Any}, 2}(undef, n_solver, n_cutest) # contains : iter, obj_val, mult_norm, r_norm, internal_msg
 	kkt_cutest::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_cutest)
 
 	info_nlp::Array{Int, 2} = Array{Int, 2}(undef, n_nlp, 2) # 1: nvar, 2: ncon
 	names_nlp::Vector{String} = Vector{String}(undef, n_nlp)
 	time_nlp::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_nlp, 5) # (n_solver rows, n_nlp cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
-	resol_nlp::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_nlp)
+	resol_nlp::Array{Dict{Symbol,Any}, 2} = Array{Dict{Symbol,Any}, 2}(undef, n_solver, n_nlp)
 	kkt_nlp::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_nlp)
 
 	info_ampl::Array{Int, 2} = Array{Int, 2}(undef, n_ampl, 2) # 1: nvar, 2: ncon
 	names_ampl::Vector{String} = Vector{String}(undef, n_ampl)
 	time_ampl::Array{Real, 3} = Array{Real, 3}(undef, n_solver, n_ampl, 5) # (n_solver rows, n_nlp cols, 2 in depth) (pb, solver, 1): neval_obj, (pb, solver, 2): neval_con
-	resol_ampl::Array{GenericExecutionStats, 2} = Array{GenericExecutionStats, 2}(undef, n_solver, n_ampl)
+	resol_ampl::Array{Dict{Symbol,Any}, 2} = Array{Dict{Symbol,Any}, 2}(undef, n_solver, n_ampl)
 	kkt_ampl::Array{Dict{String,Any}, 2} = Array{Dict{String,Any}, 2}(undef, n_solver, n_ampl)
 
 
 	#** I. CUTEst problem set
-
 	k = 0
 	for i in cutest_pb_index
 		k += 1
@@ -587,7 +586,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											compl_inf_tol = compl_inf_tol,
 											)
 
-				resol_cutest[i, k] = resol_nclres
+				resol_cutest[i, k] = Dict(:iter => resol_nclres.iter,
+										  :obj_val => resol_nclres.objective,
+										  :mult_norm => norm(vcat(resol_nclres.solver_specific[:multipliers_con], (resol_nclres.solver_specific[:multipliers_L] - resol_nclres.solver_specific[:multipliers_U])), Inf),
+										  :r_norm => haskey(resol_nclres.solver_specific, :residuals) ? norm(resol_nclres.solver_specific[:residuals], Inf) : 0.,
+										  :internal_msg => Symbol(resol_nclres.solver_specific[:internal_msg])
+										  )
 			end
 
 			if solver[i] == "nclkkt"
@@ -616,7 +620,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 							compl_inf_tol = compl_inf_tol,
 							)
 
-				resol_cutest[i, k] = resol_nclkkt
+				resol_cutest[i, k] = Dict(:iter => resol_nclkkt.iter,
+										  :obj_val => resol_nclkkt.objective,
+										  :mult_norm => norm(vcat(resol_nclkkt.solver_specific[:multipliers_con], (resol_nclkkt.solver_specific[:multipliers_L] - resol_nclkkt.solver_specific[:multipliers_U])), Inf),
+										  :r_norm => haskey(resol_nclkkt.solver_specific, :residuals) ? norm(resol_nclkkt.solver_specific[:residuals], Inf) : 0.,
+										  :internal_msg => resol_nclkkt.solver_specific[:internal_msg]
+										  )
 			end
 
 			if solver[i] == "ipopt"
@@ -642,7 +651,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 							constr_viol_tol = constr_viol_tol,
 							compl_inf_tol = compl_inf_tol)
 
-				resol_cutest[i, k] = resol_solver
+				resol_cutest[i, k] = Dict(:iter => resol_solver.iter,
+										  :obj_val => resol_solver.objective,
+										  :mult_norm => norm(vcat(resol_solver.solver_specific[:multipliers_con], (resol_solver.solver_specific[:multipliers_L] - resol_solver.solver_specific[:multipliers_U])), Inf),
+										  :r_norm => haskey(resol_solver.solver_specific, :residuals) ? norm(resol_solver.solver_specific[:residuals], Inf) : 0.,
+										  :internal_msg => resol_solver.solver_specific[:internal_msg]
+										  )
 			end
 		end
 		finalize(nlp)
@@ -650,7 +664,6 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 
 	#** II. NLP problem set
-
 	k = 0
 	for i in nlp_pb_index
 		k += 1
@@ -689,7 +702,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											constr_viol_tol = constr_viol_tol,
 											compl_inf_tol = compl_inf_tol)
 
-				resol_nlp[i, k] = resol_nclres
+				resol_nlp[i, k] = Dict(:iter => resol_nclres.iter,
+										:obj_val => resol_nclres.objective,
+										:mult_norm => norm(vcat(resol_nclres.solver_specific[:multipliers_con], (resol_nclres.solver_specific[:multipliers_L] - resol_nclres.solver_specific[:multipliers_U])), Inf),
+										:r_norm => haskey(resol_nclres.solver_specific, :residuals) ? norm(resol_nclres.solver_specific[:residuals], Inf) : 0.,
+										:internal_msg => resol_nclres.solver_specific[:internal_msg]
+										)
 			end
 
 			if solver[i] == "nclkkt"
@@ -717,7 +735,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 							constr_viol_tol = constr_viol_tol,
 							compl_inf_tol = compl_inf_tol)
 
-				resol_nlp[i, k] = resol_nclkkt
+				resol_nlp[i, k] = Dict(:iter => resol_nclkkt.iter,
+										:obj_val => resol_nclkkt.objective,
+										:mult_norm => norm(vcat(resol_nclkkt.solver_specific[:multipliers_con], (resol_nclkkt.solver_specific[:multipliers_L] - resol_nclkkt.solver_specific[:multipliers_U])), Inf),
+										:r_norm => haskey(resol_nclkkt.solver_specific, :residuals) ? norm(resol_nclkkt.solver_specific[:residuals], Inf) : 0.,
+										:internal_msg => resol_nclkkt.solver_specific[:internal_msg]
+										)
 			end
 
 			if solver[i] == "ipopt"
@@ -743,7 +766,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											constr_viol_tol = constr_viol_tol,
 											compl_inf_tol = compl_inf_tol)
 
-				resol_nlp[i, k] = resol_solver
+				resol_nlp[i, k] = Dict(:iter => resol_solver.iter,
+										:obj_val => resol_solver.objective,
+										:mult_norm => norm(vcat(resol_solver.solver_specific[:multipliers_con], (resol_solver.solver_specific[:multipliers_L] - resol_solver.solver_specific[:multipliers_U])), Inf),
+										:r_norm => haskey(resol_solver.solver_specific, :residuals) ? norm(resol_solver.solver_specific[:residuals], Inf) : 0.,
+										:internal_msg => resol_solver.solver_specific[:internal_msg]
+										)
 			end
 		end
 
@@ -751,15 +779,14 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 
 	#** III. AMPL problem set
-
 	k = 0
 	for i in ampl_pb_index
 		k += 1
     
 		#** III.1 Problem
 		tax_name = ampl_pb_set[i]
-		cd("/home/perselie/Bureau/projet/AMPL_tests/TAX")
-    
+		cd("./test/ampl/")
+		
 		if !isfile(tax_name * ".nl")
 			run(Cmd(["ampl", "-og" * tax_name, tax_name * ".mod", tax_name * ".dat"]))
 		end
@@ -799,7 +826,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											constr_viol_tol = constr_viol_tol,
 											compl_inf_tol = compl_inf_tol)
 
-				resol_ampl[i, k] = resol_nclres
+				resol_ampl[i, k] = Dict(:iter => resol_nclres.iter,
+										:obj_val => resol_nclres.objective,
+										:mult_norm => norm(vcat(resol_nclres.solver_specific[:multipliers_con], (resol_nclres.solver_specific[:multipliers_L] - resol_nclres.solver_specific[:multipliers_U])), Inf),
+										:r_norm => haskey(resol_nclres.solver_specific, :residuals) ? norm(resol_nclres.solver_specific[:residuals], Inf) : 0.,
+										:internal_msg => resol_nclres.solver_specific[:internal_msg]
+										)
 			end
 
 			if solver[i] == "nclkkt"
@@ -827,7 +859,12 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 							constr_viol_tol = constr_viol_tol,
 							compl_inf_tol = compl_inf_tol)
 
-				resol_ampl[i, k] = resol_nclkkt
+				resol_ampl[i, k] = Dict(:iter => resol_nclkkt.iter,
+										:obj_val => resol_nclkkt.objective,
+										:mult_norm => norm(vcat(resol_nclkkt.solver_specific[:multipliers_con], (resol_nclkkt.solver_specific[:multipliers_L] - resol_nclkkt.solver_specific[:multipliers_U])), Inf),
+										:r_norm => haskey(resol_nclkkt.solver_specific, :residuals) ? norm(resol_nclkkt.solver_specific[:residuals], Inf) : 0.,
+										:internal_msg => resol_nclkkt.solver_specific[:internal_msg]
+										)
 			end
 
 			if solver[i] == "ipopt"
@@ -853,16 +890,21 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 											constr_viol_tol = constr_viol_tol,
 											compl_inf_tol = compl_inf_tol)
 
-				resol_ampl[i, k] = resol_solver
+				resol_ampl[i, k] = Dict(:iter => resol_solver.iter,
+										:obj_val => resol_solver.objective,
+										:mult_norm => norm(vcat(resol_solver.solver_specific[:multipliers_con], (resol_solver.solver_specific[:multipliers_L] - resol_solver.solver_specific[:multipliers_U])), Inf),
+										:r_norm => haskey(resol_solver.solver_specific, :residuals) ? norm(resol_solver.solver_specific[:residuals], Inf) : 0.,
+										:internal_msg => resol_solver.solver_specific[:internal_msg]
+										)
 			end
 		end
 
 		finalize(ampl_model)
-		rm(tax_name * ".nl")
+		#rm(tax_name * ".nl")
 
 	end
   
-	length(ampl_pb_index) == 0 || cd("/home/perselie/Bureau/projet/ncl/")
+	length(ampl_pb_index) == 0 || cd("../../")
 
 	#** IV. Data frames
 	info = vcat(info_cutest, info_nlp, info_ampl)
@@ -881,8 +923,8 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 													:nvar 		=> [info[k, 1] for k in 1:n_pb],
 													:ncon		=> [info[k, 2] for k in 1:n_pb],
 
-													:niter 		=> [resolution.iter for resolution in resol[i, :]],
-													:f 			=> [resolution.objective for resolution in resol[i, :]],
+													:niter 		=> [resolution[:iter] for resolution in resol[i, :]],
+													:f 			=> [resolution[:obj_val] for resolution in resol[i, :]],
 
 													:feval 		=> [time[i, k, 1] for k in 1:n_pb],
 													:ceval 		=> [time[i, k, 2] for k in 1:n_pb],
@@ -892,13 +934,13 @@ function pb_set_resolution_data(; #No arguments, only key-word arguments
 
 													:feas 		=> [kkt_res["primal_feas"] for kkt_res in kkt[i, :]],
 													:compl 		=> [kkt_res["complementarity_feas"] for kkt_res in kkt[i, :]],
-													:mult_norm 	=> [norm(vcat(resolution.solver_specific[:multipliers_con], (resolution.solver_specific[:multipliers_L] - resolution.solver_specific[:multipliers_U])), Inf) for resolution in resol[i, :]],
+													:mult_norm 	=> [resolution[:mult_norm] for resolution in resol[i, :]],
 													:lag_norm 	=> [kkt_res["dual_feas"] for kkt_res in kkt[i, :]],
-													:r_norm 	=> [haskey(resolution.solver_specific, :residuals) ? norm(resolution.solver_specific[:residuals], Inf) : 0. for resolution in resol[i, :]],
+													:r_norm 	=> [resolution[:r_norm] for resolution in resol[i, :]],
 
-													:solve_succeeded => [Symbol(resolution.solver_specific[:internal_msg]) for resolution in resol[i, :]],
-													:r_opti 	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= tol) : true) for resolution in resol[i, :]],
-													:r_acc_opti	=> [Symbol(haskey(resolution.solver_specific, :residuals) ? (norm(resolution.solver_specific[:residuals], Inf) <= acc_factor * tol) : true) for resolution in resol[i, :]],
+													:solve_succeeded => [resolution[:internal_msg] for resolution in resol[i, :]],
+													:r_opti 	=> [Symbol(resolution[:r_norm] <= tol) for resolution in resol[i, :]],
+													:r_acc_opti	=> [Symbol(resolution[:r_norm] <= acc_factor * tol) for resolution in resol[i, :]],
 													:kkt_opti 	=> [Symbol(kkt_res["optimal"]) for kkt_res in kkt[i, :]],
 													:kkt_acc_opti => [Symbol(kkt_res["acceptable"]) for kkt_res in kkt[i, :]])
 					for i in 1:n_solver)
