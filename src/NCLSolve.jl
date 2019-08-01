@@ -153,7 +153,8 @@ function NCLSolve(ncl::NCLModel,                             # Problem to be sol
     best_z_L_k = z_L_k
 
     #** I.5 Initial print
-    print_level_NCL >= 1 &&	@info @sprintf("\nNCL resolution of %s", ncl.nlp.meta.name)
+    print_level_NCL >= 1 &&	@sprintf("\n")
+    print_level_NCL >= 1 &&	@info @sprintf("NCL resolution of %s", ncl.nlp.meta.name)
     print_level_NCL >= 2 &&	println(ncl)
     print_level_NCL >= 1 &&	@info @sprintf("NCLSolve(%s) iterations :", ncl.nlp.meta.name)
     print_level_NCL >= 1 &&	@info @sprintf("%4s  %12s  %34s  %7s  %7s  %7s  %7s  %8s  %9s  %9s  %7s  %7s",
